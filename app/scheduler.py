@@ -77,7 +77,14 @@ def spawn_session(project):
 
 def send_prompt(project):
     session = f"{common.TMUX_SESSION_PREFIX}{project}"
-    subprocess.run(["tmux", "send-keys", "-t", session, SCAN_PROMPT, "Enter"])
+    # Sending text and Enter in the same tmux send-keys call delivers them as
+    # one fast burst, which Claude Code's input box treats as a paste -- the
+    # trailing Enter becomes a newline instead of submitting. Splitting them
+    # into two calls with a brief pause replicates an actual keypress and
+    # submits properly.
+    subprocess.run(["tmux", "send-keys", "-t", session, SCAN_PROMPT])
+    time.sleep(0.4)
+    subprocess.run(["tmux", "send-keys", "-t", session, "Enter"])
 
 
 def hibernate(project):
@@ -88,6 +95,7 @@ def hibernate(project):
 def main_loop():
     idx = 0
     last_seen_pending = {}  # project -> last pending count we logged, for edge-triggered logging
+    prompted = {}  # project -> pending count we last sent a prompt for (avoid re-nagging a busy session)
 
     while True:
         pool = common.load_selected()
@@ -107,12 +115,20 @@ def main_loop():
             last_seen_pending[project] = pending
 
         if pending > 0:
+            just_spawned = False
             if not tmux_alive(project):
                 write_state(active_project=project, phase="waking", pending=pending, pool=pool)
                 common.log_event(project, "session_waking", {"pending": pending})
                 spawn_session(project)
+                just_spawned = True
             write_state(active_project=project, phase="processing", pending=pending, pool=pool)
-            send_prompt(project)
+            # Only nudge once per wake, and again if *more* items showed up
+            # since the last nudge -- not on every poll tick. Claude Code
+            # may still be mid-task (or showing a permission prompt) between
+            # polls, and repeatedly typing into that isn't safe or useful.
+            if just_spawned or pending > prompted.get(project, 0):
+                send_prompt(project)
+                prompted[project] = pending
             time.sleep(POLL_WHILE_PROCESSING)
             continue  # stay on this project, check again next loop
 
@@ -126,6 +142,7 @@ def main_loop():
                 common.log_event(project, "session_hibernated")
                 hibernate(project)
                 last_seen_pending[project] = 0
+                prompted.pop(project, None)
             idx = (idx + 1) % len(pool)
         else:
             # Already quiet, nothing to wake for -- just move on.

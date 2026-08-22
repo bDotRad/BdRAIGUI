@@ -31,9 +31,10 @@
     position: fixed;
     top: 16px;
     right: 16px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
+    width: 84px;
+    height: 84px;
+    object-fit: cover;
+    border-radius: 0;
     z-index: 5;
   }
   h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
@@ -320,7 +321,13 @@ function renderLog(entries) {
   list.innerHTML = entries.map(e => {
     const label = EVENT_LABELS[e.event] || e.event;
     const t = new Date(e.time);
-    const timeStr = isNaN(t) ? '' : t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    // Force UTC for display: the server's clock is UTC and that happens to
+    // match Brad's actual wall-clock time here, but letting this convert to
+    // whatever timezone the *viewing device* is set to (phone, tablet, etc,
+    // over Tailscale) produced a garbage multi-hour offset when that
+    // device's timezone was wrong. Pinning to UTC makes the log always
+    // match the server's clock regardless of the viewer's device.
+    const timeStr = isNaN(t) ? '' : t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', timeZone: 'UTC'});
     return `
       <li>
         <span class="log-time">${timeStr}</span>
