@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --card-border: #262b35;
+    --text: #e7e9ee;
+    --text-dim: #8b90a0;
+    --idle: #6b7280;
+    --processing: #22c55e;
+    --waiting: #eab308;
+    --hibernating: #6b7280;
+    --waking: #4f8cff;
+    --accent: #4f8cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  .subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
+
+  #banner {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+  }
+  #banner .dot { width: 10px; height: 10px; border-radius: 50%; }
+  #banner .phase-label { color: var(--text-dim); text-transform: capitalize; }
+
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 16px;
+    position: relative;
+  }
+  .card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .name { font-size: 16px; font-weight: 600; }
+  .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    background: var(--accent); color: #fff; text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
+  .toggle-row input { accent-color: var(--accent); width: 16px; height: 16px; }
+  .task { font-size: 13px; color: var(--text); margin: 8px 0; min-height: 18px; }
+  .task.empty { color: var(--text-dim); font-style: italic; }
+  .meta {
+    display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim);
+    margin-top: 10px; border-top: 1px solid var(--card-border); padding-top: 10px;
+  }
+  .pending {
+    display: inline-block; background: var(--accent); color: #fff;
+    border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 6px;
+  }
+  .pending.zero { background: var(--card-border); color: var(--text-dim); }
+  .phase-tag { font-size: 11px; text-transform: capitalize; }
+  .phase-processing { color: var(--processing); }
+  .phase-waiting { color: var(--waiting); }
+  .phase-hibernating, .phase-idle { color: var(--hibernating); }
+  .phase-waking { color: var(--waking); }
+  .empty-state { color: var(--text-dim); font-size: 14px; }
+</style>
+</head>
+<body>
+  <h1>Claude Code Dashboard</h1>
+  <div class="subtitle">Tick projects to add them to the rotation. The scheduler handles switching automatically.</div>
+
+  <div id="banner">
+    <span class="dot" id="banner-dot"></span>
+    <span id="banner-text">Loading scheduler state&hellip;</span>
+  </div>
+
+  <div id="grid"><div class="empty-state">Loading&hellip;</div></div>
+
+<script>
+const PHASE_COLORS = {
+  processing: 'var(--processing)',
+  waiting: 'var(--waiting)',
+  hibernating: 'var(--hibernating)',
+  waking: 'var(--waking)',
+  idle: 'var(--idle)',
+};
+
+async function loadStatus() {
+  const res = await fetch('/api/status');
+  const data = await res.json();
+  renderBanner(data);
+  renderGrid(data.projects);
+}
+
+function renderBanner(data) {
+  const dot = document.getElementById('banner-dot');
+  const text = document.getElementById('banner-text');
+  const phase = data.phase || 'idle';
+  dot.style.background = PHASE_COLORS[phase] || 'var(--idle)';
+  if (data.active_project) {
+    text.innerHTML = `<strong>${escapeHtml(data.active_project)}</strong> &mdash; <span class="phase-label">${phase}</span>`;
+  } else {
+    text.textContent = 'No project selected for the rotation yet';
+  }
+}
+
+function renderGrid(projects) {
+  const grid = document.getElementById('grid');
+  if (!projects || projects.length === 0) {
+    grid.innerHTML = '<div class="empty-state">No projects found. Check PROJECTS_DIR in dashboard.py.</div>';
+    return;
+  }
+
+  grid.innerHTML = projects.map(p => {
+    const task = p.current_task
+      ? `<div class="task">${escapeHtml(p.current_task)}</div>`
+      : `<div class="task empty">No current task</div>`;
+    const pendingClass = p.pending_requests > 0 ? 'pending' : 'pending zero';
+    const commit = p.last_commit
+      ? `${p.last_commit.hash} &mdash; ${escapeHtml(p.last_commit.message)}`
+      : 'no commits';
+    const activeClass = p.is_active ? 'card active' : 'card';
+    const badge = p.is_active ? `<span class="badge">Active</span>` : '';
+    const phaseTag = p.phase ? `<span class="phase-tag phase-${p.phase}">${p.phase}</span>` : '';
+
+    return `
+      <div class="${activeClass}">
+        <div class="card-head">
+          <span class="name">${escapeHtml(p.name)}</span>
+          ${badge}
+        </div>
+        <label class="toggle-row">
+          <input type="checkbox" ${p.in_rotation ? 'checked' : ''} onchange="toggleRotation('${p.name}', this.checked)">
+          In rotation
+        </label>
+        ${task}
+        <div class="meta">
+          <span>Last active: ${p.last_active_relative || 'never'}</span>
+          <span class="${pendingClass}">${p.pending_requests} pending</span>
+        </div>
+        <div class="meta" style="border-top:none;padding-top:0;">
+          <span title="${commit}">${commit}</span>
+          ${phaseTag}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function toggleRotation(project, selected) {
+  await fetch('/api/selected', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ project, selected }),
+  });
+  loadStatus();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+loadStatus();
+setInterval(loadStatus, 5000);
+</script>
+</body>
+</html>

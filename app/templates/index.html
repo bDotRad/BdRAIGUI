@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BdRGUI Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --card-border: #262b35;
+    --text: #e7e9ee;
+    --text-dim: #8b90a0;
+    --idle: #6b7280;
+    --processing: #22c55e;
+    --waiting: #eab308;
+    --hibernating: #6b7280;
+    --waking: #4f8cff;
+    --accent: #4f8cff;
+    --sql: #a855f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
+
+  #banner {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+  }
+  #banner .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  #banner .phase-label { color: var(--text-dim); text-transform: capitalize; }
+
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 16px;
+    position: relative;
+  }
+  .card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
+  .name { font-size: 16px; font-weight: 600; }
+  .badges { display: flex; gap: 6px; }
+  .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    background: var(--accent); color: #fff; text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .badge.sql { background: var(--sql); cursor: pointer; border: none; font: inherit; }
+  .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
+  .toggle-row input { accent-color: var(--accent); width: 16px; height: 16px; }
+  .task { font-size: 13px; color: var(--text); margin: 8px 0; min-height: 18px; }
+  .task.empty { color: var(--text-dim); font-style: italic; }
+  .meta {
+    display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim);
+    margin-top: 10px; border-top: 1px solid var(--card-border); padding-top: 10px;
+  }
+  .pending {
+    display: inline-block; background: var(--accent); color: #fff;
+    border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 6px;
+  }
+  .pending.zero { background: var(--card-border); color: var(--text-dim); }
+  .phase-tag { font-size: 11px; text-transform: capitalize; }
+  .phase-processing { color: var(--processing); }
+  .phase-waiting { color: var(--waiting); }
+  .phase-hibernating, .phase-idle { color: var(--hibernating); }
+  .phase-waking { color: var(--waking); }
+  .empty-state { color: var(--text-dim); font-size: 14px; }
+
+  #log-panel {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  #log-list { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; }
+  #log-list li {
+    display: flex; gap: 10px; font-size: 13px; padding: 6px 0;
+    border-bottom: 1px solid var(--card-border);
+  }
+  #log-list li:last-child { border-bottom: none; }
+  .log-time { color: var(--text-dim); width: 70px; flex-shrink: 0; }
+  .log-project { font-weight: 600; }
+  .log-event { color: var(--text-dim); }
+
+  /* SQL modal */
+  #sql-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    align-items: center; justify-content: center; padding: 24px; z-index: 10;
+  }
+  #sql-overlay.open { display: flex; }
+  #sql-modal {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+    width: 100%; max-width: 640px; max-height: 80vh; display: flex; flex-direction: column;
+    padding: 18px;
+  }
+  #sql-modal h3 { margin: 0 0 4px; font-size: 15px; }
+  #sql-modal .sql-meta { color: var(--text-dim); font-size: 12px; margin-bottom: 10px; }
+  #sql-modal textarea {
+    flex: 1; min-height: 240px; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; resize: vertical;
+  }
+  .modal-actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+  .btn {
+    background: var(--accent); color: #fff; border: none; border-radius: 6px;
+    padding: 8px 14px; font-size: 13px; cursor: pointer;
+  }
+  .btn.secondary { background: transparent; border: 1px solid var(--card-border); color: var(--text); }
+  .btn.danger { background: transparent; border: 1px solid var(--card-border); color: #f87171; }
+</style>
+</head>
+<body>
+  <h1>BdRGUI Dashboard</h1>
+  <div class="subtitle">Tick projects to add them to the rotation. The scheduler handles switching automatically.</div>
+
+  <div id="banner">
+    <span class="dot" id="banner-dot"></span>
+    <span id="banner-text">Loading scheduler state&hellip;</span>
+  </div>
+
+  <div id="grid"><div class="empty-state">Loading&hellip;</div></div>
+
+  <div id="log-panel">
+    <h2>Activity log</h2>
+    <ul id="log-list"><li class="log-event">Loading&hellip;</li></ul>
+  </div>
+
+  <div id="sql-overlay">
+    <div id="sql-modal">
+      <h3 id="sql-title">SQL output</h3>
+      <div class="sql-meta" id="sql-meta"></div>
+      <textarea id="sql-text" readonly></textarea>
+      <div class="modal-actions">
+        <button class="btn danger" id="sql-clear">Clear</button>
+        <button class="btn secondary" id="sql-close">Close</button>
+        <button class="btn" id="sql-copy">Copy</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const PHASE_COLORS = {
+  processing: 'var(--processing)',
+  waiting: 'var(--waiting)',
+  hibernating: 'var(--hibernating)',
+  waking: 'var(--waking)',
+  idle: 'var(--idle)',
+};
+
+const EVENT_LABELS = {
+  requests_ready: 'new requests ready',
+  session_waking: 'session waking',
+  session_hibernated: 'session hibernated',
+};
+
+let currentSqlProject = null;
+
+async function loadStatus() {
+  const res = await fetch('/api/status');
+  const data = await res.json();
+  renderBanner(data);
+  renderGrid(data.projects);
+}
+
+async function loadLog() {
+  const res = await fetch('/api/log?limit=30');
+  const data = await res.json();
+  renderLog(data.entries);
+}
+
+function renderBanner(data) {
+  const dot = document.getElementById('banner-dot');
+  const text = document.getElementById('banner-text');
+  const phase = data.phase || 'idle';
+  dot.style.background = PHASE_COLORS[phase] || 'var(--idle)';
+  if (data.active_project) {
+    text.innerHTML = `<strong>${escapeHtml(data.active_project)}</strong> &mdash; <span class="phase-label">${phase}</span>`;
+  } else {
+    text.textContent = 'No project selected for the rotation yet';
+  }
+}
+
+function renderGrid(projects) {
+  const grid = document.getElementById('grid');
+  if (!projects || projects.length === 0) {
+    grid.innerHTML = '<div class="empty-state">No projects found. Check PROJECTS_DIR in dashboard.py.</div>';
+    return;
+  }
+
+  grid.innerHTML = projects.map(p => {
+    const task = p.current_task
+      ? `<div class="task">${escapeHtml(p.current_task)}</div>`
+      : `<div class="task empty">No current task</div>`;
+    const pendingClass = p.pending_requests > 0 ? 'pending' : 'pending zero';
+    const pendingLabel = p.total_requests > p.pending_requests
+      ? `${p.pending_requests}/${p.total_requests} ready`
+      : `${p.pending_requests} pending`;
+    const commit = p.last_commit
+      ? `${p.last_commit.hash} &mdash; ${escapeHtml(p.last_commit.message)}`
+      : 'no commits';
+    const activeClass = p.is_active ? 'card active' : 'card';
+    const activeBadge = p.is_active ? `<span class="badge">Active</span>` : '';
+    const sqlBadge = p.has_sql
+      ? `<button class="badge sql" onclick="openSql('${p.name}')" title="SQL ready, updated ${p.sql_updated_relative || ''}">SQL</button>`
+      : '';
+    const phaseTag = p.phase ? `<span class="phase-tag phase-${p.phase}">${p.phase}</span>` : '';
+
+    return `
+      <div class="${activeClass}">
+        <div class="card-head">
+          <span class="name">${escapeHtml(p.name)}</span>
+          <span class="badges">${activeBadge}${sqlBadge}</span>
+        </div>
+        <label class="toggle-row">
+          <input type="checkbox" ${p.in_rotation ? 'checked' : ''} onchange="toggleRotation('${p.name}', this.checked)">
+          In rotation
+        </label>
+        ${task}
+        <div class="meta">
+          <span>Last active: ${p.last_active_relative || 'never'}</span>
+          <span class="${pendingClass}">${pendingLabel}</span>
+        </div>
+        <div class="meta" style="border-top:none;padding-top:0;">
+          <span title="${commit}">${commit}</span>
+          ${phaseTag}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderLog(entries) {
+  const list = document.getElementById('log-list');
+  if (!entries || entries.length === 0) {
+    list.innerHTML = '<li class="log-event">No activity yet.</li>';
+    return;
+  }
+  list.innerHTML = entries.map(e => {
+    const label = EVENT_LABELS[e.event] || e.event;
+    const t = new Date(e.time);
+    const timeStr = isNaN(t) ? '' : t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    return `
+      <li>
+        <span class="log-time">${timeStr}</span>
+        <span class="log-project">${escapeHtml(e.project)}</span>
+        <span class="log-event">${escapeHtml(label)}</span>
+      </li>
+    `;
+  }).join('');
+}
+
+async function toggleRotation(project, selected) {
+  await fetch('/api/selected', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ project, selected }),
+  });
+  loadStatus();
+}
+
+async function openSql(project) {
+  currentSqlProject = project;
+  document.getElementById('sql-title').textContent = `SQL output — ${project}`;
+  document.getElementById('sql-meta').textContent = 'Loading…';
+  document.getElementById('sql-text').value = '';
+  document.getElementById('sql-overlay').classList.add('open');
+
+  const res = await fetch(`/api/sql/${encodeURIComponent(project)}`);
+  const data = await res.json();
+  document.getElementById('sql-text').value = data.content || '';
+  document.getElementById('sql-meta').textContent = data.updated
+    ? `${data.filename} · updated ${data.updated}`
+    : 'No SQL output file found.';
+}
+
+function closeSql() {
+  document.getElementById('sql-overlay').classList.remove('open');
+  currentSqlProject = null;
+}
+
+async function copySql() {
+  const textarea = document.getElementById('sql-text');
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+  let copied = false;
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+      copied = true;
+    } catch (e) { /* fall through to legacy path */ }
+  }
+  if (!copied) {
+    try { copied = document.execCommand('copy'); } catch (e) { copied = false; }
+  }
+  const btn = document.getElementById('sql-copy');
+  btn.textContent = copied ? 'Copied!' : 'Select all & Ctrl+C';
+  setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+}
+
+async function clearSql() {
+  if (!currentSqlProject) return;
+  if (!confirm(`Clear SQL output for ${currentSqlProject}?`)) return;
+  await fetch(`/api/sql/${encodeURIComponent(currentSqlProject)}/clear`, { method: 'POST' });
+  closeSql();
+  loadStatus();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+document.getElementById('sql-close').addEventListener('click', closeSql);
+document.getElementById('sql-copy').addEventListener('click', copySql);
+document.getElementById('sql-clear').addEventListener('click', clearSql);
+document.getElementById('sql-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'sql-overlay') closeSql();
+});
+
+loadStatus();
+loadLog();
+setInterval(loadStatus, 5000);
+setInterval(loadLog, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+[Unit]
+Description=Claude Code round-robin scheduler
+After=network.target
+
+[Service]
+Type=simple
+User=brad
+WorkingDirectory=/home/brad/claude-dashboard
+Environment=PROJECTS_DIR=/home/brad/projects
+Environment=STATE_DIR=/home/brad/claude-dashboard/state
+ExecStart=/usr/bin/python3 /home/brad/claude-dashboard/scheduler.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
