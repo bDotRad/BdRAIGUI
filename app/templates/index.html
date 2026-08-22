@@ -27,6 +27,15 @@
     color: var(--text);
     padding: 24px;
   }
+  #site-logo {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    z-index: 5;
+  }
   h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
   h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
   .subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
@@ -132,6 +141,7 @@
 </style>
 </head>
 <body>
+  <img id="site-logo" src="/static/rat-logo.png" alt="BdRGUI">
   <h1>BdRGUI Dashboard</h1>
   <div class="subtitle">Tick projects to add them to the rotation. The scheduler handles switching automatically.</div>
 
