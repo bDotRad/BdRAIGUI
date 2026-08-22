@@ -30,16 +30,16 @@
   #site-logo {
     position: fixed;
     top: 16px;
-    right: 16px;
-    width: 84px;
-    height: 84px;
+    left: 16px;
+    width: 48px;
+    height: 48px;
     object-fit: cover;
     border-radius: 0;
     z-index: 5;
   }
-  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; margin-left: 64px; }
   h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
-  .subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
+  .subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; margin-left: 64px; }
 
   #banner {
     background: var(--card);
@@ -54,6 +54,21 @@
   }
   #banner .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
   #banner .phase-label { color: var(--text-dim); text-transform: capitalize; }
+
+  #tabs {
+    display: flex;
+    gap: 18px;
+    border-bottom: 1px solid var(--card-border);
+    margin-bottom: 20px;
+  }
+  .tab-btn {
+    background: transparent; border: none; color: var(--text-dim);
+    font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 10px 2px; cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
 
   #grid {
     display: grid;
@@ -103,7 +118,7 @@
     border-radius: 10px;
     padding: 16px 18px;
   }
-  #log-list { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; }
+  #log-list { list-style: none; margin: 0; padding: 0; max-height: calc(100vh - 260px); overflow-y: auto; }
   #log-list li {
     display: flex; gap: 10px; font-size: 13px; padding: 6px 0;
     border-bottom: 1px solid var(--card-border);
@@ -146,13 +161,30 @@
     background: transparent; border: none; color: var(--accent);
     font-size: 12px; padding: 2px 0; cursor: pointer;
   }
-  #req-modal textarea {
-    width: 100%; min-height: 140px; background: #0b0d11; color: var(--text);
+  #req-modal textarea, #req-modal input[type="text"] {
+    width: 100%; background: #0b0d11; color: var(--text);
     border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 13px; resize: vertical; margin-top: 8px;
+    font-size: 13px; margin-top: 8px;
   }
-  #req-modal input[type="file"] { margin-top: 8px; font-size: 12px; color: var(--text-dim); }
+  #req-modal textarea { min-height: 140px; resize: vertical; }
+  #req-dropzone {
+    margin-top: 8px; padding: 12px; text-align: center; font-size: 12px; color: var(--text-dim);
+    border: 1px dashed var(--card-border); border-radius: 6px; cursor: default;
+  }
+  #req-dropzone.dragover { border-color: var(--accent); color: var(--text); background: rgba(79,140,255,0.08); }
+  #req-dropzone .link-like { color: var(--accent); cursor: pointer; text-decoration: underline; }
+  #req-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .attachment-chip {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+    background: #0b0d11; border: 1px solid var(--card-border); border-radius: 6px; padding: 4px 8px;
+  }
+  .attachment-chip .chip-size { color: var(--text-dim); }
+  .attachment-chip button {
+    background: transparent; border: none; color: var(--text-dim); cursor: pointer;
+    font-size: 14px; line-height: 1; padding: 0;
+  }
+  .attachment-chip button:hover { color: #f87171; }
   #req-status { font-size: 12px; color: var(--text-dim); margin-top: 8px; min-height: 16px; }
   #req-status.error { color: #f87171; }
   #req-status.ok { color: var(--processing); }
@@ -196,6 +228,50 @@
   }
   #console-status { font-size: 12px; color: var(--text-dim); margin-top: 6px; min-height: 16px; }
   #console-status.error { color: #f87171; }
+
+  /* Archive modal */
+  #archive-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    align-items: center; justify-content: center; padding: 24px; z-index: 10;
+  }
+  #archive-overlay.open { display: flex; }
+  #archive-modal {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+    width: 100%; max-width: 1100px; max-height: 85vh; display: flex; flex-direction: column;
+    padding: 18px;
+  }
+  #archive-modal h3 { margin: 0 0 4px; font-size: 15px; }
+  #archive-crumbs { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+  #archive-crumbs a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  #archive-body { display: flex; flex: 1; gap: 14px; min-height: 320px; overflow: hidden; }
+  #archive-list {
+    list-style: none; margin: 0; padding: 0; overflow-y: auto;
+    flex: 0 0 260px; min-width: 200px; border-right: 1px solid var(--card-border);
+  }
+  #archive-list li {
+    display: flex; justify-content: space-between; gap: 10px; font-size: 13px;
+    padding: 8px 4px; border-bottom: 1px solid var(--card-border); cursor: pointer;
+  }
+  #archive-list li:hover { background: rgba(255,255,255,0.03); }
+  #archive-list li:last-child { border-bottom: none; }
+  #archive-list .entry-name.dir::before { content: "\1F4C1 "; }
+  #archive-list .entry-name.file::before { content: "\1F4C4 "; }
+  #archive-list .entry-time { color: var(--text-dim); font-size: 12px; flex-shrink: 0; }
+  #archive-view {
+    display: flex; flex: 1; flex-direction: column; overflow: hidden;
+    align-items: center; justify-content: center;
+  }
+  #archive-view.open { align-items: stretch; justify-content: flex-start; }
+  #archive-view-placeholder { color: var(--text-dim); font-size: 13px; }
+  #archive-view.open #archive-view-placeholder { display: none; }
+  #archive-text { display: none; }
+  #archive-view.open #archive-text { display: block; }
+  #archive-text {
+    flex: 1; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; resize: none;
+  }
 </style>
 </head>
 <body>
@@ -208,11 +284,20 @@
     <span id="banner-text">Loading scheduler state&hellip;</span>
   </div>
 
-  <div id="grid"><div class="empty-state">Loading&hellip;</div></div>
+  <div id="tabs">
+    <button class="tab-btn active" id="tab-btn-projects" onclick="switchTab('projects')">Projects</button>
+    <button class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">Activity Log</button>
+  </div>
 
-  <div id="log-panel">
-    <h2>Activity log</h2>
-    <ul id="log-list"><li class="log-event">Loading&hellip;</li></ul>
+  <div id="tab-panel-projects" class="tab-panel active">
+    <div id="grid"><div class="empty-state">Loading&hellip;</div></div>
+  </div>
+
+  <div id="tab-panel-log" class="tab-panel">
+    <div id="log-panel">
+      <h2>Activity log</h2>
+      <ul id="log-list"><li class="log-event">Loading&hellip;</li></ul>
+    </div>
   </div>
 
   <div id="sql-overlay">
@@ -232,12 +317,18 @@
     <div id="req-modal">
       <h3 id="req-title">New request</h3>
       <div class="sql-meta">Drops a file straight into that project's <code>_Requests/</code> folder.</div>
+      <input type="text" id="req-title-input" placeholder="Title (becomes the file name, e.g. &quot;Logo resize&quot;)">
       <textarea id="req-content" placeholder="What do you want done? (Issue / When / Solution is a good default for bug reports.)"></textarea>
       <label class="toggle-row" style="margin-top:8px;">
         <input type="checkbox" id="req-ready" checked>
         Mark READY now (scheduler will pick it up next pass)
       </label>
-      <input type="file" id="req-files" multiple>
+      <div id="req-dropzone" tabindex="0">
+        Paste a screenshot (Ctrl+V) or drag it here — or
+        <label for="req-files" class="link-like">browse files</label>
+      </div>
+      <input type="file" id="req-files" multiple style="display:none">
+      <div id="req-attachments"></div>
       <div id="req-status"></div>
       <div class="modal-actions">
         <button class="btn secondary" id="req-close">Cancel</button>
@@ -263,6 +354,23 @@
     </div>
   </div>
 
+  <div id="archive-overlay">
+    <div id="archive-modal">
+      <h3 id="archive-title">Archived requests</h3>
+      <div id="archive-crumbs"></div>
+      <div id="archive-body">
+        <ul id="archive-list"></ul>
+        <div id="archive-view">
+          <div id="archive-view-placeholder">Select a file to view its contents.</div>
+          <textarea id="archive-text" readonly></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn secondary" id="archive-close">Close</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const PHASE_COLORS = {
   processing: 'var(--processing)',
@@ -283,6 +391,14 @@ let currentSqlProject = null;
 let currentRequestProject = null;
 let currentConsoleProject = null;
 let consolePollTimer = null;
+
+function switchTab(name) {
+  document.getElementById('tab-panel-projects').classList.toggle('active', name === 'projects');
+  document.getElementById('tab-panel-log').classList.toggle('active', name === 'log');
+  document.getElementById('tab-btn-projects').classList.toggle('active', name === 'projects');
+  document.getElementById('tab-btn-log').classList.toggle('active', name === 'log');
+  try { localStorage.setItem('bdraigui-tab', name); } catch (e) { /* ignore */ }
+}
 
 async function loadStatus() {
   const res = await fetch('/api/status');
@@ -354,6 +470,8 @@ function renderGrid(projects) {
           ${phaseTag}
         </div>
         <div class="card-foot">
+          <a class="btn link" href="/project/${encodeURIComponent(p.name)}">Files</a>
+          <button class="btn link" onclick="openArchive('${p.name}')">Archive</button>
           <button class="btn link" onclick="openConsole('${p.name}')">Console</button>
           <button class="btn link" onclick="openRequest('${p.name}')">+ Request</button>
         </div>
@@ -444,20 +562,81 @@ async function clearSql() {
   loadStatus();
 }
 
+let requestAttachments = [];
+
 function openRequest(project) {
   currentRequestProject = project;
   document.getElementById('req-title').textContent = `New request — ${project}`;
+  document.getElementById('req-title-input').value = '';
   document.getElementById('req-content').value = '';
   document.getElementById('req-ready').checked = true;
   document.getElementById('req-files').value = '';
+  requestAttachments = [];
+  renderAttachments();
   setReqStatus('', null);
   document.getElementById('req-overlay').classList.add('open');
-  document.getElementById('req-content').focus();
+  document.getElementById('req-title-input').focus();
 }
 
 function closeRequest() {
   document.getElementById('req-overlay').classList.remove('open');
   currentRequestProject = null;
+}
+
+function extFromMime(type) {
+  const map = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
+  return map[type] || 'png';
+}
+
+function addAttachment(file) {
+  let f = file;
+  // Pasted screenshots usually share a generic (or empty) name -- give
+  // each one a unique name so they don't silently overwrite each other.
+  if (!f.name || requestAttachments.some(a => a.name === f.name)) {
+    const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
+    f = new File([f], `screenshot-${ts}-${requestAttachments.length + 1}.${extFromMime(f.type)}`, { type: f.type });
+  }
+  requestAttachments.push(f);
+  renderAttachments();
+}
+
+function removeAttachment(index) {
+  requestAttachments.splice(index, 1);
+  renderAttachments();
+}
+
+function renderAttachments() {
+  const box = document.getElementById('req-attachments');
+  box.innerHTML = requestAttachments.map((f, i) => `
+    <span class="attachment-chip">
+      ${escapeHtml(f.name)} <span class="chip-size">${Math.max(1, Math.round(f.size / 1024))}KB</span>
+      <button type="button" onclick="removeAttachment(${i})" title="Remove">&times;</button>
+    </span>
+  `).join('');
+}
+
+function handleReqPaste(e) {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  let handled = false;
+  for (const item of items) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) {
+        addAttachment(file);
+        handled = true;
+      }
+    }
+  }
+  if (handled) e.preventDefault();
+}
+
+function handleReqDrop(e) {
+  e.preventDefault();
+  document.getElementById('req-dropzone').classList.remove('dragover');
+  const files = e.dataTransfer && e.dataTransfer.files;
+  if (!files) return;
+  for (const f of files) addAttachment(f);
 }
 
 function setReqStatus(text, kind) {
@@ -468,18 +647,23 @@ function setReqStatus(text, kind) {
 
 async function submitRequest() {
   if (!currentRequestProject) return;
+  const title = document.getElementById('req-title-input').value.trim();
+  if (!title) {
+    setReqStatus('Title is required.', 'error');
+    return;
+  }
   const content = document.getElementById('req-content').value.trim();
   if (!content) {
     setReqStatus('Content is required.', 'error');
     return;
   }
   const ready = document.getElementById('req-ready').checked;
-  const files = document.getElementById('req-files').files;
 
   const form = new FormData();
+  form.append('title', title);
   form.append('content', content);
   form.append('ready', ready ? '1' : '0');
-  for (const f of files) form.append('attachments', f);
+  for (const f of requestAttachments) form.append('attachments', f);
 
   setReqStatus('Creating…', null);
   try {
@@ -574,6 +758,79 @@ async function sendConsoleReply() {
   }
 }
 
+let currentArchiveProject = null;
+let currentArchivePath = '';
+
+function openArchive(project) {
+  currentArchiveProject = project;
+  currentArchivePath = '';
+  document.getElementById('archive-title').textContent = `Archived requests — ${project}`;
+  document.getElementById('archive-overlay').classList.add('open');
+  loadArchivePath('');
+}
+
+function closeArchive() {
+  document.getElementById('archive-overlay').classList.remove('open');
+  currentArchiveProject = null;
+}
+
+function renderArchiveCrumbs() {
+  const crumbs = document.getElementById('archive-crumbs');
+  const parts = currentArchivePath ? currentArchivePath.split('/') : [];
+  let html = `<a onclick="loadArchivePath('')">Archive</a>`;
+  let acc = '';
+  for (const part of parts) {
+    acc = acc ? `${acc}/${part}` : part;
+    const path = acc;
+    html += ` / <a onclick="loadArchivePath('${path.replace(/'/g, "\\'")}')">${escapeHtml(part)}</a>`;
+  }
+  crumbs.innerHTML = html;
+}
+
+async function loadArchivePath(subpath) {
+  if (!currentArchiveProject) return;
+  currentArchivePath = subpath;
+  document.getElementById('archive-view').classList.remove('open');
+  renderArchiveCrumbs();
+  const list = document.getElementById('archive-list');
+  list.innerHTML = '<li>Loading…</li>';
+
+  const res = await fetch(`/api/archive/${encodeURIComponent(currentArchiveProject)}?path=${encodeURIComponent(subpath)}`);
+  const data = await res.json();
+  if (!data.found || !data.entries || data.entries.length === 0) {
+    list.innerHTML = '<li>No archived items.</li>';
+    return;
+  }
+  list.innerHTML = data.entries.map(e => {
+    const childPath = subpath ? `${subpath}/${e.name}` : e.name;
+    const cls = e.is_dir ? 'dir' : 'file';
+    const action = e.is_dir
+      ? `loadArchivePath('${childPath.replace(/'/g, "\\'")}')`
+      : `viewArchiveFile('${childPath.replace(/'/g, "\\'")}')`;
+    return `
+      <li onclick="${action}">
+        <span class="entry-name ${cls}">${escapeHtml(e.name)}</span>
+        <span class="entry-time">${e.mtime_relative || ''}</span>
+      </li>
+    `;
+  }).join('');
+}
+
+async function viewArchiveFile(path) {
+  const textarea = document.getElementById('archive-text');
+  const view = document.getElementById('archive-view');
+  view.classList.add('open');
+  textarea.value = 'Loading…';
+
+  const res = await fetch(`/api/archive/${encodeURIComponent(currentArchiveProject)}/file?path=${encodeURIComponent(path)}`);
+  if (!res.ok) {
+    textarea.value = 'Failed to load file.';
+    return;
+  }
+  const data = await res.json();
+  textarea.value = data.text ? data.content : '(binary file — not previewable here)';
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -593,6 +850,20 @@ document.getElementById('req-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'req-overlay') closeRequest();
 });
 
+// Paste anywhere in the modal (title, content, or the dropzone itself) --
+// paste events bubble up from whichever field has focus.
+document.getElementById('req-modal').addEventListener('paste', handleReqPaste);
+
+document.getElementById('req-files').addEventListener('change', (e) => {
+  for (const f of e.target.files) addAttachment(f);
+  e.target.value = ''; // allow re-selecting the same file later
+});
+
+const reqDropzone = document.getElementById('req-dropzone');
+reqDropzone.addEventListener('dragover', (e) => { e.preventDefault(); reqDropzone.classList.add('dragover'); });
+reqDropzone.addEventListener('dragleave', () => reqDropzone.classList.remove('dragover'));
+reqDropzone.addEventListener('drop', handleReqDrop);
+
 document.getElementById('console-close').addEventListener('click', closeConsole);
 document.getElementById('console-refresh').addEventListener('click', refreshConsole);
 document.getElementById('console-send').addEventListener('click', sendConsoleReply);
@@ -602,6 +873,15 @@ document.getElementById('console-input').addEventListener('keydown', (e) => {
 document.getElementById('console-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'console-overlay') closeConsole();
 });
+
+document.getElementById('archive-close').addEventListener('click', closeArchive);
+document.getElementById('archive-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'archive-overlay') closeArchive();
+});
+
+let savedTab = 'projects';
+try { savedTab = localStorage.getItem('bdraigui-tab') || 'projects'; } catch (e) { /* ignore */ }
+switchTab(savedTab);
 
 loadStatus();
 loadLog();
