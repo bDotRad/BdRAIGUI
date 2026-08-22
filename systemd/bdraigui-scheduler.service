@@ -1,0 +1,17 @@
+[Unit]
+Description=BdRAIGUI round-robin scheduler
+After=network.target
+
+[Service]
+Type=simple
+User=bdr
+WorkingDirectory=/home/bdr/projects/_BdRAIGUI/app
+Environment=PROJECTS_DIR=/home/bdr/projects
+Environment=STATE_DIR=/home/bdr/projects/_BdRAIGUI/state
+Environment=CLAUDE_LAUNCH_CMD=/home/bdr/.local/bin/claude
+ExecStart=/home/bdr/projects/_BdRAIGUI/venv/bin/python3 /home/bdr/projects/_BdRAIGUI/app/scheduler.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -10,6 +10,7 @@ archive/meta folders).
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from datetime import datetime, timezone
@@ -122,6 +123,50 @@ def scan_requests(project):
 def pending_count(project):
     ready, _total = scan_requests(project)
     return ready
+
+
+# ---- Request creation (web UI "drop a request" form) --------------------------
+
+_REQUEST_NUM_RE = re.compile(r"^[rR](\d+)")
+
+
+def _next_request_number(req_dir):
+    """Smallest unused N across existing rN.md files / rN/ folders."""
+    highest = 0
+    if req_dir.exists():
+        for item in req_dir.iterdir():
+            m = _REQUEST_NUM_RE.match(item.stem if item.is_file() else item.name)
+            if m:
+                highest = max(highest, int(m.group(1)))
+    return highest + 1
+
+
+def create_request_file(project, content, ready):
+    """Write _Requests/rN.md for `project`. Returns the created Path."""
+    req_dir = PROJECTS_DIR / project / REQUESTS_SUBDIR
+    req_dir.mkdir(parents=True, exist_ok=True)
+    num = _next_request_number(req_dir)
+    path = req_dir / f"r{num}.md"
+    marker = "READY" if ready else "NOT READY"
+    path.write_text(f"{marker}\n\n{content}\n")
+    return path
+
+
+def create_request_folder(project, content, ready, attachments):
+    """Make _Requests/rN/ with request.md + attachment files. Returns the folder Path."""
+    req_dir = PROJECTS_DIR / project / REQUESTS_SUBDIR
+    req_dir.mkdir(parents=True, exist_ok=True)
+    num = _next_request_number(req_dir)
+    folder = req_dir / f"r{num}"
+    folder.mkdir()
+    marker = "READY" if ready else "NOT READY"
+    (folder / "request.md").write_text(f"{marker}\n\n{content}\n")
+    for f in attachments:
+        name = os.path.basename(f.filename or "")
+        if not name:
+            continue
+        f.save(folder / name)
+    return folder
 
 
 # ---- Status / commit / sql-output readback -----------------------------------

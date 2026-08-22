@@ -82,6 +82,27 @@ def api_select():
     return jsonify({"ok": True, "selected": selected})
 
 
+@app.route("/api/requests/<project>", methods=["POST"])
+def api_create_request(project):
+    if project not in common.list_projects():
+        return jsonify({"ok": False, "error": "unknown project"}), 404
+
+    content = (request.form.get("content") or "").strip()
+    if not content:
+        return jsonify({"ok": False, "error": "content is required"}), 400
+    ready = request.form.get("ready") == "1"
+    attachments = [f for f in request.files.getlist("attachments") if f.filename]
+
+    if attachments:
+        folder = common.create_request_folder(project, content, ready, attachments)
+        common.log_event(project, "request_created", detail=folder.name)
+        return jsonify({"ok": True, "created": folder.name, "kind": "folder"})
+
+    path = common.create_request_file(project, content, ready)
+    common.log_event(project, "request_created", detail=path.name)
+    return jsonify({"ok": True, "created": path.name, "kind": "file"})
+
+
 @app.route("/api/log")
 def api_log():
     project = request.args.get("project") or None

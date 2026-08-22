@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BdRGUI Dashboard</title>
+<title>BdRAIGUI Dashboard</title>
 <style>
   :root {
     --bg: #0f1115;
@@ -138,11 +138,38 @@
   }
   .btn.secondary { background: transparent; border: 1px solid var(--card-border); color: var(--text); }
   .btn.danger { background: transparent; border: 1px solid var(--card-border); color: #f87171; }
+
+  /* Request modal */
+  .card-foot { margin-top: 10px; text-align: right; }
+  .btn.link {
+    background: transparent; border: none; color: var(--accent);
+    font-size: 12px; padding: 2px 0; cursor: pointer;
+  }
+  #req-modal textarea {
+    width: 100%; min-height: 140px; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; resize: vertical; margin-top: 8px;
+  }
+  #req-modal input[type="file"] { margin-top: 8px; font-size: 12px; color: var(--text-dim); }
+  #req-status { font-size: 12px; color: var(--text-dim); margin-top: 8px; min-height: 16px; }
+  #req-status.error { color: #f87171; }
+  #req-status.ok { color: var(--processing); }
+  #req-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    align-items: center; justify-content: center; padding: 24px; z-index: 10;
+  }
+  #req-overlay.open { display: flex; }
+  #req-modal {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+    width: 100%; max-width: 560px; display: flex; flex-direction: column; padding: 18px;
+  }
+  #req-modal h3 { margin: 0 0 4px; font-size: 15px; }
 </style>
 </head>
 <body>
-  <img id="site-logo" src="/static/rat-logo.png" alt="BdRGUI">
-  <h1>BdRGUI Dashboard</h1>
+  <img id="site-logo" src="/static/rat-logo.png" alt="BdRAIGUI">
+  <h1>BdRAIGUI Dashboard</h1>
   <div class="subtitle">Tick projects to add them to the rotation. The scheduler handles switching automatically.</div>
 
   <div id="banner">
@@ -170,6 +197,24 @@
     </div>
   </div>
 
+  <div id="req-overlay">
+    <div id="req-modal">
+      <h3 id="req-title">New request</h3>
+      <div class="sql-meta">Drops a file straight into that project's <code>_Requests/</code> folder.</div>
+      <textarea id="req-content" placeholder="What do you want done? (Issue / When / Solution is a good default for bug reports.)"></textarea>
+      <label class="toggle-row" style="margin-top:8px;">
+        <input type="checkbox" id="req-ready" checked>
+        Mark READY now (scheduler will pick it up next pass)
+      </label>
+      <input type="file" id="req-files" multiple>
+      <div id="req-status"></div>
+      <div class="modal-actions">
+        <button class="btn secondary" id="req-close">Cancel</button>
+        <button class="btn" id="req-submit">Create request</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const PHASE_COLORS = {
   processing: 'var(--processing)',
@@ -183,9 +228,11 @@ const EVENT_LABELS = {
   requests_ready: 'new requests ready',
   session_waking: 'session waking',
   session_hibernated: 'session hibernated',
+  request_created: 'request created',
 };
 
 let currentSqlProject = null;
+let currentRequestProject = null;
 
 async function loadStatus() {
   const res = await fetch('/api/status');
@@ -255,6 +302,9 @@ function renderGrid(projects) {
         <div class="meta" style="border-top:none;padding-top:0;">
           <span title="${commit}">${commit}</span>
           ${phaseTag}
+        </div>
+        <div class="card-foot">
+          <button class="btn link" onclick="openRequest('${p.name}')">+ Request</button>
         </div>
       </div>
     `;
@@ -337,6 +387,63 @@ async function clearSql() {
   loadStatus();
 }
 
+function openRequest(project) {
+  currentRequestProject = project;
+  document.getElementById('req-title').textContent = `New request — ${project}`;
+  document.getElementById('req-content').value = '';
+  document.getElementById('req-ready').checked = true;
+  document.getElementById('req-files').value = '';
+  setReqStatus('', null);
+  document.getElementById('req-overlay').classList.add('open');
+  document.getElementById('req-content').focus();
+}
+
+function closeRequest() {
+  document.getElementById('req-overlay').classList.remove('open');
+  currentRequestProject = null;
+}
+
+function setReqStatus(text, kind) {
+  const el = document.getElementById('req-status');
+  el.textContent = text;
+  el.className = kind ? kind : '';
+}
+
+async function submitRequest() {
+  if (!currentRequestProject) return;
+  const content = document.getElementById('req-content').value.trim();
+  if (!content) {
+    setReqStatus('Content is required.', 'error');
+    return;
+  }
+  const ready = document.getElementById('req-ready').checked;
+  const files = document.getElementById('req-files').files;
+
+  const form = new FormData();
+  form.append('content', content);
+  form.append('ready', ready ? '1' : '0');
+  for (const f of files) form.append('attachments', f);
+
+  setReqStatus('Creating…', null);
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(currentRequestProject)}`, {
+      method: 'POST',
+      body: form,
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setReqStatus(data.error || 'Failed to create request.', 'error');
+      return;
+    }
+    setReqStatus(`Created ${data.created}.`, 'ok');
+    loadStatus();
+    loadLog();
+    setTimeout(closeRequest, 900);
+  } catch (e) {
+    setReqStatus('Network error creating request.', 'error');
+  }
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -348,6 +455,12 @@ document.getElementById('sql-copy').addEventListener('click', copySql);
 document.getElementById('sql-clear').addEventListener('click', clearSql);
 document.getElementById('sql-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'sql-overlay') closeSql();
+});
+
+document.getElementById('req-close').addEventListener('click', closeRequest);
+document.getElementById('req-submit').addEventListener('click', submitRequest);
+document.getElementById('req-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'req-overlay') closeRequest();
 });
 
 loadStatus();

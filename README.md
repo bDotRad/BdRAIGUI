@@ -1,4 +1,4 @@
-# BdRGUI
+# BdRAIGUI
 
 Web dashboard + round-robin scheduler for the Claude Code projects under
 `~/projects` on this Pi. Built from the example dropped in
@@ -33,7 +33,7 @@ what counts as "pending".
   `_Instructions/Requests.md` for the full spec. `common.scan_requests()`
   is the implementation — it's what both the dashboard's pending badge
   and the scheduler's wake trigger read from, so they always agree.
-- **Orchestration context**: `_Instructions/BdRGUI.md` is the doc meant
+- **Orchestration context**: `_Instructions/BdRAIGUI.md` is the doc meant
   to be copied into *other* projects' instructions so their Claude Code
   sessions understand they're running under this scheduler (why they get
   woken/killed, `.claude-status/status.json`, SQL output convention).
@@ -48,11 +48,17 @@ what counts as "pending".
   shows a purple **SQL** badge; clicking it opens a read-only textarea
   with a Copy button and a Clear button (deletes the file once you've
   run it).
+- **Creating a request from the UI**: each card has a **+ Request**
+  button — type the request, optionally attach files, and submit. With
+  no attachments it writes `_Requests/rN.md`; with attachments it makes
+  `_Requests/rN/` containing `request.md` plus the files. Numbering
+  auto-increments per project. Meant as the first step toward dropping
+  requests in remotely (e.g. over Tailscale) without opening a terminal.
 
 ## Setup
 
 ```bash
-cd ~/projects/_BdRGUI
+cd ~/projects/_BdRAIGUI
 python3 -m venv venv
 source venv/bin/activate
 pip install -r app/requirements.txt
@@ -77,15 +83,15 @@ Service files in `systemd/` are already pointed at `/home/bdr/...` and
 user `bdr`, matching this machine. Install once the venv above exists:
 
 ```bash
-sudo cp systemd/bdrgui-dashboard.service systemd/bdrgui-scheduler.service /etc/systemd/system/
+sudo cp systemd/bdraigui-dashboard.service systemd/bdraigui-scheduler.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now bdrgui-dashboard bdrgui-scheduler
+sudo systemctl enable --now bdraigui-dashboard bdraigui-scheduler
 ```
 
 Check they're both up:
 
 ```bash
-systemctl status bdrgui-dashboard bdrgui-scheduler
+systemctl status bdraigui-dashboard bdraigui-scheduler
 ```
 
 ## Notes
