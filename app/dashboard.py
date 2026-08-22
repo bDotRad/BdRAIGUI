@@ -103,6 +103,28 @@ def api_create_request(project):
     return jsonify({"ok": True, "created": path.name, "kind": "file"})
 
 
+@app.route("/api/console/<project>")
+def api_console(project):
+    if project not in common.list_projects():
+        abort(404)
+    alive = common.tmux_alive(project)
+    content = common.tmux_capture(project) if alive else None
+    return jsonify({"alive": alive, "content": content})
+
+
+@app.route("/api/console/<project>/send", methods=["POST"])
+def api_console_send(project):
+    if project not in common.list_projects():
+        return jsonify({"ok": False, "error": "unknown project"}), 404
+    data = request.get_json(force=True) or {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"ok": False, "error": "text is required"}), 400
+    if not common.tmux_send(project, text):
+        return jsonify({"ok": False, "error": "no active session for this project"}), 409
+    return jsonify({"ok": True})
+
+
 @app.route("/api/log")
 def api_log():
     project = request.args.get("project") or None

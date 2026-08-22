@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -167,6 +168,57 @@ def create_request_folder(project, content, ready, attachments):
             continue
         f.save(folder / name)
     return folder
+
+
+# ---- Live console (peek at / reply to a project's tmux session) --------------
+
+def tmux_session_name(project):
+    return f"{TMUX_SESSION_PREFIX}{project}"
+
+
+def tmux_alive(project):
+    try:
+        return subprocess.run(
+            ["tmux", "has-session", "-t", tmux_session_name(project)],
+            capture_output=True, timeout=5,
+        ).returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+
+
+def tmux_capture(project, lines=300):
+    """Snapshot of the project's tmux pane, or None if no session is running."""
+    if not tmux_alive(project):
+        return None
+    try:
+        out = subprocess.run(
+            ["tmux", "capture-pane", "-t", tmux_session_name(project), "-p", "-S", f"-{lines}"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if out.returncode != 0:
+            return None
+        return out.stdout
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+
+
+def tmux_send(project, text):
+    """Type `text` into the project's tmux session and submit it.
+
+    Text and Enter are sent as two separate tmux calls with a brief pause --
+    sending them in one burst gets treated as a paste by Claude Code's input
+    box, so the trailing Enter lands as a newline instead of submitting.
+    """
+    if not tmux_alive(project):
+        return False
+    session = tmux_session_name(project)
+    try:
+        subprocess.run(["tmux", "send-keys", "-t", session, text], timeout=5)
+        time.sleep(0.4)
+        subprocess.run(["tmux", "send-keys", "-t", session, "Enter"], timeout=5)
+        return True
+    except (subprocess.TimeoutExpired, OSError):
+        return False
 
 
 # ---- Status / commit / sql-output readback -----------------------------------

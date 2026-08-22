@@ -141,7 +141,7 @@
   .btn.danger { background: transparent; border: 1px solid var(--card-border); color: #f87171; }
 
   /* Request modal */
-  .card-foot { margin-top: 10px; text-align: right; }
+  .card-foot { margin-top: 10px; display: flex; justify-content: flex-end; gap: 14px; }
   .btn.link {
     background: transparent; border: none; color: var(--accent);
     font-size: 12px; padding: 2px 0; cursor: pointer;
@@ -166,6 +166,36 @@
     width: 100%; max-width: 560px; display: flex; flex-direction: column; padding: 18px;
   }
   #req-modal h3 { margin: 0 0 4px; font-size: 15px; }
+
+  /* Console modal */
+  #console-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    align-items: center; justify-content: center; padding: 24px; z-index: 10;
+  }
+  #console-overlay.open { display: flex; }
+  #console-modal {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+    width: 100%; max-width: 760px; max-height: 85vh; display: flex; flex-direction: column;
+    padding: 18px;
+  }
+  #console-modal h3 { margin: 0 0 4px; font-size: 15px; }
+  #console-meta { color: var(--text-dim); font-size: 12px; margin-bottom: 10px; }
+  #console-pane {
+    flex: 1; min-height: 320px; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.4; white-space: pre-wrap; word-break: break-word;
+    overflow-y: auto;
+  }
+  #console-reply {
+    display: flex; gap: 8px; margin-top: 10px;
+  }
+  #console-reply input {
+    flex: 1; background: #0b0d11; color: var(--text); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 8px 10px; font-size: 13px;
+  }
+  #console-status { font-size: 12px; color: var(--text-dim); margin-top: 6px; min-height: 16px; }
+  #console-status.error { color: #f87171; }
 </style>
 </head>
 <body>
@@ -216,6 +246,23 @@
     </div>
   </div>
 
+  <div id="console-overlay">
+    <div id="console-modal">
+      <h3 id="console-title">Console</h3>
+      <div id="console-meta">Snapshot of the Claude Code session for this project. Only fetched while this is open.</div>
+      <div id="console-pane"></div>
+      <div id="console-reply">
+        <input type="text" id="console-input" placeholder="Reply into the session (e.g. answer a question it asked)…">
+        <button class="btn" id="console-send">Send</button>
+      </div>
+      <div id="console-status"></div>
+      <div class="modal-actions">
+        <button class="btn secondary" id="console-close">Close</button>
+        <button class="btn" id="console-refresh">Refresh</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const PHASE_COLORS = {
   processing: 'var(--processing)',
@@ -234,6 +281,8 @@ const EVENT_LABELS = {
 
 let currentSqlProject = null;
 let currentRequestProject = null;
+let currentConsoleProject = null;
+let consolePollTimer = null;
 
 async function loadStatus() {
   const res = await fetch('/api/status');
@@ -305,6 +354,7 @@ function renderGrid(projects) {
           ${phaseTag}
         </div>
         <div class="card-foot">
+          <button class="btn link" onclick="openConsole('${p.name}')">Console</button>
           <button class="btn link" onclick="openRequest('${p.name}')">+ Request</button>
         </div>
       </div>
@@ -451,6 +501,79 @@ async function submitRequest() {
   }
 }
 
+function openConsole(project) {
+  currentConsoleProject = project;
+  document.getElementById('console-title').textContent = `Console — ${project}`;
+  document.getElementById('console-pane').textContent = 'Loading…';
+  document.getElementById('console-input').value = '';
+  setConsoleStatus('');
+  document.getElementById('console-overlay').classList.add('open');
+  refreshConsole();
+  if (consolePollTimer) clearInterval(consolePollTimer);
+  consolePollTimer = setInterval(refreshConsole, 3000);
+}
+
+function closeConsole() {
+  document.getElementById('console-overlay').classList.remove('open');
+  currentConsoleProject = null;
+  if (consolePollTimer) {
+    clearInterval(consolePollTimer);
+    consolePollTimer = null;
+  }
+}
+
+function setConsoleStatus(text, kind) {
+  const el = document.getElementById('console-status');
+  el.textContent = text;
+  el.className = kind ? kind : '';
+}
+
+async function refreshConsole() {
+  if (!currentConsoleProject) return;
+  const project = currentConsoleProject;
+  try {
+    const res = await fetch(`/api/console/${encodeURIComponent(project)}`);
+    const data = await res.json();
+    if (project !== currentConsoleProject) return; // modal was closed/switched mid-fetch
+    const pane = document.getElementById('console-pane');
+    if (!data.alive) {
+      pane.textContent = 'No active session for this project right now (hibernating or not yet woken).';
+      setConsoleStatus('');
+      return;
+    }
+    const wasAtBottom = pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 20;
+    pane.textContent = data.content || '';
+    if (wasAtBottom) pane.scrollTop = pane.scrollHeight;
+  } catch (e) {
+    setConsoleStatus('Failed to load console output.', 'error');
+  }
+}
+
+async function sendConsoleReply() {
+  if (!currentConsoleProject) return;
+  const input = document.getElementById('console-input');
+  const text = input.value.trim();
+  if (!text) return;
+  setConsoleStatus('Sending…');
+  try {
+    const res = await fetch(`/api/console/${encodeURIComponent(currentConsoleProject)}/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setConsoleStatus(data.error || 'Failed to send.', 'error');
+      return;
+    }
+    input.value = '';
+    setConsoleStatus('');
+    setTimeout(refreshConsole, 500);
+  } catch (e) {
+    setConsoleStatus('Network error sending reply.', 'error');
+  }
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -468,6 +591,16 @@ document.getElementById('req-close').addEventListener('click', closeRequest);
 document.getElementById('req-submit').addEventListener('click', submitRequest);
 document.getElementById('req-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'req-overlay') closeRequest();
+});
+
+document.getElementById('console-close').addEventListener('click', closeConsole);
+document.getElementById('console-refresh').addEventListener('click', refreshConsole);
+document.getElementById('console-send').addEventListener('click', sendConsoleReply);
+document.getElementById('console-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendConsoleReply();
+});
+document.getElementById('console-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'console-overlay') closeConsole();
 });
 
 loadStatus();
