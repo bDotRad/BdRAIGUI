@@ -31,6 +31,7 @@ SCHEDULER_START_FILE = STATE_DIR / "scheduler_start.json"
 ACTIVITY_LOG_MAX_LINES = 500
 
 REQUESTS_SUBDIR = "_Requests"
+SHELVED_SUBDIR = "_Shelved"
 STATUS_SUBDIR = ".claude-status"
 STATUS_FILENAME = "status.json"
 SQL_OUTPUT_CANDIDATES = ("sql_output.txt", "sql_output.sql")
@@ -489,6 +490,106 @@ def write_request_body(project, name, body):
     return True
 
 
+# ---- Shelving (park a request aside without deleting or archiving it) --------
+
+def _request_item_path(project, name):
+    """Path to the top-level _Requests/ entry named `name` (the whole file
+    or whole folder, not its marker file) -- for operations that move or
+    remove the item itself. None if `name` doesn't resolve to a real item."""
+    if not name or os.path.basename(name) != name or not _is_request_entry(name):
+        return None
+    item = PROJECTS_DIR / project / REQUESTS_SUBDIR / name
+    return item if item.exists() else None
+
+
+def _shelved_item_path(project, name):
+    """Path to the entry named `name` directly under _Requests/_Shelved/,
+    or None if it doesn't exist."""
+    if not name or os.path.basename(name) != name:
+        return None
+    item = PROJECTS_DIR / project / REQUESTS_SUBDIR / SHELVED_SUBDIR / name
+    return item if item.exists() else None
+
+
+def _move_unique(src, dest_dir):
+    """Move `src` (file or folder) into `dest_dir`, appending a numeric
+    suffix to the name if something's already there under that name."""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    stem = src.stem if src.is_file() else src.name
+    suffix = src.suffix if src.is_file() else ""
+    candidate = src.name
+    n = 2
+    while (dest_dir / candidate).exists():
+        candidate = f"{stem} {n}{suffix}"
+        n += 1
+    dest = dest_dir / candidate
+    shutil.move(str(src), str(dest))
+    return dest
+
+
+def shelve_request(project, name):
+    """Move one _Requests/ item into _Requests/_Shelved/, out of the
+    scheduler's way without deleting or archiving it. Returns True on
+    success."""
+    item = _request_item_path(project, name)
+    if item is None:
+        return False
+    shelved_dir = PROJECTS_DIR / project / REQUESTS_SUBDIR / SHELVED_SUBDIR
+    try:
+        _move_unique(item, shelved_dir)
+    except OSError:
+        return False
+    return True
+
+
+def list_shelved(project):
+    """List items sitting in a project's _Requests/_Shelved/ folder."""
+    shelved_dir = PROJECTS_DIR / project / REQUESTS_SUBDIR / SHELVED_SUBDIR
+    if not shelved_dir.exists():
+        return []
+    items = []
+    for item in sorted(shelved_dir.iterdir(), key=lambda p: p.name.lower()):
+        if item.name.startswith("."):
+            continue
+        stem = item.stem if item.is_file() else item.name
+        items.append({
+            "name": item.name,
+            "title": request_title(stem),
+            "is_folder": item.is_dir(),
+        })
+    return items
+
+
+def unshelve_request(project, name):
+    """Move one _Requests/_Shelved/ item back into _Requests/, marker
+    untouched. Returns True on success."""
+    item = _shelved_item_path(project, name)
+    if item is None:
+        return False
+    req_dir = PROJECTS_DIR / project / REQUESTS_SUBDIR
+    try:
+        _move_unique(item, req_dir)
+    except OSError:
+        return False
+    return True
+
+
+def delete_shelved_request(project, name):
+    """Permanently delete one _Requests/_Shelved/ item. Returns True on
+    success."""
+    item = _shelved_item_path(project, name)
+    if item is None:
+        return False
+    try:
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
+    except OSError:
+        return False
+    return True
+
+
 # ---- Live console (peek at / reply to a project's tmux session) --------------
 
 # ---- Dashboard self-admin (restart status) -----------------------------------
@@ -496,17 +597,30 @@ def write_request_body(project, name, body):
 DASHBOARD_WATCH_FILES = (APP_DIR / "dashboard.py", APP_DIR / "common.py")
 DASHBOARD_WATCH_DIRS = (APP_DIR / "templates", APP_DIR / "static")
 
+# A Claude session editing these files (its own dashboard/scheduler code)
+# typically touches several of them in a row over a few seconds. Requiring
+# the newest watched mtime to be at least this old before flagging a
+# restart means the flag settles once after a whole edit batch, instead of
+# flapping true/false/true as each individual file save lands -- which
+# otherwise reads as "restart, running, needs another restart" to Brad
+# even though nothing's actually finished changing yet.
+RESTART_DEBOUNCE_SECONDS = 5
+
 
 def dashboard_needs_restart(start_time):
     """True if a dashboard source file (app/*.py, templates/, static/) was
-    modified after this process started. Flask runs with debug=False and
-    no autoreload, so such changes need a process restart to take effect."""
+    modified after this process started, and that edit has been sitting
+    for a bit (see RESTART_DEBOUNCE_SECONDS). Flask runs with debug=False
+    and no autoreload, so such changes need a process restart to take
+    effect."""
+    newest = None
     for f in DASHBOARD_WATCH_FILES:
         try:
-            if f.stat().st_mtime > start_time:
-                return True
+            mtime = f.stat().st_mtime
         except OSError:
             continue
+        if newest is None or mtime > newest:
+            newest = mtime
     for d in DASHBOARD_WATCH_DIRS:
         if not d.is_dir():
             continue
@@ -514,11 +628,14 @@ def dashboard_needs_restart(start_time):
             if not f.is_file():
                 continue
             try:
-                if f.stat().st_mtime > start_time:
-                    return True
+                mtime = f.stat().st_mtime
             except OSError:
                 continue
-    return False
+            if newest is None or mtime > newest:
+                newest = mtime
+    if newest is None or newest <= start_time:
+        return False
+    return (time.time() - newest) >= RESTART_DEBOUNCE_SECONDS
 
 
 SCHEDULER_WATCH_FILES = (APP_DIR / "scheduler.py", APP_DIR / "common.py")
@@ -533,20 +650,25 @@ def record_scheduler_start():
 
 def scheduler_needs_restart():
     """True if a scheduler source file was modified after the running
-    scheduler process started. Mirrors dashboard_needs_restart, but reads
+    scheduler process started, and that edit has settled (see
+    RESTART_DEBOUNCE_SECONDS). Mirrors dashboard_needs_restart, but reads
     the start time back from disk since the dashboard isn't the process
     that recorded it."""
     try:
         start_time = json.loads(SCHEDULER_START_FILE.read_text())["start_time"]
     except (OSError, ValueError, KeyError):
         return False
+    newest = None
     for f in SCHEDULER_WATCH_FILES:
         try:
-            if f.stat().st_mtime > start_time:
-                return True
+            mtime = f.stat().st_mtime
         except OSError:
             continue
-    return False
+        if newest is None or mtime > newest:
+            newest = mtime
+    if newest is None or newest <= start_time:
+        return False
+    return (time.time() - newest) >= RESTART_DEBOUNCE_SECONDS
 
 
 def tmux_session_name(project):

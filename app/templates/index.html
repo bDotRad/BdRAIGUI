@@ -48,8 +48,6 @@
   }
   h1 { font-size: 20px; font-weight: 600; margin: 0; }
   h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
-  .subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
-
   #banner {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -362,7 +360,6 @@
       <div id="site-version">{{ version }}</div>
     </div>
   </div>
-  <div class="subtitle">Tick projects to add them to the rotation. The scheduler handles switching automatically.</div>
 
   <div id="banner">
     <span class="dot" id="banner-dot"></span>
@@ -505,6 +502,9 @@ const EVENT_LABELS = {
   session_hibernated: 'session hibernated',
   request_created: 'request created',
   request_edited: 'request edited',
+  request_shelved: 'request shelved',
+  request_unshelved: 'request unshelved',
+  request_shelved_deleted: 'shelved request deleted',
   dashboard_restart_requested: 'dashboard restart requested',
 };
 
@@ -734,13 +734,13 @@ function renderLog(entries) {
   list.innerHTML = entries.map(e => {
     const label = EVENT_LABELS[e.event] || e.event;
     const t = new Date(e.time);
-    // Force UTC for display: the server's clock is UTC and that happens to
-    // match Brad's actual wall-clock time here, but letting this convert to
-    // whatever timezone the *viewing device* is set to (phone, tablet, etc,
-    // over Tailscale) produced a garbage multi-hour offset when that
-    // device's timezone was wrong. Pinning to UTC makes the log always
-    // match the server's clock regardless of the viewer's device.
-    const timeStr = isNaN(t) ? '' : t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', timeZone: 'UTC'});
+    // Pin display to Brad's actual timezone rather than letting this convert
+    // to whatever timezone the *viewing device* is set to (phone, tablet,
+    // etc, over Tailscale) -- that produced a garbage multi-hour offset when
+    // a device's timezone was wrong. Previously pinned to bare 'UTC', which
+    // matched Brad's wall-clock time in winter (GMT) but drifted an hour off
+    // once BST (DST) kicked in -- Europe/London tracks both correctly.
+    const timeStr = isNaN(t) ? '' : t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'});
     return `
       <li>
         <span class="log-time">${timeStr}</span>

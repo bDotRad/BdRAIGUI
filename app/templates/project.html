@@ -52,6 +52,15 @@
     padding: 6px 12px; font-size: 12px; cursor: pointer;
   }
   .btn.secondary { background: transparent; border: 1px solid var(--card-border); color: var(--text); }
+  .btn.tiny { padding: 3px 9px; font-size: 11px; }
+  .btn.danger { background: #f87171; }
+  .shelved-list { list-style: none; margin: 0; padding: 0; }
+  .shelved-list li {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    font-size: 13px; padding: 8px 4px; border-bottom: 1px solid var(--card-border);
+  }
+  .shelved-list li:last-child { border-bottom: none; }
+  .shelved-actions { display: flex; gap: 6px; flex-shrink: 0; }
   #req-edit-actions { display: none; margin-top: 8px; gap: 8px; }
   #req-edit-actions.open { display: flex; }
   #req-edit-status { font-size: 12px; color: var(--text-dim); align-self: center; }
@@ -75,6 +84,11 @@
 
   <h2>Requests</h2>
   <div class="panel" id="requests-panel">
+    <div class="empty-state">Loading&hellip;</div>
+  </div>
+
+  <h2>Shelved</h2>
+  <div class="panel" id="shelved-panel">
     <div class="empty-state">Loading&hellip;</div>
   </div>
 
@@ -107,6 +121,10 @@ async function load() {
   const reqRes = await fetch(`/api/requests/${encodeURIComponent(project)}/list`);
   const reqData = await reqRes.json();
   renderRequests(reqData.requests);
+
+  const shelvedRes = await fetch(`/api/requests/${encodeURIComponent(project)}/shelved/list`);
+  const shelvedData = await shelvedRes.json();
+  renderShelved(shelvedData.shelved);
 }
 
 function renderRequests(items) {
@@ -123,9 +141,56 @@ function renderRequests(items) {
     <tr>
       <td class="req-name" onclick="editRequest('${r.name.replace(/'/g, "\\'")}', this)">${escapeHtml(r.title)}</td>
       <td><span class="req-status ${statusClass[r.status] || 'not-ready'}">${escapeHtml(r.status)}</span></td>
+      <td><button class="btn secondary tiny" onclick="shelveRequest('${r.name.replace(/'/g, "\\'")}')">Shelve</button></td>
     </tr>
   `).join('');
-  panel.innerHTML = `<table class="request-list"><thead><tr><th>Title</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+  panel.innerHTML = `<table class="request-list"><thead><tr><th>Title</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderShelved(items) {
+  const panel = document.getElementById('shelved-panel');
+  if (!items || items.length === 0) {
+    panel.innerHTML = '<div class="empty-state">Nothing shelved.</div>';
+    return;
+  }
+  panel.innerHTML = `<ul class="shelved-list">${items.map(s => `
+    <li>
+      <span>${escapeHtml(s.title)}</span>
+      <span class="shelved-actions">
+        <button class="btn secondary tiny" onclick="unshelveRequest('${s.name.replace(/'/g, "\\'")}')">Unshelve</button>
+        <button class="btn danger tiny" onclick="deleteShelvedRequest('${s.name.replace(/'/g, "\\'")}')">Delete</button>
+      </span>
+    </li>
+  `).join('')}</ul>`;
+}
+
+async function shelveRequest(name) {
+  await fetch(`/api/requests/${encodeURIComponent(project)}/shelve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  cancelRequestEdit();
+  load();
+}
+
+async function unshelveRequest(name) {
+  await fetch(`/api/requests/${encodeURIComponent(project)}/shelved/unshelve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  load();
+}
+
+async function deleteShelvedRequest(name) {
+  if (!confirm('Permanently delete this shelved request?')) return;
+  await fetch(`/api/requests/${encodeURIComponent(project)}/shelved/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  load();
 }
 
 function renderDescription(description) {

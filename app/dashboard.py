@@ -177,6 +177,55 @@ def api_request_content_save(project):
     return jsonify({"ok": True})
 
 
+@app.route("/api/requests/<project>/shelve", methods=["POST"])
+def api_request_shelve(project):
+    if project not in common.list_projects():
+        return jsonify({"ok": False, "error": "unknown project"}), 404
+    data = request.get_json(force=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name is required"}), 400
+    if not common.shelve_request(project, name):
+        return jsonify({"ok": False, "error": "request not found"}), 404
+    common.log_event(project, "request_shelved", detail=name)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/requests/<project>/shelved/list")
+def api_requests_shelved_list(project):
+    if project not in common.list_projects():
+        abort(404)
+    return jsonify({"shelved": common.list_shelved(project)})
+
+
+@app.route("/api/requests/<project>/shelved/unshelve", methods=["POST"])
+def api_request_unshelve(project):
+    if project not in common.list_projects():
+        return jsonify({"ok": False, "error": "unknown project"}), 404
+    data = request.get_json(force=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name is required"}), 400
+    if not common.unshelve_request(project, name):
+        return jsonify({"ok": False, "error": "shelved request not found"}), 404
+    common.log_event(project, "request_unshelved", detail=name)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/requests/<project>/shelved/delete", methods=["POST"])
+def api_request_shelved_delete(project):
+    if project not in common.list_projects():
+        return jsonify({"ok": False, "error": "unknown project"}), 404
+    data = request.get_json(force=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name is required"}), 400
+    if not common.delete_shelved_request(project, name):
+        return jsonify({"ok": False, "error": "shelved request not found"}), 404
+    common.log_event(project, "request_shelved_deleted", detail=name)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/requests/<project>/list")
 def api_requests_list(project):
     if project not in common.list_projects():
