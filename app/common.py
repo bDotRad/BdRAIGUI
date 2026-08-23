@@ -28,7 +28,22 @@ SELECTED_FILE = STATE_DIR / "selected_projects.json"
 SCHEDULER_STATE_FILE = STATE_DIR / "scheduler_state.json"
 ACTIVITY_LOG_FILE = STATE_DIR / "activity_log.jsonl"
 SCHEDULER_START_FILE = STATE_DIR / "scheduler_start.json"
+THEME_FILE = STATE_DIR / "theme.json"
 ACTIVITY_LOG_MAX_LINES = 500
+
+# Colour palette the admin tab can edit -- CSS custom properties on :root,
+# keyed by the same name used in index.html's stylesheet (without the
+# leading "--"). DEFAULT_THEME doubles as both the fallback values and the
+# allow-list of which variables are editable at all.
+DEFAULT_THEME = {
+    "bg": "#0f1115",
+    "card": "#171a21",
+    "card-border": "#262b35",
+    "text": "#e7e9ee",
+    "text-dim": "#8b90a0",
+    "accent": "#4f8cff",
+    "title-color": "#e7e9ee",
+}
 
 REQUESTS_SUBDIR = "_Requests"
 SHELVED_SUBDIR = "_Shelved"
@@ -67,6 +82,36 @@ def load_selected():
 
 def save_selected(selected):
     SELECTED_FILE.write_text(json.dumps(selected))
+
+
+_HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def load_theme():
+    """Current colour palette, defaults filled in for anything unset/invalid."""
+    theme = dict(DEFAULT_THEME)
+    if THEME_FILE.exists():
+        try:
+            saved = json.loads(THEME_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            saved = {}
+        for key, value in saved.items():
+            if key in DEFAULT_THEME and isinstance(value, str) and _HEX_COLOR_RE.match(value):
+                theme[key] = value
+    return theme
+
+
+def save_theme(overrides):
+    """Persist a full palette, validating against the DEFAULT_THEME allow-list.
+    Unknown keys are dropped; invalid hex values are rejected outright."""
+    theme = {}
+    for key in DEFAULT_THEME:
+        value = overrides.get(key, DEFAULT_THEME[key])
+        if not isinstance(value, str) or not _HEX_COLOR_RE.match(value):
+            raise ValueError(f"invalid colour for {key!r}: {value!r}")
+        theme[key] = value
+    THEME_FILE.write_text(json.dumps(theme))
+    return theme
 
 
 def load_scheduler_state():

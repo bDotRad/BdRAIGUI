@@ -38,7 +38,7 @@ START_TIME = time.time()
 
 @app.route("/")
 def index():
-    return render_template("index.html", version=common.app_version())
+    return render_template("index.html", version=common.app_version(), theme=common.load_theme())
 
 
 @app.route("/help")
@@ -372,6 +372,32 @@ def api_sql_clear(project):
         except OSError:
             abort(500)
     return jsonify({"ok": True})
+
+
+@app.route("/api/admin/theme")
+def api_admin_theme():
+    return jsonify({"theme": common.load_theme(), "defaults": common.DEFAULT_THEME})
+
+
+@app.route("/api/admin/theme", methods=["POST"])
+def api_admin_theme_save():
+    data = request.get_json(force=True) or {}
+    overrides = data.get("theme")
+    if not isinstance(overrides, dict):
+        return jsonify({"ok": False, "error": "theme object is required"}), 400
+    try:
+        theme = common.save_theme(overrides)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    common.log_event("_BdRAIGUI", "theme_updated")
+    return jsonify({"ok": True, "theme": theme})
+
+
+@app.route("/api/admin/theme/reset", methods=["POST"])
+def api_admin_theme_reset():
+    theme = common.save_theme({})
+    common.log_event("_BdRAIGUI", "theme_reset")
+    return jsonify({"ok": True, "theme": theme})
 
 
 @app.route("/api/admin/status")

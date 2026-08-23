@@ -21,6 +21,19 @@
     --link-grey-active: #c7cad1;
     --link-grey-inactive: #565b68;
     --restart-alert: #ff4d3d;
+    --title-color: #e7e9ee;
+  }
+  /* Admin-editable palette overrides -- see /api/admin/theme. Only the
+     variables listed in common.DEFAULT_THEME are ever touched here; the
+     rest of :root above stays fixed. */
+  :root {
+    --bg: {{ theme.bg }};
+    --card: {{ theme.card }};
+    --card-border: {{ theme['card-border'] }};
+    --text: {{ theme.text }};
+    --text-dim: {{ theme['text-dim'] }};
+    --accent: {{ theme.accent }};
+    --title-color: {{ theme['title-color'] }};
   }
   * { box-sizing: border-box; }
   body {
@@ -46,7 +59,7 @@
     white-space: nowrap;
     line-height: 1.3;
   }
-  h1 { font-size: 20px; font-weight: 600; margin: 0; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0; color: var(--title-color); }
   h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
   #banner {
     background: var(--card);
@@ -96,6 +109,21 @@
   .admin-status-badge.requires_restart, .admin-status-badge.not_running { color: var(--restart-alert); background: rgba(255,77,61,0.14); }
   .admin-status-badge.restarting { color: var(--waking); background: rgba(79,140,255,0.14); }
   #admin-restart-btn:disabled, #admin-scheduler-restart-btn:disabled { opacity: 0.6; cursor: default; }
+
+  #palette-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .palette-row { display: flex; align-items: center; gap: 10px; }
+  .palette-row label { flex: 1; font-size: 13px; color: var(--text-dim); }
+  .palette-row input[type="color"] {
+    width: 36px; height: 28px; padding: 0; border: 1px solid var(--card-border);
+    border-radius: 6px; background: transparent; cursor: pointer;
+  }
+  .palette-row input[type="text"] {
+    width: 84px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; background: var(--bg); color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 4px 6px;
+  }
+  #palette-actions { display: flex; gap: 10px; align-items: center; }
+  #palette-status { font-size: 13px; color: var(--text-dim); }
 
   #grid {
     display: grid;
@@ -412,6 +440,15 @@
       </div>
       <button class="btn" id="admin-scheduler-restart-btn" onclick="triggerSchedulerRestart()">Restart service</button>
       <div class="sql-meta" style="margin-top:10px;">Restarts the <code>bdraigui-scheduler</code> process so scheduler code changes take effect. Any project it's mid-processing resumes on its next poll after the restart.</div>
+
+      <h2 style="margin-top:24px;">Colour palette</h2>
+      <div id="palette-grid"></div>
+      <div id="palette-actions">
+        <button class="btn" id="palette-save-btn" onclick="savePalette()">Save</button>
+        <button class="btn secondary" id="palette-reset-btn" onclick="resetPalette()">Reset to defaults</button>
+        <span id="palette-status"></span>
+      </div>
+      <div class="sql-meta" style="margin-top:10px;">Applies live to this page immediately on save; other tabs/devices pick it up on their next load.</div>
     </div>
   </div>
 
@@ -1227,6 +1264,98 @@ async function triggerSchedulerRestart() {
   }, 1000);
 }
 
+const PALETTE_LABELS = {
+  'bg': 'Background',
+  'card': 'Card background',
+  'card-border': 'Card border',
+  'text': 'Text',
+  'text-dim': 'Text (dim)',
+  'accent': 'Accent',
+  'title-color': 'Title text',
+};
+
+function renderPaletteGrid(theme, defaults) {
+  const grid = document.getElementById('palette-grid');
+  grid.innerHTML = '';
+  for (const key of Object.keys(defaults)) {
+    const value = theme[key] || defaults[key];
+    const row = document.createElement('div');
+    row.className = 'palette-row';
+    row.innerHTML = `
+      <label for="palette-${key}">${PALETTE_LABELS[key] || key}</label>
+      <input type="color" id="palette-${key}" data-key="${key}" value="${value}">
+      <input type="text" id="palette-${key}-text" data-key="${key}" value="${value}" maxlength="7">
+    `;
+    grid.appendChild(row);
+  }
+  grid.querySelectorAll('input[type="color"]').forEach(input => {
+    input.addEventListener('input', () => {
+      const key = input.dataset.key;
+      document.getElementById(`palette-${key}-text`).value = input.value;
+      document.documentElement.style.setProperty('--' + key, input.value);
+    });
+  });
+  grid.querySelectorAll('input[type="text"]').forEach(input => {
+    input.addEventListener('input', () => {
+      const key = input.dataset.key;
+      if (/^#[0-9a-fA-F]{6}$/.test(input.value)) {
+        document.getElementById(`palette-${key}`).value = input.value;
+        document.documentElement.style.setProperty('--' + key, input.value);
+      }
+    });
+  });
+}
+
+async function loadPalette() {
+  try {
+    const res = await fetch('/api/admin/theme');
+    const data = await res.json();
+    renderPaletteGrid(data.theme, data.defaults);
+  } catch (e) { /* ignore */ }
+}
+
+async function savePalette() {
+  const theme = {};
+  document.querySelectorAll('#palette-grid input[type="color"]').forEach(input => {
+    theme[input.dataset.key] = input.value;
+  });
+  const statusEl = document.getElementById('palette-status');
+  statusEl.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/admin/theme', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme }),
+    });
+    const data = await res.json();
+    statusEl.textContent = data.ok ? 'Saved' : (data.error || 'Save failed');
+    if (data.ok) setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  } catch (e) {
+    statusEl.textContent = 'Save failed';
+  }
+}
+
+async function resetPalette() {
+  if (!confirm('Reset the colour palette to defaults?')) return;
+  const statusEl = document.getElementById('palette-status');
+  try {
+    const res = await fetch('/api/admin/theme/reset', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      for (const key of Object.keys(data.theme)) {
+        document.documentElement.style.setProperty('--' + key, data.theme[key]);
+      }
+      renderPaletteGrid(data.theme, data.theme);
+      statusEl.textContent = 'Reset to defaults';
+      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+    } else {
+      statusEl.textContent = data.error || 'Reset failed';
+    }
+  } catch (e) {
+    statusEl.textContent = 'Reset failed';
+  }
+}
+
 let savedTab = 'projects';
 try { savedTab = localStorage.getItem('bdraigui-tab') || 'projects'; } catch (e) { /* ignore */ }
 switchTab(savedTab);
@@ -1234,6 +1363,7 @@ switchTab(savedTab);
 loadStatus();
 loadLog();
 loadAdminStatus();
+loadPalette();
 setInterval(loadStatus, 5000);
 setInterval(loadLog, 5000);
 setInterval(loadAdminStatus, 5000);
