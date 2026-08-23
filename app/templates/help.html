@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help — BdRAIGUI</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --card-border: #262b35;
+    --text: #e7e9ee;
+    --text-dim: #8b90a0;
+    --accent: #4f8cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+    max-width: 720px;
+  }
+  a.back { color: var(--accent); font-size: 13px; text-decoration: none; }
+  h1 { font-size: 22px; font-weight: 600; margin: 12px 0 4px; }
+  h2 { font-size: 14px; font-weight: 600; margin: 24px 0 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  p { font-size: 13px; line-height: 1.6; color: var(--text); margin: 0 0 10px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+    padding: 16px 18px;
+  }
+  dl { margin: 0; }
+  dt { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
+  dd { font-size: 13px; color: var(--text-dim); margin: 0 0 14px 0; line-height: 1.5; }
+  dd:last-child { margin-bottom: 0; }
+  .pill { font-size: 12px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+  .pill.ready { color: var(--accent); background: rgba(79,140,255,0.14); }
+  .pill.processing { color: #4ade80; background: rgba(74,222,128,0.12); }
+  .pill.waiting { color: #facc15; background: rgba(250,204,21,0.12); }
+  .pill.not-ready { color: var(--text-dim); background: rgba(255,255,255,0.06); }
+  .pill.active-pill { color: #4f8cff; background: rgba(79,140,255,0.14); }
+  .pill.inactive-pill { color: var(--text-dim); background: rgba(255,255,255,0.06); }
+</style>
+</head>
+<body>
+  <a class="back" href="/">&larr; Dashboard</a>
+  <h1>Help</h1>
+  <p>Quick reference for what everything on the dashboard means.</p>
+
+  <h2>Request statuses</h2>
+  <div class="panel">
+    <dl>
+      <dt><span class="pill not-ready">Not Ready</span></dt>
+      <dd>Sitting in the project's <code>_Requests/</code> folder, but not marked ready yet. The scheduler won't pick it up. Use <strong>Edit</strong> to change what it asks for, or <strong>Mark Ready</strong> when it's good to go.</dd>
+
+      <dt><span class="pill ready">Ready</span></dt>
+      <dd>Flipped to READY and waiting for the scheduler to wake that project's session.</dd>
+
+      <dt><span class="pill processing">Processing</span></dt>
+      <dd>The project's session is currently awake and working through its queue. If several requests are Ready at once, they all show Processing together for the whole pass — Claude works through them one at a time within that same session, not all at once, but the dashboard shows the whole queue as "in progress" rather than singling out whichever one happens to be open right now.</dd>
+
+      <dt><span class="pill waiting">Waiting Response</span></dt>
+      <dd>Claude got partway through a request and is stuck on something only Brad can answer (a decision, credentials, etc). It'll stay this way until Brad edits it and flips it back to Ready.</dd>
+    </dl>
+  </div>
+
+  <h2>Project card</h2>
+  <div class="panel">
+    <dl>
+      <dt><span class="pill active-pill">Active</span> / <span class="pill inactive-pill">Inactive</span></dt>
+      <dd>Whether this project is in the scheduler's rotation pool. Active projects get woken automatically when they have Ready requests; Inactive ones are skipped.</dd>
+
+      <dt>Files</dt>
+      <dd>Opens the project's detail page — its Description, CLAUDE.md, and any <code>.claude/agents/</code> files.</dd>
+
+      <dt>Archive</dt>
+      <dd>Browse past requests that have already been processed, in <code>_Requests/_Archive/</code>.</dd>
+
+      <dt>Console</dt>
+      <dd>Peek at (or type into) the project's live Claude Code session, if one is running.</dd>
+
+      <dt>+ Request</dt>
+      <dd>Drop a new request straight into the project's <code>_Requests/</code> folder, with an optional screenshot or file attached.</dd>
+    </dl>
+  </div>
+</body>
+</html>

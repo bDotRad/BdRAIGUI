@@ -18,6 +18,9 @@
     --waking: #4f8cff;
     --accent: #4f8cff;
     --sql: #a855f7;
+    --link-grey-active: #c7cad1;
+    --link-grey-inactive: #565b68;
+    --restart-alert: #ff4d3d;
   }
   * { box-sizing: border-box; }
   body {
@@ -27,19 +30,25 @@
     color: var(--text);
     padding: 24px;
   }
+  #header-row { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
   #site-logo {
-    position: fixed;
-    top: 16px;
-    left: 16px;
     width: 48px;
     height: 48px;
     object-fit: cover;
     border-radius: 0;
-    z-index: 5;
+    flex-shrink: 0;
   }
-  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; margin-left: 64px; }
+  #header-text { display: flex; flex-direction: column; }
+  #site-version {
+    font-size: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: #fff;
+    white-space: nowrap;
+    line-height: 1.3;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin: 0; }
   h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
-  .subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; margin-left: 64px; }
+  .subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
 
   #banner {
     background: var(--card);
@@ -57,60 +66,101 @@
 
   #tabs {
     display: flex;
+    align-items: center;
     gap: 18px;
     border-bottom: 1px solid var(--card-border);
     margin-bottom: 20px;
   }
+  #tabs .help-link {
+    margin-left: auto; color: var(--text-dim); font-size: 13px; text-decoration: none;
+  }
+  #tabs .help-link:hover { color: var(--text); }
   .tab-btn {
     background: transparent; border: none; color: var(--text-dim);
     font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
     padding: 10px 2px; cursor: pointer; border-bottom: 2px solid transparent;
   }
   .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab-btn.needs-restart { color: var(--restart-alert); }
+  .tab-btn.needs-restart.active { border-bottom-color: var(--restart-alert); }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
+  #admin-panel {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+    padding: 18px 20px; max-width: 480px;
+  }
+  #admin-status-row, #admin-scheduler-status-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .admin-status-badge {
+    font-size: 13px; font-weight: 600; padding: 4px 12px; border-radius: 10px;
+  }
+  .admin-status-badge.running { color: var(--processing); background: rgba(34,197,94,0.14); }
+  .admin-status-badge.requires_restart, .admin-status-badge.not_running { color: var(--restart-alert); background: rgba(255,77,61,0.14); }
+  .admin-status-badge.restarting { color: var(--waking); background: rgba(79,140,255,0.14); }
+  #admin-restart-btn:disabled, #admin-scheduler-restart-btn:disabled { opacity: 0.6; cursor: default; }
+
   #grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 16px;
     margin-bottom: 28px;
+  }
+  #inactive-section { margin-bottom: 28px; }
+  .inactive-label {
+    font-size: 11px; color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 0.04em; margin: 0 0 12px;
+  }
+  #inactive-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
   }
   .card {
     background: var(--card);
     border: 1px solid var(--card-border);
     border-radius: 10px;
-    padding: 16px;
+    padding: 16px 16px 16px 10px;
     position: relative;
   }
   .card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
-  .name { font-size: 16px; font-weight: 600; }
-  .badges { display: flex; gap: 6px; }
+  .name {
+    font-size: 16px; font-weight: 600; flex: 1 1 auto; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .head-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
   .badge {
     font-size: 11px; padding: 2px 8px; border-radius: 10px;
     background: var(--accent); color: #fff; text-transform: uppercase; letter-spacing: 0.03em;
   }
   .badge.sql { background: var(--sql); cursor: pointer; border: none; font: inherit; }
+  .active-toggle {
+    display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-dim); cursor: pointer;
+  }
+  .active-toggle input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+  .active-toggle.is-active { color: var(--accent); }
   .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
   .toggle-row input { accent-color: var(--accent); width: 16px; height: 16px; }
-  .task { font-size: 13px; color: var(--text); margin: 8px 0; min-height: 18px; }
-  .task.empty { color: var(--text-dim); font-style: italic; }
-  .meta {
-    display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim);
-    margin-top: 10px; border-top: 1px solid var(--card-border); padding-top: 10px;
-  }
-  .pending {
-    display: inline-block; background: var(--accent); color: #fff;
-    border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 6px;
-  }
-  .pending.zero { background: var(--card-border); color: var(--text-dim); }
-  .phase-tag { font-size: 11px; text-transform: capitalize; }
-  .phase-processing { color: var(--processing); }
-  .phase-waiting { color: var(--waiting); }
-  .phase-hibernating, .phase-idle { color: var(--hibernating); }
-  .phase-waking { color: var(--waking); }
   .empty-state { color: var(--text-dim); font-size: 14px; }
+
+  .req-mini-list {
+    list-style: none; margin: 10px 0 0; padding-top: 8px;
+    border-top: 1px solid var(--card-border);
+  }
+  .req-mini-list li {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    font-size: 12px; padding: 3px 0; color: var(--text);
+  }
+  .req-mini-name { cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .req-mini-name:hover { color: var(--accent); text-decoration: underline; }
+  .req-mini-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .btn.tiny { padding: 2px 8px; font-size: 11px; border-radius: 9px; }
+  .req-mini-status { font-size: 11px; padding: 1px 7px; border-radius: 9px; white-space: nowrap; }
+  .req-mini-status.ready { color: var(--accent); background: rgba(79,140,255,0.14); }
+  .req-mini-status.processing { color: var(--processing); background: rgba(34,197,94,0.14); }
+  .req-mini-status.waiting { color: var(--waiting); background: rgba(234,179,8,0.14); }
+  .req-mini-status.not-ready { color: var(--text-dim); background: rgba(255,255,255,0.06); }
 
   #log-panel {
     background: var(--card);
@@ -158,9 +208,10 @@
   /* Request modal */
   .card-foot { margin-top: 10px; display: flex; justify-content: flex-end; gap: 14px; }
   .btn.link {
-    background: transparent; border: none; color: var(--accent);
+    background: transparent; border: none; color: var(--link-grey-inactive);
     font-size: 12px; padding: 2px 0; cursor: pointer;
   }
+  .card.in-rotation .btn.link { color: var(--link-grey-active); }
   #req-modal textarea, #req-modal input[type="text"] {
     width: 100%; background: #0b0d11; color: var(--text);
     border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
@@ -198,6 +249,27 @@
     width: 100%; max-width: 560px; display: flex; flex-direction: column; padding: 18px;
   }
   #req-modal h3 { margin: 0 0 4px; font-size: 15px; }
+
+  /* Edit request modal */
+  #edit-req-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    align-items: center; justify-content: center; padding: 24px; z-index: 10;
+  }
+  #edit-req-overlay.open { display: flex; }
+  #edit-req-modal {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+    width: 100%; max-width: 560px; display: flex; flex-direction: column; padding: 18px;
+  }
+  #edit-req-modal h3 { margin: 0 0 8px; font-size: 15px; }
+  #edit-req-modal textarea {
+    width: 100%; min-height: 180px; resize: vertical; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+  }
+  #edit-req-status { font-size: 12px; color: var(--text-dim); margin-top: 8px; min-height: 16px; }
+  #edit-req-status.error { color: #f87171; }
+  #edit-req-status.ok { color: var(--processing); }
 
   /* Console modal */
   #console-overlay {
@@ -245,8 +317,8 @@
   #archive-crumbs a { color: var(--accent); cursor: pointer; text-decoration: none; }
   #archive-body { display: flex; flex: 1; gap: 14px; min-height: 320px; overflow: hidden; }
   #archive-list {
-    list-style: none; margin: 0; padding: 0; overflow-y: auto;
-    flex: 0 0 260px; min-width: 200px; border-right: 1px solid var(--card-border);
+    list-style: none; margin: 0; padding: 0; overflow-y: auto; overflow-x: hidden;
+    flex: 0 0 420px; min-width: 320px; border-right: 1px solid var(--card-border);
   }
   #archive-list li {
     display: flex; justify-content: space-between; gap: 10px; font-size: 13px;
@@ -256,6 +328,9 @@
   #archive-list li:last-child { border-bottom: none; }
   #archive-list .entry-name.dir::before { content: "\1F4C1 "; }
   #archive-list .entry-name.file::before { content: "\1F4C4 "; }
+  #archive-list .entry-name {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   #archive-list .entry-time { color: var(--text-dim); font-size: 12px; flex-shrink: 0; }
   #archive-view {
     display: flex; flex: 1; flex-direction: column; overflow: hidden;
@@ -264,19 +339,29 @@
   #archive-view.open { align-items: stretch; justify-content: flex-start; }
   #archive-view-placeholder { color: var(--text-dim); font-size: 13px; }
   #archive-view.open #archive-view-placeholder { display: none; }
-  #archive-text { display: none; }
-  #archive-view.open #archive-text { display: block; }
+  #archive-text, #archive-image { display: none; }
+  #archive-view.open #archive-text.shown { display: block; }
+  #archive-view.open #archive-image.shown { display: block; }
   #archive-text {
     flex: 1; background: #0b0d11; color: var(--text);
     border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 13px; resize: none;
   }
+  #archive-image {
+    flex: 1; max-width: 100%; max-height: 100%; object-fit: contain;
+    border: 1px solid var(--card-border); border-radius: 6px; background: #0b0d11;
+  }
 </style>
 </head>
 <body>
-  <img id="site-logo" src="/static/rat-logo.png" alt="BdRAIGUI">
-  <h1>BdRAIGUI Dashboard</h1>
+  <div id="header-row">
+    <img id="site-logo" src="/static/rat-logo.png" alt="BdRAIGUI">
+    <div id="header-text">
+      <h1>BdR AI GUI</h1>
+      <div id="site-version">{{ version }}</div>
+    </div>
+  </div>
   <div class="subtitle">Tick projects to add them to the rotation. The scheduler handles switching automatically.</div>
 
   <div id="banner">
@@ -287,16 +372,37 @@
   <div id="tabs">
     <button class="tab-btn active" id="tab-btn-projects" onclick="switchTab('projects')">Projects</button>
     <button class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">Activity Log</button>
+    <button class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Admin</button>
+    <a class="help-link" href="/help">Help</a>
   </div>
 
   <div id="tab-panel-projects" class="tab-panel active">
     <div id="grid"><div class="empty-state">Loading&hellip;</div></div>
+    <div id="inactive-section"><div class="inactive-label">Inactive</div><div id="inactive-row"></div></div>
   </div>
 
   <div id="tab-panel-log" class="tab-panel">
     <div id="log-panel">
       <h2>Activity log</h2>
       <ul id="log-list"><li class="log-event">Loading&hellip;</li></ul>
+    </div>
+  </div>
+
+  <div id="tab-panel-admin" class="tab-panel">
+    <div id="admin-panel">
+      <h2>Dashboard service</h2>
+      <div id="admin-status-row">
+        <span id="admin-status-badge" class="admin-status-badge running">Loading&hellip;</span>
+      </div>
+      <button class="btn" id="admin-restart-btn" onclick="triggerRestart()">Restart service</button>
+      <div class="sql-meta" style="margin-top:10px;">Restarts the <code>bdraigui-dashboard</code> process so template/code changes take effect. Causes a brief outage (a few seconds).</div>
+
+      <h2 style="margin-top:24px;">Scheduler service</h2>
+      <div id="admin-scheduler-status-row">
+        <span id="admin-scheduler-status-badge" class="admin-status-badge running">Loading&hellip;</span>
+      </div>
+      <button class="btn" id="admin-scheduler-restart-btn" onclick="triggerSchedulerRestart()">Restart service</button>
+      <div class="sql-meta" style="margin-top:10px;">Restarts the <code>bdraigui-scheduler</code> process so scheduler code changes take effect. Any project it's mid-processing resumes on its next poll after the restart.</div>
     </div>
   </div>
 
@@ -317,7 +423,7 @@
     <div id="req-modal">
       <h3 id="req-title">New request</h3>
       <div class="sql-meta">Drops a file straight into that project's <code>_Requests/</code> folder.</div>
-      <input type="text" id="req-title-input" placeholder="Title (becomes the file name, e.g. &quot;Logo resize&quot;)">
+      <input type="text" id="req-title-input" autocomplete="off" placeholder="Title (becomes the file name, e.g. &quot;Logo resize&quot;)">
       <textarea id="req-content" placeholder="What do you want done? (Issue / When / Solution is a good default for bug reports.)"></textarea>
       <label class="toggle-row" style="margin-top:8px;">
         <input type="checkbox" id="req-ready" checked>
@@ -333,6 +439,18 @@
       <div class="modal-actions">
         <button class="btn secondary" id="req-close">Cancel</button>
         <button class="btn" id="req-submit">Create request</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="edit-req-overlay">
+    <div id="edit-req-modal">
+      <h3 id="edit-req-title">Edit request</h3>
+      <textarea id="edit-req-content"></textarea>
+      <div id="edit-req-status"></div>
+      <div class="modal-actions">
+        <button class="btn secondary" id="edit-req-close">Cancel</button>
+        <button class="btn" id="edit-req-save">Save</button>
       </div>
     </div>
   </div>
@@ -363,6 +481,7 @@
         <div id="archive-view">
           <div id="archive-view-placeholder">Select a file to view its contents.</div>
           <textarea id="archive-text" readonly></textarea>
+          <img id="archive-image" alt="">
         </div>
       </div>
       <div class="modal-actions">
@@ -385,6 +504,8 @@ const EVENT_LABELS = {
   session_waking: 'session waking',
   session_hibernated: 'session hibernated',
   request_created: 'request created',
+  request_edited: 'request edited',
+  dashboard_restart_requested: 'dashboard restart requested',
 };
 
 let currentSqlProject = null;
@@ -395,8 +516,10 @@ let consolePollTimer = null;
 function switchTab(name) {
   document.getElementById('tab-panel-projects').classList.toggle('active', name === 'projects');
   document.getElementById('tab-panel-log').classList.toggle('active', name === 'log');
+  document.getElementById('tab-panel-admin').classList.toggle('active', name === 'admin');
   document.getElementById('tab-btn-projects').classList.toggle('active', name === 'projects');
   document.getElementById('tab-btn-log').classList.toggle('active', name === 'log');
+  document.getElementById('tab-btn-admin').classList.toggle('active', name === 'admin');
   try { localStorage.setItem('bdraigui-tab', name); } catch (e) { /* ignore */ }
 }
 
@@ -425,60 +548,182 @@ function renderBanner(data) {
   }
 }
 
+function cardHtml(p) {
+  const activeClass = ['card', p.is_active ? 'active' : '', p.in_rotation ? 'in-rotation' : ''].filter(Boolean).join(' ');
+  const sqlBadge = p.has_sql
+    ? `<button class="badge sql" onclick="openSql('${p.name}')" title="SQL ready, updated ${p.sql_updated_relative || ''}">SQL</button>`
+    : '';
+
+  return `
+    <div class="${activeClass}">
+      <div class="card-head">
+        <span class="name">${escapeHtml(p.name)}</span>
+        <div class="head-right">
+          ${sqlBadge}
+          <label class="active-toggle ${p.in_rotation ? 'is-active' : ''}">
+            <input type="checkbox" ${p.in_rotation ? 'checked' : ''} onchange="toggleRotation('${p.name}', this.checked)">
+            ${p.in_rotation ? 'Active' : 'Inactive'}
+          </label>
+        </div>
+      </div>
+      <div class="card-foot">
+        <a class="btn link" href="/project/${encodeURIComponent(p.name)}">Files</a>
+        <button class="btn link" onclick="openArchive('${p.name}')">Archive</button>
+        <button class="btn link" onclick="openConsole('${p.name}')">Console</button>
+        <button class="btn link" onclick="openRequest('${p.name}')">+ Request</button>
+      </div>
+      ${renderCardRequests(p.name, p.requests)}
+    </div>
+  `;
+}
+
 function renderGrid(projects) {
   const grid = document.getElementById('grid');
+  const inactiveSection = document.getElementById('inactive-section');
+  const inactiveRow = document.getElementById('inactive-row');
   if (!projects || projects.length === 0) {
     grid.innerHTML = '<div class="empty-state">No projects found. Check PROJECTS_DIR in dashboard.py.</div>';
+    inactiveSection.style.display = 'none';
+    inactiveRow.innerHTML = '';
     return;
   }
 
-  grid.innerHTML = projects.map(p => {
-    const task = p.current_task
-      ? `<div class="task">${escapeHtml(p.current_task)}</div>`
-      : `<div class="task empty">No current task</div>`;
-    const pendingClass = p.pending_requests > 0 ? 'pending' : 'pending zero';
-    const pendingLabel = p.total_requests > p.pending_requests
-      ? `${p.pending_requests}/${p.total_requests} ready`
-      : `${p.pending_requests} pending`;
-    const commit = p.last_commit
-      ? `${p.last_commit.hash} &mdash; ${escapeHtml(p.last_commit.message)}`
-      : 'no commits';
-    const activeClass = p.is_active ? 'card active' : 'card';
-    const activeBadge = p.is_active ? `<span class="badge">Active</span>` : '';
-    const sqlBadge = p.has_sql
-      ? `<button class="badge sql" onclick="openSql('${p.name}')" title="SQL ready, updated ${p.sql_updated_relative || ''}">SQL</button>`
-      : '';
-    const phaseTag = p.phase ? `<span class="phase-tag phase-${p.phase}">${p.phase}</span>` : '';
+  const active = projects.filter(p => p.in_rotation);
+  const inactive = projects.filter(p => !p.in_rotation);
 
-    return `
-      <div class="${activeClass}">
-        <div class="card-head">
-          <span class="name">${escapeHtml(p.name)}</span>
-          <span class="badges">${activeBadge}${sqlBadge}</span>
-        </div>
-        <label class="toggle-row">
-          <input type="checkbox" ${p.in_rotation ? 'checked' : ''} onchange="toggleRotation('${p.name}', this.checked)">
-          In rotation
-        </label>
-        ${task}
-        <div class="meta">
-          <span>Last active: ${p.last_active_relative || 'never'}</span>
-          <span class="${pendingClass}">${pendingLabel}</span>
-        </div>
-        <div class="meta" style="border-top:none;padding-top:0;">
-          <span title="${commit}">${commit}</span>
-          ${phaseTag}
-        </div>
-        <div class="card-foot">
-          <a class="btn link" href="/project/${encodeURIComponent(p.name)}">Files</a>
-          <button class="btn link" onclick="openArchive('${p.name}')">Archive</button>
-          <button class="btn link" onclick="openConsole('${p.name}')">Console</button>
-          <button class="btn link" onclick="openRequest('${p.name}')">+ Request</button>
-        </div>
-      </div>
-    `;
-  }).join('');
+  grid.innerHTML = active.length
+    ? active.map(cardHtml).join('')
+    : '<div class="empty-state">No active projects. Tick one below to add it to the rotation.</div>';
+
+  inactiveSection.style.display = inactive.length ? '' : 'none';
+  inactiveRow.innerHTML = inactive.map(cardHtml).join('');
 }
+
+const REQUEST_STATUS_CLASS = {
+  'Ready': 'ready', 'Processing': 'processing',
+  'Waiting Response': 'waiting', 'Not Ready': 'not-ready',
+};
+
+function renderCardRequests(project, items) {
+  if (!items || items.length === 0) return '';
+  const rows = items.map(r => `
+    <li>
+      <span class="req-mini-name" onclick="openEditRequest('${jsStr(project)}', '${jsStr(r.name)}', '${jsStr(r.title)}')">${escapeHtml(r.title)}</span>
+      <span class="req-mini-actions">
+        ${r.status === 'Not Ready' ? `<button class="btn tiny" onclick="markRequestReady(this, '${jsStr(project)}', '${jsStr(r.name)}')">Mark Ready</button>` : ''}
+        ${(r.status === 'Ready' || r.status === 'Processing') ? `<button class="btn tiny" onclick="markRequestNotReady(this, '${jsStr(project)}', '${jsStr(r.name)}')">Mark Not Ready</button>` : ''}
+        <span class="req-mini-status ${REQUEST_STATUS_CLASS[r.status] || 'not-ready'}">${escapeHtml(r.status)}</span>
+      </span>
+    </li>
+  `).join('');
+  return `<ul class="req-mini-list">${rows}</ul>`;
+}
+
+async function markRequestReady(btn, project, name) {
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(project)}/ready`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) { btn.disabled = false; return; }
+  } catch (e) {
+    btn.disabled = false;
+    return;
+  }
+  loadStatus();
+}
+
+async function markRequestNotReady(btn, project, name) {
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(project)}/not-ready`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) { btn.disabled = false; return; }
+  } catch (e) {
+    btn.disabled = false;
+    return;
+  }
+  loadStatus();
+}
+
+let currentEditProject = null;
+let currentEditName = null;
+
+async function openEditRequest(project, name, title) {
+  currentEditProject = project;
+  currentEditName = name;
+  document.getElementById('edit-req-title').textContent = `Edit — ${title}`;
+  const content = document.getElementById('edit-req-content');
+  const status = document.getElementById('edit-req-status');
+  content.value = 'Loading…';
+  status.textContent = '';
+  status.className = '';
+  document.getElementById('edit-req-overlay').classList.add('open');
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(project)}/content?name=${encodeURIComponent(name)}`);
+    const data = await res.json();
+    content.value = res.ok ? (data.content || '') : '';
+    if (!res.ok) {
+      status.textContent = data.error || 'Failed to load request.';
+      status.className = 'error';
+    }
+  } catch (e) {
+    content.value = '';
+    status.textContent = 'Failed to load request.';
+    status.className = 'error';
+  }
+}
+
+function closeEditRequest() {
+  document.getElementById('edit-req-overlay').classList.remove('open');
+  currentEditProject = null;
+  currentEditName = null;
+}
+
+async function saveEditRequest() {
+  const status = document.getElementById('edit-req-status');
+  const content = document.getElementById('edit-req-content').value;
+  if (!content.trim()) {
+    status.textContent = 'Content is required.';
+    status.className = 'error';
+    return;
+  }
+  const btn = document.getElementById('edit-req-save');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(currentEditProject)}/content`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: currentEditName, content }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      status.textContent = data.error || 'Failed to save.';
+      status.className = 'error';
+      btn.disabled = false;
+      return;
+    }
+  } catch (e) {
+    status.textContent = 'Failed to save.';
+    status.className = 'error';
+    btn.disabled = false;
+    return;
+  }
+  btn.disabled = false;
+  loadStatus();
+  closeEditRequest();
+}
+
+document.getElementById('edit-req-close').addEventListener('click', closeEditRequest);
+document.getElementById('edit-req-save').addEventListener('click', saveEditRequest);
+document.getElementById('edit-req-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'edit-req-overlay') closeEditRequest();
+});
 
 function renderLog(entries) {
   const list = document.getElementById('log-list');
@@ -818,8 +1063,12 @@ async function loadArchivePath(subpath) {
 
 async function viewArchiveFile(path) {
   const textarea = document.getElementById('archive-text');
+  const image = document.getElementById('archive-image');
   const view = document.getElementById('archive-view');
   view.classList.add('open');
+  image.classList.remove('shown');
+  image.src = '';
+  textarea.classList.add('shown');
   textarea.value = 'Loading…';
 
   const res = await fetch(`/api/archive/${encodeURIComponent(currentArchiveProject)}/file?path=${encodeURIComponent(path)}`);
@@ -828,6 +1077,12 @@ async function viewArchiveFile(path) {
     return;
   }
   const data = await res.json();
+  if (data.image) {
+    textarea.classList.remove('shown');
+    image.src = `/api/archive/${encodeURIComponent(currentArchiveProject)}/raw?path=${encodeURIComponent(path)}`;
+    image.classList.add('shown');
+    return;
+  }
   textarea.value = data.text ? data.content : '(binary file — not previewable here)';
 }
 
@@ -835,6 +1090,10 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function jsStr(str) {
+  return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
 document.getElementById('sql-close').addEventListener('click', closeSql);
@@ -879,14 +1138,88 @@ document.getElementById('archive-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'archive-overlay') closeArchive();
 });
 
+let adminRestarting = false;
+let schedulerRestarting = false;
+const ADMIN_STATUS_LABELS = {
+  running: 'Running', requires_restart: 'Requires Restart', restarting: 'Restarting…', not_running: 'Not Running',
+};
+
+function renderAdminStatus(state) {
+  const badge = document.getElementById('admin-status-badge');
+  badge.textContent = ADMIN_STATUS_LABELS[state] || state;
+  badge.className = 'admin-status-badge ' + state;
+  document.getElementById('tab-btn-admin').classList.toggle('needs-restart', state === 'requires_restart');
+  document.getElementById('admin-restart-btn').disabled = (state === 'restarting');
+}
+
+function renderSchedulerStatus(state) {
+  const badge = document.getElementById('admin-scheduler-status-badge');
+  badge.textContent = ADMIN_STATUS_LABELS[state] || state;
+  badge.className = 'admin-status-badge ' + state;
+  document.getElementById('admin-scheduler-restart-btn').disabled = (state === 'restarting');
+}
+
+async function loadAdminStatus() {
+  try {
+    const res = await fetch('/api/admin/status');
+    if (!res.ok) throw new Error('bad response');
+    const data = await res.json();
+    adminRestarting = false;
+    renderAdminStatus(data.needs_restart ? 'requires_restart' : 'running');
+
+    if (!schedulerRestarting) {
+      renderSchedulerStatus(!data.scheduler_running ? 'not_running' : (data.scheduler_needs_restart ? 'requires_restart' : 'running'));
+    }
+  } catch (e) {
+    if (adminRestarting) renderAdminStatus('restarting');
+  }
+}
+
+async function triggerRestart() {
+  if (!confirm('Restart the BdRAIGUI dashboard service now? This causes a brief outage.')) return;
+  adminRestarting = true;
+  renderAdminStatus('restarting');
+  try {
+    await fetch('/api/admin/restart', { method: 'POST' });
+  } catch (e) { /* the process may die before the response completes */ }
+  const poll = setInterval(async () => {
+    if (!adminRestarting) { clearInterval(poll); return; }
+    await loadAdminStatus();
+    if (!adminRestarting) clearInterval(poll);
+  }, 1000);
+}
+
+async function triggerSchedulerRestart() {
+  if (!confirm('Restart the BdRAIGUI scheduler service now? Any project it\'s mid-processing will resume shortly after.')) return;
+  schedulerRestarting = true;
+  renderSchedulerStatus('restarting');
+  try {
+    await fetch('/api/admin/restart_scheduler', { method: 'POST' });
+  } catch (e) { /* ignore -- status poll below will reflect reality */ }
+  const poll = setInterval(async () => {
+    if (!schedulerRestarting) { clearInterval(poll); return; }
+    try {
+      const res = await fetch('/api/admin/status');
+      const data = await res.json();
+      if (data.scheduler_running) {
+        schedulerRestarting = false;
+        renderSchedulerStatus(data.scheduler_needs_restart ? 'requires_restart' : 'running');
+      }
+    } catch (e) { /* keep polling */ }
+    if (!schedulerRestarting) clearInterval(poll);
+  }, 1000);
+}
+
 let savedTab = 'projects';
 try { savedTab = localStorage.getItem('bdraigui-tab') || 'projects'; } catch (e) { /* ignore */ }
 switchTab(savedTab);
 
 loadStatus();
 loadLog();
+loadAdminStatus();
 setInterval(loadStatus, 5000);
 setInterval(loadLog, 5000);
+setInterval(loadAdminStatus, 5000);
 </script>
 </body>
 </html>

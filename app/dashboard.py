@@ -17,18 +17,33 @@ Run:
 Then open http://<pi-ip>:8420
 """
 
-from flask import Flask, abort, jsonify, render_template, request
+import os
+import signal
+import subprocess
+import threading
+import time
+
+from flask import Flask, abort, jsonify, render_template, request, send_file
 
 import common
 
 app = Flask(__name__)
+
+# Used by /api/admin/status to tell whether a source file has changed since
+# this process came up (Flask runs with debug=False, no autoreload).
+START_TIME = time.time()
 
 
 # ---- Routes -------------------------------------------------------------------
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", version=common.app_version())
+
+
+@app.route("/help")
+def help_page():
+    return render_template("help.html")
 
 
 @app.route("/api/status")
@@ -42,6 +57,7 @@ def api_status():
         status = common.read_status(name)
         ready, total = common.scan_requests(name)
         sql_path = common.find_sql_output(name)
+        active_processing = active_project == name and scheduler.get("phase") == "processing"
         projects.append({
             "name": name,
             "in_rotation": name in selected,
@@ -51,6 +67,7 @@ def api_status():
             "last_active_relative": common.relative_time(status.get("last_active")),
             "pending_requests": ready,
             "total_requests": total,
+            "requests": common.list_requests(name, active_processing),
             "last_commit": common.last_commit(name),
             "has_sql": sql_path is not None,
             "sql_updated_relative": common.file_mtime_relative(sql_path) if sql_path else None,
@@ -87,6 +104,9 @@ def api_create_request(project):
     if project not in common.list_projects():
         return jsonify({"ok": False, "error": "unknown project"}), 404
 
+    title = (request.form.get("title") or "").strip()
+    if not title:
+        return jsonify({"ok": False, "error": "title is required"}), 400
     content = (request.form.get("content") or "").strip()
     if not content:
         return jsonify({"ok": False, "error": "content is required"}), 400
@@ -94,13 +114,79 @@ def api_create_request(project):
     attachments = [f for f in request.files.getlist("attachments") if f.filename]
 
     if attachments:
-        folder = common.create_request_folder(project, content, ready, attachments)
+        folder = common.create_request_folder(project, title, content, ready, attachments)
         common.log_event(project, "request_created", detail=folder.name)
         return jsonify({"ok": True, "created": folder.name, "kind": "folder"})
 
-    path = common.create_request_file(project, content, ready)
+    path = common.create_request_file(project, title, content, ready)
     common.log_event(project, "request_created", detail=path.name)
     return jsonify({"ok": True, "created": path.name, "kind": "file"})
+
+
+@app.route("/api/requests/<project>/ready", methods=["POST"])
+def api_request_ready(project):
+    if project not in common.list_projects():
+        return jsonify({"ok": False, "error": "unknown project"}), 404
+    data = request.get_json(force=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name is required"}), 400
+    if not common.set_request_ready(project, name):
+        return jsonify({"ok": False, "error": "request not found"}), 404
+    common.log_event(project, "request_marked_ready", detail=name)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/requests/<project>/not-ready", methods=["POST"])
+def api_request_not_ready(project):
+    if project not in common.list_projects():
+        return jsonify({"ok": False, "error": "unknown project"}), 404
+    data = request.get_json(force=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name is required"}), 400
+    if not common.set_request_not_ready(project, name):
+        return jsonify({"ok": False, "error": "request not found"}), 404
+    common.log_event(project, "request_marked_not_ready", detail=name)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/requests/<project>/content")
+def api_request_content(project):
+    if project not in common.list_projects():
+        abort(404)
+    name = request.args.get("name") or ""
+    body = common.read_request_body(project, name)
+    if body is None:
+        return jsonify({"ok": False, "error": "request not found"}), 404
+    return jsonify({"ok": True, "content": body})
+
+
+@app.route("/api/requests/<project>/content", methods=["POST"])
+def api_request_content_save(project):
+    if project not in common.list_projects():
+        return jsonify({"ok": False, "error": "unknown project"}), 404
+    data = request.get_json(force=True) or {}
+    name = (data.get("name") or "").strip()
+    content = data.get("content")
+    if not name or not (content or "").strip():
+        return jsonify({"ok": False, "error": "name and content are required"}), 400
+    if not common.write_request_body(project, name, content):
+        return jsonify({"ok": False, "error": "request not found"}), 404
+    common.log_event(project, "request_edited", detail=name)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/requests/<project>/list")
+def api_requests_list(project):
+    if project not in common.list_projects():
+        abort(404)
+    scheduler = common.load_scheduler_state()
+    active_processing = (
+        scheduler.get("active_project") == project
+        and scheduler.get("phase") == "processing"
+    )
+    return jsonify({"requests": common.list_requests(project, active_processing)})
 
 
 @app.route("/api/console/<project>")
@@ -123,6 +209,82 @@ def api_console_send(project):
     if not common.tmux_send(project, text):
         return jsonify({"ok": False, "error": "no active session for this project"}), 409
     return jsonify({"ok": True})
+
+
+@app.route("/api/archive/<project>")
+def api_archive_list(project):
+    if project not in common.list_projects():
+        abort(404)
+    subpath = request.args.get("path", "")
+    entries = common.list_archive(project, subpath)
+    if entries is None:
+        return jsonify({"entries": [], "found": False})
+    return jsonify({"entries": entries, "found": True})
+
+
+@app.route("/api/archive/<project>/file")
+def api_archive_file(project):
+    if project not in common.list_projects():
+        abort(404)
+    rel_path = request.args.get("path", "")
+    if not rel_path:
+        return jsonify({"error": "path is required"}), 400
+    result = common.read_archive_file(project, rel_path)
+    if result is None:
+        abort(404)
+    return jsonify(result)
+
+
+@app.route("/api/archive/<project>/raw")
+def api_archive_raw(project):
+    if project not in common.list_projects():
+        abort(404)
+    rel_path = request.args.get("path", "")
+    if not rel_path:
+        abort(400)
+    target = common.resolve_archive_file(project, rel_path)
+    if target is None:
+        abort(404)
+    return send_file(target)
+
+
+@app.route("/project/<project>")
+def project_detail(project):
+    if project not in common.list_projects():
+        abort(404)
+    return render_template("project.html", project=project)
+
+
+@app.route("/api/project/<project>/files")
+def api_project_files(project):
+    if project not in common.list_projects():
+        abort(404)
+    proj_dir = common.PROJECTS_DIR / project
+    description = common.find_description_file(project)
+    agent_files = common.list_agent_files(project)
+    return jsonify({
+        "description": (
+            {"path": str(description.relative_to(proj_dir)), "name": description.name}
+            if description else None
+        ),
+        "agent_files": [
+            {"path": str(p.relative_to(proj_dir)), "name": p.name}
+            for p in agent_files
+        ],
+    })
+
+
+@app.route("/api/project/<project>/file")
+def api_project_file(project):
+    if project not in common.list_projects():
+        abort(404)
+    rel_path = request.args.get("path", "")
+    if not rel_path:
+        return jsonify({"error": "path is required"}), 400
+    content = common.read_project_file(project, rel_path)
+    if content is None:
+        abort(404)
+    return jsonify({"content": content})
 
 
 @app.route("/api/log")
@@ -160,6 +322,69 @@ def api_sql_clear(project):
             sql_path.unlink()
         except OSError:
             abort(500)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/status")
+def api_admin_status():
+    return jsonify({
+        "needs_restart": common.dashboard_needs_restart(START_TIME),
+        "scheduler_needs_restart": common.scheduler_needs_restart(),
+        "scheduler_running": _scheduler_pid() is not None,
+    })
+
+
+@app.route("/api/admin/restart", methods=["POST"])
+def api_admin_restart():
+    common.log_event("_BdRAIGUI", "dashboard_restart_requested")
+
+    def _kill_self():
+        # Give the response time to flush before the process dies. SIGKILL
+        # (not SIGTERM) is required -- systemd's Restart=on-failure treats
+        # SIGTERM as an intentional stop and won't relaunch it.
+        time.sleep(0.3)
+        os.kill(os.getpid(), signal.SIGKILL)
+
+    threading.Thread(target=_kill_self, daemon=True).start()
+    return jsonify({"ok": True})
+
+
+def _scheduler_pid():
+    """PID of the running scheduler.py process, or None. The dashboard has
+    no in-process handle on it (separate systemd service), so it's found
+    by matching the command line. Anchored to the end of the line (not
+    just a bare "app/scheduler.py" substring) so a shell command that
+    merely *mentions* that path -- e.g. someone editing/grepping the
+    file -- can't be mistaken for the process itself."""
+    pattern = str(common.APP_DIR / "scheduler.py") + "$"
+    try:
+        out = subprocess.run(
+            ["pgrep", "-f", pattern],
+            capture_output=True, text=True, timeout=5,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in out.splitlines():
+        try:
+            return int(line.strip())
+        except ValueError:
+            continue
+    return None
+
+
+@app.route("/api/admin/restart_scheduler", methods=["POST"])
+def api_admin_restart_scheduler():
+    common.log_event("_BdRAIGUI", "scheduler_restart_requested")
+    pid = _scheduler_pid()
+    if pid is None:
+        return jsonify({"ok": False, "error": "scheduler process not found"}), 404
+    try:
+        # SIGKILL, not SIGTERM -- same reasoning as the dashboard's own
+        # self-restart: systemd's Restart=on-failure only relaunches on a
+        # non-clean exit.
+        os.kill(pid, signal.SIGKILL)
+    except OSError as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
     return jsonify({"ok": True})
 
 

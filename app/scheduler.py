@@ -65,6 +65,35 @@ def tmux_alive(project):
         return False
 
 
+SPAWN_READY_TIMEOUT = 20   # max seconds to wait for Claude Code's input box before giving up
+SPAWN_READY_MARKER = "auto mode on"  # only appears once the input box is live
+
+
+def _wait_until_ready(session, timeout=SPAWN_READY_TIMEOUT):
+    """Poll the pane until Claude Code's input box is actually up.
+
+    A fixed sleep after `tmux new-session` is unreliable -- boot time
+    varies (network hiccups, auto-update checks, first-run trust prompt),
+    and typing into a pane that hasn't switched into raw/interactive mode
+    yet gets silently dropped rather than queued. Wait for a marker that
+    only shows once the box is live instead of guessing a delay.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        out = subprocess.run(
+            ["tmux", "capture-pane", "-t", session, "-p"],
+            capture_output=True, text=True,
+        )
+        pane = out.stdout if out.returncode == 0 else ""
+        if SPAWN_READY_MARKER in pane:
+            return True
+        if "Yes, I trust this folder" in pane:
+            # First-run trust prompt -- default option is already highlighted.
+            subprocess.run(["tmux", "send-keys", "-t", session, "Enter"])
+        time.sleep(0.5)
+    return False
+
+
 def spawn_session(project):
     session = f"{common.TMUX_SESSION_PREFIX}{project}"
     project_dir = common.PROJECTS_DIR / project
@@ -72,7 +101,7 @@ def spawn_session(project):
         "tmux", "new-session", "-d", "-s", session,
         "-c", str(project_dir), common.CLAUDE_LAUNCH_CMD,
     ])
-    time.sleep(2)  # let Claude Code boot before anything is typed into it
+    _wait_until_ready(session)
 
 
 def send_prompt(project):
@@ -152,4 +181,5 @@ def main_loop():
 
 
 if __name__ == "__main__":
+    common.record_scheduler_start()
     main_loop()

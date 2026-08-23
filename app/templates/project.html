@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ project }} — BdRAIGUI</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --card-border: #262b35;
+    --text: #e7e9ee;
+    --text-dim: #8b90a0;
+    --accent: #4f8cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  a.back { color: var(--accent); font-size: 13px; text-decoration: none; }
+  h1 { font-size: 22px; font-weight: 600; margin: 12px 0 4px; }
+  h2 { font-size: 14px; font-weight: 600; margin: 24px 0 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .panel {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .file-list { list-style: none; margin: 0; padding: 0; }
+  .file-list li {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    font-size: 13px; padding: 8px 4px; border-bottom: 1px solid var(--card-border); cursor: pointer;
+  }
+  .file-list li:last-child { border-bottom: none; }
+  .file-list li:hover { background: rgba(255,255,255,0.03); }
+  .file-list li.active { color: var(--accent); }
+  .empty-state { color: var(--text-dim); font-size: 13px; }
+  table.request-list { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.request-list th {
+    text-align: left; color: var(--text-dim); font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 4px 8px;
+  }
+  table.request-list td { padding: 8px 4px; border-top: 1px solid var(--card-border); }
+  table.request-list tr:first-child td { border-top: none; }
+  table.request-list td.req-name { cursor: pointer; }
+  table.request-list td.req-name:hover { color: var(--accent); text-decoration: underline; }
+  table.request-list td.req-name.active { color: var(--accent); }
+  .btn {
+    background: var(--accent); color: #fff; border: none; border-radius: 6px;
+    padding: 6px 12px; font-size: 12px; cursor: pointer;
+  }
+  .btn.secondary { background: transparent; border: 1px solid var(--card-border); color: var(--text); }
+  #req-edit-actions { display: none; margin-top: 8px; gap: 8px; }
+  #req-edit-actions.open { display: flex; }
+  #req-edit-status { font-size: 12px; color: var(--text-dim); align-self: center; }
+  #req-edit-status.error { color: #f87171; }
+  .req-status { font-size: 12px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+  .req-status.ready { color: var(--accent); background: rgba(79,140,255,0.14); }
+  .req-status.processing { color: #4ade80; background: rgba(74,222,128,0.12); }
+  .req-status.waiting { color: #facc15; background: rgba(250,204,21,0.12); }
+  .req-status.not-ready { color: var(--text-dim); background: rgba(255,255,255,0.06); }
+  textarea#file-view {
+    width: 100%; min-height: 400px; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; resize: vertical; margin-top: 10px; display: none;
+  }
+</style>
+</head>
+<body>
+  <a class="back" href="/">&larr; Dashboard</a>
+  <h1>{{ project }}</h1>
+
+  <h2>Requests</h2>
+  <div class="panel" id="requests-panel">
+    <div class="empty-state">Loading&hellip;</div>
+  </div>
+
+  <h2>Description</h2>
+  <div class="panel" id="description-panel">
+    <div class="empty-state">Loading&hellip;</div>
+  </div>
+
+  <h2>Claude agent files</h2>
+  <div class="panel">
+    <ul class="file-list" id="agent-list"><li class="empty-state">Loading&hellip;</li></ul>
+  </div>
+
+  <textarea id="file-view" readonly></textarea>
+  <div id="req-edit-actions">
+    <button class="btn" id="req-edit-save" onclick="saveRequestEdit()">Save</button>
+    <button class="btn secondary" onclick="cancelRequestEdit()">Cancel</button>
+    <span id="req-edit-status"></span>
+  </div>
+
+<script>
+const project = {{ project | tojson }};
+
+async function load() {
+  const res = await fetch(`/api/project/${encodeURIComponent(project)}/files`);
+  const data = await res.json();
+  renderDescription(data.description);
+  renderAgentFiles(data.agent_files);
+
+  const reqRes = await fetch(`/api/requests/${encodeURIComponent(project)}/list`);
+  const reqData = await reqRes.json();
+  renderRequests(reqData.requests);
+}
+
+function renderRequests(items) {
+  const panel = document.getElementById('requests-panel');
+  if (!items || items.length === 0) {
+    panel.innerHTML = '<div class="empty-state">No outstanding requests.</div>';
+    return;
+  }
+  const statusClass = {
+    'Ready': 'ready', 'Processing': 'processing',
+    'Waiting Response': 'waiting', 'Not Ready': 'not-ready',
+  };
+  const rows = items.map(r => `
+    <tr>
+      <td class="req-name" onclick="editRequest('${r.name.replace(/'/g, "\\'")}', this)">${escapeHtml(r.title)}</td>
+      <td><span class="req-status ${statusClass[r.status] || 'not-ready'}">${escapeHtml(r.status)}</span></td>
+    </tr>
+  `).join('');
+  panel.innerHTML = `<table class="request-list"><thead><tr><th>Title</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderDescription(description) {
+  const panel = document.getElementById('description-panel');
+  if (!description) {
+    panel.innerHTML = '<div class="empty-state">No Description.md found for this project.</div>';
+    return;
+  }
+  panel.innerHTML = `<ul class="file-list"><li onclick="viewFile('${description.path.replace(/'/g, "\\'")}', this)">
+    <span>${escapeHtml(description.name)}</span></li></ul>`;
+}
+
+function renderAgentFiles(files) {
+  const list = document.getElementById('agent-list');
+  if (!files || files.length === 0) {
+    list.innerHTML = '<li class="empty-state">No CLAUDE.md or .claude/agents/*.md files found.</li>';
+    return;
+  }
+  list.innerHTML = files.map(f => `
+    <li onclick="viewFile('${f.path.replace(/'/g, "\\'")}', this)">
+      <span>${escapeHtml(f.path)}</span>
+    </li>
+  `).join('');
+}
+
+async function viewFile(path, el) {
+  cancelRequestEdit();
+  document.querySelectorAll('.file-list li').forEach(li => li.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const view = document.getElementById('file-view');
+  view.readOnly = true;
+  view.style.display = 'block';
+  view.value = 'Loading…';
+  const res = await fetch(`/api/project/${encodeURIComponent(project)}/file?path=${encodeURIComponent(path)}`);
+  if (!res.ok) {
+    view.value = 'Failed to load file.';
+    return;
+  }
+  const data = await res.json();
+  view.value = data.content || '';
+}
+
+let currentEditRequestName = null;
+
+async function editRequest(name, el) {
+  document.querySelectorAll('.file-list li').forEach(li => li.classList.remove('active'));
+  document.querySelectorAll('table.request-list td.req-name').forEach(td => td.classList.remove('active'));
+  if (el) el.classList.add('active');
+  currentEditRequestName = name;
+  const view = document.getElementById('file-view');
+  const actions = document.getElementById('req-edit-actions');
+  const status = document.getElementById('req-edit-status');
+  view.style.display = 'block';
+  view.readOnly = false;
+  view.value = 'Loading…';
+  actions.classList.add('open');
+  status.textContent = '';
+  status.className = '';
+  const res = await fetch(`/api/requests/${encodeURIComponent(project)}/content?name=${encodeURIComponent(name)}`);
+  if (!res.ok) {
+    view.value = '';
+    status.textContent = 'Failed to load request.';
+    status.className = 'error';
+    return;
+  }
+  const data = await res.json();
+  view.value = data.content || '';
+}
+
+async function saveRequestEdit() {
+  const status = document.getElementById('req-edit-status');
+  const content = document.getElementById('file-view').value;
+  if (!content.trim()) {
+    status.textContent = 'Content is required.';
+    status.className = 'error';
+    return;
+  }
+  const btn = document.getElementById('req-edit-save');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(project)}/content`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: currentEditRequestName, content }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      status.textContent = data.error || 'Failed to save.';
+      status.className = 'error';
+      btn.disabled = false;
+      return;
+    }
+  } catch (e) {
+    status.textContent = 'Failed to save.';
+    status.className = 'error';
+    btn.disabled = false;
+    return;
+  }
+  btn.disabled = false;
+  status.textContent = 'Saved.';
+  status.className = '';
+  load();
+}
+
+function cancelRequestEdit() {
+  if (!currentEditRequestName) return;
+  currentEditRequestName = null;
+  document.getElementById('req-edit-actions').classList.remove('open');
+  document.getElementById('file-view').style.display = 'none';
+  document.getElementById('file-view').readOnly = true;
+  document.querySelectorAll('table.request-list td.req-name').forEach(td => td.classList.remove('active'));
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+load();
+</script>
+</body>
+</html>
