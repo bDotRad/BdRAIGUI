@@ -737,10 +737,11 @@ function renderLog(entries) {
     // Pin display to Brad's actual timezone rather than letting this convert
     // to whatever timezone the *viewing device* is set to (phone, tablet,
     // etc, over Tailscale) -- that produced a garbage multi-hour offset when
-    // a device's timezone was wrong. Previously pinned to bare 'UTC', which
-    // matched Brad's wall-clock time in winter (GMT) but drifted an hour off
-    // once BST (DST) kicked in -- Europe/London tracks both correctly.
-    const timeStr = isNaN(t) ? '' : t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'});
+    // a device's timezone was wrong. Previously pinned to bare 'UTC', then to
+    // 'Europe/London' -- both drifted once Brad's actual location/DST no
+    // longer matched. Now Brisbane (AEST, +10 year-round, no DST) so it
+    // won't drift again in October when other AU states shift to AEDT.
+    const timeStr = isNaN(t) ? '' : t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', timeZone: 'Australia/Brisbane'});
     return `
       <li>
         <span class="log-time">${timeStr}</span>
