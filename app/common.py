@@ -352,6 +352,28 @@ def create_request_folder(project, title, content, ready, attachments):
     return folder
 
 
+_REQUEST_STATUS_SORT = {"Waiting Response": 0, "Processing": 1, "Ready": 2, "Not Ready": 3}
+QUESTION_EXCERPT_LENGTH = 280
+
+
+def _question_excerpt(target):
+    """Body text of a request's .md file (marker line + blank line stripped),
+    truncated for display. Used to surface *what* a Waiting Response item is
+    actually blocked on, without opening the file."""
+    if target is None:
+        return None
+    try:
+        text = target.read_text(errors="replace")
+    except OSError:
+        return None
+    body = text.split("\n", 1)[1].strip() if "\n" in text else ""
+    if not body:
+        return None
+    if len(body) > QUESTION_EXCERPT_LENGTH:
+        body = body[:QUESTION_EXCERPT_LENGTH].rstrip() + "…"
+    return body
+
+
 def list_requests(project, active_processing=False):
     """List a project's outstanding _Requests/ items with title + display status.
 
@@ -360,13 +382,17 @@ def list_requests(project, active_processing=False):
     active project and mid-pass (phase == "processing") -- while that's
     true, READY items show as "Processing" rather than "Ready", since
     they're what's actively being worked through right now.
+
+    Sorted with Waiting Response items first (they need a human to look at
+    them; everything else the scheduler already has in hand), then
+    Processing, Ready, Not Ready -- alphabetically by title within each.
     """
     req_dir = PROJECTS_DIR / project / REQUESTS_SUBDIR
     if not req_dir.exists():
         return []
 
     items = []
-    for item in sorted(req_dir.iterdir(), key=lambda p: p.name.lower()):
+    for item in req_dir.iterdir():
         name = item.name
         if not _is_request_entry(name):
             continue
@@ -378,12 +404,18 @@ def list_requests(project, active_processing=False):
         else:
             status = "Not Ready"
         stem = item.stem if item.is_file() else item.name
-        items.append({
+        title = request_title(stem)
+        entry = {
             "name": name,
-            "title": request_title(stem),
+            "title": title,
             "status": status,
             "is_folder": item.is_dir(),
-        })
+        }
+        if status == "Waiting Response":
+            entry["question"] = _question_excerpt(_resolve_request_target(project, name))
+        items.append(entry)
+
+    items.sort(key=lambda e: (_REQUEST_STATUS_SORT.get(e["status"], 9), e["title"].lower()))
     return items
 
 

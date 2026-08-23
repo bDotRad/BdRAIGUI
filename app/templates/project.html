@@ -70,6 +70,11 @@
   .req-status.processing { color: #4ade80; background: rgba(74,222,128,0.12); }
   .req-status.waiting { color: #facc15; background: rgba(250,204,21,0.12); }
   .req-status.not-ready { color: var(--text-dim); background: rgba(255,255,255,0.06); }
+  tr.waiting-row { background: rgba(250,204,21,0.08); }
+  .req-question {
+    font-size: 12px; color: var(--text-dim); line-height: 1.4;
+    border-left: 2px solid #facc15; padding: 4px 0 6px 10px !important;
+  }
   textarea#file-view {
     width: 100%; min-height: 400px; background: #0b0d11; color: var(--text);
     border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
@@ -138,11 +143,12 @@ function renderRequests(items) {
     'Waiting Response': 'waiting', 'Not Ready': 'not-ready',
   };
   const rows = items.map(r => `
-    <tr>
+    <tr class="${r.status === 'Waiting Response' ? 'waiting-row' : ''}">
       <td class="req-name" onclick="editRequest('${r.name.replace(/'/g, "\\'")}', this)">${escapeHtml(r.title)}</td>
       <td><span class="req-status ${statusClass[r.status] || 'not-ready'}">${escapeHtml(r.status)}</span></td>
       <td><button class="btn secondary tiny" onclick="shelveRequest('${r.name.replace(/'/g, "\\'")}')">Shelve</button></td>
     </tr>
+    ${r.question ? `<tr class="waiting-row"><td colspan="3" class="req-question">${escapeHtml(r.question)}</td></tr>` : ''}
   `).join('');
   panel.innerHTML = `<table class="request-list"><thead><tr><th>Title</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
