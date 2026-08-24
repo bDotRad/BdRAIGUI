@@ -762,6 +762,26 @@ def tmux_alive(project):
         return False
 
 
+_CLI_RULE_RE = re.compile(r"^\s*─{10,}\s*$")
+
+
+def _strip_cli_chrome(content, tail_window=20):
+    """Drop Claude Code's fixed bottom UI (input box, mode line, agent list).
+
+    That chrome is redrawn in place every frame using a pair of Unicode
+    box-drawing rules (─) around the input box, so its top rule is a
+    reliable marker for "everything below here is static, not transcript".
+    Only match within the last `tail_window` lines so a `---`-style rule
+    that's part of real scrollback content isn't mistaken for it.
+    """
+    lines = content.splitlines()
+    start = max(0, len(lines) - tail_window)
+    for i in range(start, len(lines)):
+        if _CLI_RULE_RE.match(lines[i]):
+            return "\n".join(lines[:i]).rstrip("\n") + "\n"
+    return content
+
+
 def tmux_capture(project, lines=300):
     """Snapshot of the project's tmux pane, or None if no session is running."""
     if not tmux_alive(project):
@@ -773,7 +793,7 @@ def tmux_capture(project, lines=300):
         )
         if out.returncode != 0:
             return None
-        return out.stdout
+        return _strip_cli_chrome(out.stdout)
     except (subprocess.TimeoutExpired, OSError):
         return None
 
