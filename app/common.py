@@ -526,8 +526,15 @@ def set_request_ready(project, name):
     return True
 
 
-def set_request_not_ready(project, name):
+def set_request_not_ready(project, name, console_snapshot=None):
     """Flip one _Requests/ item's marker line to NOT READY, in place.
+
+    A request usually gets pulled back to NOT READY while its session is
+    still live and mid-thought -- pass that session's current console
+    content as `console_snapshot` (see tmux_capture()) and it's appended to
+    the request body under a dated header before the flip, instead of being
+    lost the moment the tmux pane moves on. Whatever's in there next time
+    the request is reopened is then still around to read.
     Returns True if a marker was flipped.
     """
     target = _resolve_request_target(project, name)
@@ -538,6 +545,13 @@ def set_request_not_ready(project, name):
     except OSError:
         return False
     _, _, rest = text.partition("\n")
+    if console_snapshot and console_snapshot.strip():
+        stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        rest = (
+            rest.rstrip("\n")
+            + f"\n\n---\n\nConsole snapshot when marked Not Ready ({stamp}):\n\n"
+            + f"```\n{console_snapshot.rstrip()}\n```\n"
+        )
     try:
         target.write_text("NOT READY\n" + rest)
     except OSError:

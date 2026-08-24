@@ -145,7 +145,8 @@ def api_request_not_ready(project):
     name = (data.get("name") or "").strip()
     if not name:
         return jsonify({"ok": False, "error": "name is required"}), 400
-    if not common.set_request_not_ready(project, name):
+    snapshot = common.tmux_capture(project) if common.tmux_alive(project) else None
+    if not common.set_request_not_ready(project, name, console_snapshot=snapshot):
         return jsonify({"ok": False, "error": "request not found"}), 404
     common.log_event(project, "request_marked_not_ready", detail=name)
     return jsonify({"ok": True})
