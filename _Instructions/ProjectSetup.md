@@ -17,7 +17,11 @@ these conventions exist.
   what the project *is* and what it's for. Distinct from `CLAUDE.md` --
   see `_Requests/_Archive/260824_1712_CreateDescription.md` for why
   these were split apart. The dashboard's Description panel
-  (`find_description_file()`) reads this file specifically.
+  (`find_description_file()`) reads this file specifically. This is
+  also where any human-side context belongs (who the project's for,
+  who to contact, ownership notes) if a project ever needs it -- there's
+  no separate "human agent" file mirroring `.claude/agents/`; see
+  `_Requests/_Archive/260825_*_rDoco.md` for why.
 - **`.claude/agents/<agent-slug>/<agent-slug>.md`** — one folder per
   subagent, each holding a single Claude Code subagent-format `.md`
   (YAML frontmatter with `name`, `description`, `tools`, then the
