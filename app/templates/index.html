@@ -1413,8 +1413,17 @@ document.getElementById('sql-overlay').addEventListener('click', (e) => {
 
 document.getElementById('req-close').addEventListener('click', closeRequest);
 document.getElementById('req-submit').addEventListener('click', submitRequest);
+// Track whether the mousedown that started this click also landed on the
+// backdrop itself -- dragging the textarea's resize handle past the modal
+// edge releases the mouse over the backdrop, which the browser treats as a
+// click on it (the nearest common ancestor of the down/up targets), and
+// without this guard that closed the modal and discarded whatever was typed.
+let reqOverlayMousedownOnSelf = false;
+document.getElementById('req-overlay').addEventListener('mousedown', (e) => {
+  reqOverlayMousedownOnSelf = (e.target.id === 'req-overlay');
+});
 document.getElementById('req-overlay').addEventListener('click', (e) => {
-  if (e.target.id === 'req-overlay') closeRequest();
+  if (e.target.id === 'req-overlay' && reqOverlayMousedownOnSelf) closeRequest();
 });
 
 // Paste anywhere in the modal (title, content, or the dropzone itself) --
