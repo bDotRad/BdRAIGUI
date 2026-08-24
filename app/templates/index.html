@@ -390,6 +390,52 @@
     flex: 1; max-width: 100%; max-height: 100%; object-fit: contain;
     border: 1px solid var(--card-border); border-radius: 6px; background: #0b0d11;
   }
+
+  /* Waiting Input modal */
+  #waiting-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    align-items: center; justify-content: center; padding: 24px; z-index: 10;
+  }
+  #waiting-overlay.open { display: flex; }
+  #waiting-modal {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+    width: 100%; max-width: 1100px; max-height: 85vh; display: flex; flex-direction: column;
+    padding: 18px;
+  }
+  #waiting-modal h3 { margin: 0 0 4px; font-size: 15px; }
+  #waiting-meta { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+  #waiting-body { display: flex; flex: 1; gap: 14px; min-height: 320px; overflow: hidden; }
+  #waiting-list {
+    list-style: none; margin: 0; padding: 0; overflow-y: auto; overflow-x: hidden;
+    flex: 0 0 320px; min-width: 240px; border-right: 1px solid var(--card-border);
+  }
+  #waiting-list li {
+    font-size: 13px; padding: 8px 8px; border-bottom: 1px solid var(--card-border); cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #waiting-list li:hover { background: rgba(255,255,255,0.03); }
+  #waiting-list li:last-child { border-bottom: none; }
+  #waiting-list li.active { color: var(--accent); }
+  #waiting-edit-pane {
+    display: flex; flex: 1; flex-direction: column; overflow: hidden;
+    align-items: center; justify-content: center;
+  }
+  #waiting-edit-placeholder { color: var(--text-dim); font-size: 13px; }
+  #waiting-edit-wrap { display: none; flex: 1; flex-direction: column; width: 100%; overflow: hidden; }
+  #waiting-question {
+    font-size: 12px; color: var(--text-dim); line-height: 1.4; margin-bottom: 8px;
+    border-left: 2px solid var(--waiting); padding-left: 8px; flex-shrink: 0;
+    max-height: 90px; overflow-y: auto;
+  }
+  #waiting-edit-content {
+    flex: 1; min-height: 200px; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; resize: none;
+  }
+  #waiting-edit-status { font-size: 12px; color: var(--text-dim); margin-top: 8px; min-height: 16px; }
+  #waiting-edit-status.error { color: #f87171; }
+  #waiting-edit-status.ok { color: var(--processing); }
 </style>
 </head>
 <body>
@@ -536,6 +582,29 @@
     </div>
   </div>
 
+  <div id="waiting-overlay">
+    <div id="waiting-modal">
+      <h3 id="waiting-title">Waiting Input</h3>
+      <div id="waiting-meta">Requests waiting on your answer. Pick one, edit it, then save and mark it ready.</div>
+      <div id="waiting-body">
+        <ul id="waiting-list"></ul>
+        <div id="waiting-edit-pane">
+          <div id="waiting-edit-placeholder">Select a request to view its question and respond.</div>
+          <div id="waiting-edit-wrap">
+            <div id="waiting-question"></div>
+            <textarea id="waiting-edit-content"></textarea>
+            <div id="waiting-edit-status"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn secondary" id="waiting-close">Close</button>
+        <button class="btn secondary" id="waiting-save">Save</button>
+        <button class="btn" id="waiting-mark-ready">Save &amp; Mark Ready</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const PHASE_COLORS = {
   processing: 'var(--processing)',
@@ -619,7 +688,8 @@ function cardHtml(p) {
       <div class="card-foot">
         <a class="btn link" href="/project/${encodeURIComponent(p.name)}">Files</a>
         <button class="btn link" onclick="openArchive('${p.name}')">Archive</button>
-        <button class="btn link ${hasWaiting ? 'flash' : ''}" onclick="openConsole('${p.name}')">Console</button>
+        <button class="btn link ${hasWaiting ? 'flash' : ''}" onclick="openWaitingInput('${p.name}')">Waiting Input</button>
+        <button class="btn link" onclick="openConsole('${p.name}')">Console</button>
         <button class="btn link" onclick="openRequest('${p.name}')">+ Request</button>
       </div>
       ${renderCardRequests(p.name, p.requests)}
@@ -1139,6 +1209,155 @@ async function viewArchiveFile(path) {
   }
   textarea.value = data.text ? data.content : '(binary file — not previewable here)';
 }
+
+let currentWaitingProject = null;
+let currentWaitingList = [];
+let currentWaitingName = null;
+
+function openWaitingInput(project) {
+  currentWaitingProject = project;
+  currentWaitingName = null;
+  document.getElementById('waiting-title').textContent = `Waiting Input — ${project}`;
+  document.getElementById('waiting-overlay').classList.add('open');
+  showWaitingPlaceholder();
+  loadWaitingList();
+}
+
+function closeWaitingInput() {
+  document.getElementById('waiting-overlay').classList.remove('open');
+  currentWaitingProject = null;
+  currentWaitingName = null;
+}
+
+function showWaitingPlaceholder() {
+  document.getElementById('waiting-edit-wrap').style.display = 'none';
+  document.getElementById('waiting-edit-placeholder').style.display = 'block';
+}
+
+async function loadWaitingList() {
+  if (!currentWaitingProject) return;
+  const list = document.getElementById('waiting-list');
+  list.innerHTML = '<li>Loading…</li>';
+  let items = [];
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(currentWaitingProject)}/list`);
+    const data = await res.json();
+    items = (data.requests || []).filter(r => r.status === 'Waiting Response');
+  } catch (e) {
+    list.innerHTML = '<li>Failed to load requests.</li>';
+    return;
+  }
+  currentWaitingList = items;
+  if (items.length === 0) {
+    list.innerHTML = '<li>Nothing waiting on you right now.</li>';
+    currentWaitingName = null;
+    showWaitingPlaceholder();
+    return;
+  }
+  if (currentWaitingName && !items.some(r => r.name === currentWaitingName)) {
+    currentWaitingName = null;
+    showWaitingPlaceholder();
+  }
+  list.innerHTML = items.map(r => `
+    <li class="${r.name === currentWaitingName ? 'active' : ''}" data-name="${escapeHtml(r.name)}"
+        onclick="selectWaitingRequest('${jsStr(r.name)}')">${escapeHtml(r.title)}</li>
+  `).join('');
+}
+
+async function selectWaitingRequest(name) {
+  currentWaitingName = name;
+  document.querySelectorAll('#waiting-list li').forEach(li => {
+    li.classList.toggle('active', li.dataset.name === name);
+  });
+  const item = currentWaitingList.find(r => r.name === name);
+  document.getElementById('waiting-edit-placeholder').style.display = 'none';
+  document.getElementById('waiting-edit-wrap').style.display = 'flex';
+  document.getElementById('waiting-question').textContent = (item && item.question) || '';
+  const content = document.getElementById('waiting-edit-content');
+  const status = document.getElementById('waiting-edit-status');
+  content.value = 'Loading…';
+  status.textContent = '';
+  status.className = '';
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(currentWaitingProject)}/content?name=${encodeURIComponent(name)}`);
+    const data = await res.json();
+    if (!res.ok) {
+      content.value = '';
+      status.textContent = data.error || 'Failed to load request.';
+      status.className = 'error';
+      return;
+    }
+    content.value = data.content || '';
+  } catch (e) {
+    content.value = '';
+    status.textContent = 'Failed to load request.';
+    status.className = 'error';
+  }
+}
+
+async function saveWaitingContent(markReady) {
+  if (!currentWaitingProject || !currentWaitingName) return;
+  const status = document.getElementById('waiting-edit-status');
+  const content = document.getElementById('waiting-edit-content').value;
+  if (!content.trim()) {
+    status.textContent = 'Content is required.';
+    status.className = 'error';
+    return;
+  }
+  status.textContent = 'Saving…';
+  status.className = '';
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(currentWaitingProject)}/content`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: currentWaitingName, content }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      status.textContent = data.error || 'Failed to save.';
+      status.className = 'error';
+      return;
+    }
+  } catch (e) {
+    status.textContent = 'Failed to save.';
+    status.className = 'error';
+    return;
+  }
+  if (!markReady) {
+    status.textContent = 'Saved.';
+    status.className = 'ok';
+    return;
+  }
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(currentWaitingProject)}/ready`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: currentWaitingName }),
+    });
+    if (!res.ok) {
+      status.textContent = 'Saved, but failed to mark ready.';
+      status.className = 'error';
+      return;
+    }
+  } catch (e) {
+    status.textContent = 'Saved, but failed to mark ready.';
+    status.className = 'error';
+    return;
+  }
+  status.textContent = 'Saved and marked ready.';
+  status.className = 'ok';
+  currentWaitingName = null;
+  showWaitingPlaceholder();
+  loadWaitingList();
+  loadStatus();
+}
+
+document.getElementById('waiting-close').addEventListener('click', closeWaitingInput);
+document.getElementById('waiting-save').addEventListener('click', () => saveWaitingContent(false));
+document.getElementById('waiting-mark-ready').addEventListener('click', () => saveWaitingContent(true));
+document.getElementById('waiting-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'waiting-overlay') closeWaitingInput();
+});
 
 function escapeHtml(str) {
   const div = document.createElement('div');
