@@ -326,9 +326,11 @@
     flex: 1; min-height: 600px; background: #0b0d11; color: var(--text);
     border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px; line-height: 1.4; white-space: pre-wrap; word-break: break-word;
+    font-size: 12px; line-height: 1.4;
     overflow-y: auto;
+    display: flex; flex-direction: column; justify-content: flex-end;
   }
+  #console-pane-text { white-space: pre-wrap; word-break: break-word; }
   #console-reply {
     display: flex; gap: 8px; margin-top: 10px;
   }
@@ -553,7 +555,7 @@
     <div id="console-modal">
       <h3 id="console-title">Console</h3>
       <div id="console-meta">Snapshot of the Claude Code session for this project. Only fetched while this is open.</div>
-      <div id="console-pane"></div>
+      <div id="console-pane"><div id="console-pane-text"></div></div>
       <div id="console-reply">
         <input type="text" id="console-input" placeholder="Reply into the session (e.g. answer a question it asked)…">
         <button class="btn" id="console-send">Send</button>
@@ -1066,7 +1068,7 @@ function openConsole(project) {
   currentConsoleProject = project;
   const title = project === INDEPENDENT_SESSION ? 'Independent Claude' : `Console — ${project}`;
   document.getElementById('console-title').textContent = title;
-  document.getElementById('console-pane').textContent = 'Loading…';
+  document.getElementById('console-pane-text').textContent = 'Loading…';
   document.getElementById('console-input').value = '';
   setConsoleStatus('');
   document.getElementById('console-overlay').classList.add('open');
@@ -1098,13 +1100,14 @@ async function refreshConsole() {
     const data = await res.json();
     if (project !== currentConsoleProject) return; // modal was closed/switched mid-fetch
     const pane = document.getElementById('console-pane');
+    const paneText = document.getElementById('console-pane-text');
     if (!data.alive) {
-      pane.textContent = 'No active session for this project right now (hibernating or not yet woken).';
+      paneText.textContent = 'No active session for this project right now (hibernating or not yet woken).';
       setConsoleStatus('');
       return;
     }
     const wasAtBottom = pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 20;
-    pane.textContent = data.content || '';
+    paneText.textContent = data.content || '';
     if (wasAtBottom) pane.scrollTop = pane.scrollHeight;
   } catch (e) {
     setConsoleStatus('Failed to load console output.', 'error');
