@@ -50,19 +50,30 @@ def help_page():
 def api_status():
     scheduler = common.load_scheduler_state()
     selected = set(common.load_selected())
-    active_project = scheduler.get("active_project")
+    # active_projects is the current schema (scheduler can run more than one
+    # project at once); fall back to the older single-project fields in case
+    # this ever reads a state file written by a pre-concurrency scheduler.
+    active_projects = scheduler.get("active_projects")
+    if active_projects is None:
+        legacy_active = scheduler.get("active_project")
+        active_projects = (
+            [{"project": legacy_active, "phase": scheduler.get("phase"), "pending": scheduler.get("pending")}]
+            if legacy_active else []
+        )
+    active_by_name = {a["project"]: a for a in active_projects}
 
     projects = []
     for name in common.list_projects():
         status = common.read_status(name)
         ready, total = common.scan_requests(name)
         sql_path = common.find_sql_output(name)
-        active_processing = active_project == name and scheduler.get("phase") == "processing"
+        active_info = active_by_name.get(name)
+        active_processing = active_info is not None and active_info.get("phase") == "processing"
         projects.append({
             "name": name,
             "in_rotation": name in selected,
-            "is_active": active_project == name,
-            "phase": scheduler.get("phase") if active_project == name else None,
+            "is_active": active_info is not None,
+            "phase": active_info.get("phase") if active_info else None,
             "current_task": status.get("current_task"),
             "last_active_relative": common.relative_time(status.get("last_active")),
             "pending_requests": ready,
@@ -74,8 +85,10 @@ def api_status():
         })
 
     return jsonify({
-        "active_project": active_project,
-        "phase": scheduler.get("phase"),
+        "active_projects": [a["project"] for a in active_projects],
+        # First active project, kept for older clients reading a single field.
+        "active_project": active_projects[0]["project"] if active_projects else None,
+        "phase": active_projects[0]["phase"] if active_projects else scheduler.get("phase"),
         "scheduler_last_update": scheduler.get("last_update"),
         "projects": projects,
     })
@@ -232,16 +245,26 @@ def api_requests_list(project):
     if project not in common.list_projects():
         abort(404)
     scheduler = common.load_scheduler_state()
-    active_processing = (
-        scheduler.get("active_project") == project
-        and scheduler.get("phase") == "processing"
+    active_projects = scheduler.get("active_projects")
+    if active_projects is None:
+        legacy_active = scheduler.get("active_project")
+        active_projects = (
+            [{"project": legacy_active, "phase": scheduler.get("phase")}] if legacy_active else []
+        )
+    active_processing = any(
+        a["project"] == project and a.get("phase") == "processing"
+        for a in active_projects
     )
     return jsonify({"requests": common.list_requests(project, active_processing)})
 
 
+def _is_console_target(project):
+    return project == common.INDEPENDENT_SESSION or project in common.list_projects()
+
+
 @app.route("/api/console/<project>")
 def api_console(project):
-    if project not in common.list_projects():
+    if not _is_console_target(project):
         abort(404)
     alive = common.tmux_alive(project)
     content = common.tmux_capture(project) if alive else None
@@ -250,7 +273,7 @@ def api_console(project):
 
 @app.route("/api/console/<project>/send", methods=["POST"])
 def api_console_send(project):
-    if project not in common.list_projects():
+    if not _is_console_target(project):
         return jsonify({"ok": False, "error": "unknown project"}), 404
     data = request.get_json(force=True) or {}
     text = (data.get("text") or "").strip()

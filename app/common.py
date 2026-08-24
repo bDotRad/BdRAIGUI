@@ -59,6 +59,15 @@ DESCRIPTION_FILENAMES = ("Description.md", "description.md")
 TMUX_SESSION_PREFIX = "proj-"
 CLAUDE_LAUNCH_CMD = os.environ.get("CLAUDE_LAUNCH_CMD") or shutil.which("claude") or "claude"
 
+# A permanent, always-on Claude Code session the scheduler keeps alive
+# separately from the project rotation -- runs from PROJECTS_DIR itself
+# (not any single project's directory), for checking whether other
+# projects' sessions are stuck and running general cross-project commands.
+# Reuses the same tmux-session/console-popup machinery as a real project
+# (tmux_alive/tmux_capture/tmux_send, api_console/api_console/send) by
+# treating this name as a pseudo-project everywhere except list_projects().
+INDEPENDENT_SESSION = "_IndependentClaude"
+
 
 # ---- Project listing / rotation selection -----------------------------------
 

@@ -4,7 +4,10 @@ Claude Code round-robin scheduler.
 
 Runs continuously, independent of the dashboard web app. Cycles through
 whichever projects are currently selected (state/selected_projects.json,
-written by the dashboard) and, for each:
+written by the dashboard) and keeps up to MAX_CONCURRENT of them active at
+once (each in its own tmux/Claude Code session) so one project stuck
+waiting on a human response doesn't block every other selected project
+from being picked up. For each active project:
 
   1. Check its _Requests/ folder for READY items (cheap -- just a
      directory listing + first-line reads, no Claude session needed for
@@ -15,8 +18,8 @@ written by the dashboard) and, for each:
      process the requests, then loop back and check again shortly after.
   3. If empty: wait EMPTY_GRACE_SECONDS and check once more.
   4. If still empty on that second check: hibernate the session (kill
-     the tmux session to free RAM) and move to the next selected
-     project.
+     the tmux session to free RAM) and free the slot for the next
+     selected project with pending work.
   5. If nothing was ever running for this project, just move on straight
      away -- no point spawning Claude just to confirm there's nothing to
      do.
@@ -37,21 +40,41 @@ from datetime import datetime, timezone
 
 import common
 
+MAX_CONCURRENT = 2             # how many projects can have an active Claude Code session at once
 EMPTY_GRACE_SECONDS = 30       # wait this long after first empty scan before rechecking
-POLL_WHILE_PROCESSING = 5      # how long to wait between rechecks while there's work
-IDLE_POOL_SLEEP = 5            # how long to sleep if no projects are selected at all
-BETWEEN_PROJECT_PAUSE = 2      # brief pause when moving on from an already-quiet project
+POLL_TICK_SECONDS = 5          # how often the main loop re-scans all active projects
+IDLE_POOL_SLEEP = 5            # how long to sleep if no projects are selected (or none have work)
+
+# Claude Code's TUI runs on tmux's alternate screen, which tmux never adds to
+# scrollback history -- capture-pane can only ever return what's currently
+# drawn on screen, however many lines that is. Left at tmux's default 80x24,
+# a console-tab snapshot is capped at 24 lines no matter how much has scrolled
+# by, which looked like output getting silently cut off with no way to page
+# back to it. Sizing the pane itself larger means each snapshot actually
+# contains that much real recent history.
+SESSION_COLS = 150
+SESSION_ROWS = 70
 
 SCAN_PROMPT = "Check the requests folder for new or updated files and process them now."
 
 
-def write_state(active_project, phase, pending=None, pool=None):
+def write_state(active, pool):
+    """active: dict of project name -> {"phase": ..., "pending": ...}."""
+    active_list = [
+        {"project": name, "phase": info["phase"], "pending": info["pending"]}
+        for name, info in active.items()
+    ]
+    primary = active_list[0] if active_list else None
     common.SCHEDULER_STATE_FILE.write_text(
         json.dumps({
-            "active_project": active_project,
-            "phase": phase,
-            "pending": pending,
-            "rotation_pool": pool if pool is not None else common.load_selected(),
+            "active_projects": active_list,
+            # Kept for backward compatibility with anything still reading the
+            # old single-project fields (e.g. an older dashboard build) --
+            # reflects the first active project only.
+            "active_project": primary["project"] if primary else None,
+            "phase": primary["phase"] if primary else "idle",
+            "pending": primary["pending"] if primary else None,
+            "rotation_pool": pool,
             "last_update": datetime.now(timezone.utc).isoformat(),
         }, indent=2)
     )
@@ -99,7 +122,28 @@ def spawn_session(project):
     project_dir = common.PROJECTS_DIR / project
     subprocess.run([
         "tmux", "new-session", "-d", "-s", session,
+        "-x", str(SESSION_COLS), "-y", str(SESSION_ROWS),
         "-c", str(project_dir), common.CLAUDE_LAUNCH_CMD,
+    ])
+    _wait_until_ready(session)
+
+
+def ensure_independent_session():
+    """Keep the always-on Independent Claude session alive.
+
+    Unlike a normal project session, this one runs from PROJECTS_DIR
+    itself (not a project's own directory), is never nudged with the
+    scan-requests prompt, and is never hibernated for being idle -- it
+    sits ready for the dashboard's Independent Claude tab to send it
+    questions directly (via /api/console/<name>/send -> tmux_send).
+    """
+    session = f"{common.TMUX_SESSION_PREFIX}{common.INDEPENDENT_SESSION}"
+    if tmux_alive(common.INDEPENDENT_SESSION):
+        return
+    subprocess.run([
+        "tmux", "new-session", "-d", "-s", session,
+        "-x", str(SESSION_COLS), "-y", str(SESSION_ROWS),
+        "-c", str(common.PROJECTS_DIR), common.CLAUDE_LAUNCH_CMD,
     ])
     _wait_until_ready(session)
 
@@ -121,63 +165,114 @@ def hibernate(project):
     subprocess.run(["tmux", "kill-session", "-t", session], capture_output=True)
 
 
-def main_loop():
-    idx = 0
-    last_seen_pending = {}  # project -> last pending count we logged, for edge-triggered logging
-    prompted = {}  # project -> pending count we last sent a prompt for (avoid re-nagging a busy session)
-
-    while True:
-        pool = common.load_selected()
-
-        if not pool:
-            write_state(active_project=None, phase="idle", pool=[])
-            time.sleep(IDLE_POOL_SLEEP)
-            continue
-
-        idx %= len(pool)
+def pick_next_candidate(pool, active, start_idx, last_seen_pending):
+    """Scan the pool once, starting at start_idx, for a project that isn't
+    already active and has pending work. Returns (project_or_None, next_idx)
+    -- next_idx is where the following search should resume from, so
+    projects get a fair round-robin turn instead of the same early project
+    always winning a freed slot.
+    """
+    n = len(pool)
+    for offset in range(n):
+        idx = (start_idx + offset) % n
         project = pool[idx]
-
+        if project in active:
+            continue
         pending = common.pending_count(project)
         if pending != last_seen_pending.get(project):
             if pending > 0:
                 common.log_event(project, "requests_ready", {"pending": pending})
             last_seen_pending[project] = pending
-
         if pending > 0:
-            just_spawned = False
-            if not tmux_alive(project):
-                write_state(active_project=project, phase="waking", pending=pending, pool=pool)
-                common.log_event(project, "session_waking", {"pending": pending})
-                spawn_session(project)
-                just_spawned = True
-            write_state(active_project=project, phase="processing", pending=pending, pool=pool)
-            # Only nudge once per wake, and again if *more* items showed up
-            # since the last nudge -- not on every poll tick. Claude Code
-            # may still be mid-task (or showing a permission prompt) between
-            # polls, and repeatedly typing into that isn't safe or useful.
-            if just_spawned or pending > prompted.get(project, 0):
-                send_prompt(project)
-                prompted[project] = pending
-            time.sleep(POLL_WHILE_PROCESSING)
-            continue  # stay on this project, check again next loop
+            return project, (idx + 1) % n
+    return None, start_idx
 
-        # Nothing pending right now.
-        if tmux_alive(project):
-            # It had been working -- give it one grace period before giving up.
-            write_state(active_project=project, phase="waiting", pending=0, pool=pool)
-            time.sleep(EMPTY_GRACE_SECONDS)
-            if common.pending_count(project) == 0:
-                write_state(active_project=project, phase="hibernating", pending=0, pool=pool)
-                common.log_event(project, "session_hibernated")
-                hibernate(project)
-                last_seen_pending[project] = 0
-                prompted.pop(project, None)
-            idx = (idx + 1) % len(pool)
-        else:
-            # Already quiet, nothing to wake for -- just move on.
-            write_state(active_project=project, phase="hibernating", pending=0, pool=pool)
-            idx = (idx + 1) % len(pool)
-            time.sleep(BETWEEN_PROJECT_PAUSE)
+
+def main_loop():
+    active = {}              # project -> {"quiet_since": float|None, "prompted": int, "phase": ..., "pending": ...}
+    rotation_idx = 0
+    last_seen_pending = {}   # project -> last pending count we logged, for edge-triggered logging
+
+    while True:
+        ensure_independent_session()
+
+        pool = common.load_selected()
+
+        if not pool:
+            write_state({}, [])
+            time.sleep(IDLE_POOL_SLEEP)
+            continue
+
+        # Drop anything that fell out of the selected pool since it went active.
+        for name in list(active.keys()):
+            if name not in pool:
+                del active[name]
+
+        # Fill any free slots, round-robin, skipping projects already active.
+        while len(active) < MAX_CONCURRENT:
+            candidate, rotation_idx = pick_next_candidate(pool, active, rotation_idx, last_seen_pending)
+            if candidate is None:
+                break
+            active[candidate] = {"quiet_since": None, "prompted": 0, "phase": "waking", "pending": 0}
+
+        if not active:
+            write_state({}, pool)
+            time.sleep(IDLE_POOL_SLEEP)
+            continue
+
+        # One tick of work for every currently active project.
+        for project in list(active.keys()):
+            tracked = active[project]
+            pending = common.pending_count(project)
+            if pending != last_seen_pending.get(project):
+                if pending > 0:
+                    common.log_event(project, "requests_ready", {"pending": pending})
+                last_seen_pending[project] = pending
+
+            if pending > 0:
+                just_spawned = False
+                if not tmux_alive(project):
+                    common.log_event(project, "session_waking", {"pending": pending})
+                    spawn_session(project)
+                    just_spawned = True
+                # Only nudge once per wake, and again if *more* items showed
+                # up since the last nudge -- not on every poll tick. Claude
+                # Code may still be mid-task (or showing a permission
+                # prompt) between polls, and repeatedly typing into that
+                # isn't safe or useful.
+                if just_spawned or pending > tracked["prompted"]:
+                    send_prompt(project)
+                    tracked["prompted"] = pending
+                tracked["quiet_since"] = None
+                tracked["phase"] = "processing"
+                tracked["pending"] = pending
+                continue
+
+            # Nothing pending right now.
+            if tmux_alive(project):
+                if tracked["quiet_since"] is None:
+                    # Just went quiet -- give it one grace period before giving up.
+                    tracked["quiet_since"] = time.time()
+                    tracked["phase"] = "waiting"
+                    tracked["pending"] = 0
+                elif time.time() - tracked["quiet_since"] >= EMPTY_GRACE_SECONDS:
+                    recheck = common.pending_count(project)
+                    if recheck == 0:
+                        common.log_event(project, "session_hibernated")
+                        hibernate(project)
+                        del active[project]
+                    else:
+                        # Something showed up during the grace period.
+                        tracked["quiet_since"] = None
+                        tracked["phase"] = "processing"
+                        tracked["pending"] = recheck
+                # else: still within the grace period, leave it "waiting".
+            else:
+                # Already quiet, nothing to wake for -- free the slot.
+                del active[project]
+
+        write_state(active, pool)
+        time.sleep(POLL_TICK_SECONDS)
 
 
 if __name__ == "__main__":
