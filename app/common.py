@@ -853,6 +853,32 @@ def tmux_send(project, text):
         return False
 
 
+# Keys the console UI is allowed to send raw (no text, no trailing Enter) --
+# a small whitelist so /api/console/<project>/key can't become an arbitrary
+# key-injection endpoint. C-o is Claude Code's own "expand" toggle for a
+# collapsed background-agent status line.
+ALLOWED_CONSOLE_KEYS = {"C-o"}
+
+
+def tmux_send_key(project, key):
+    """Send a single raw key (e.g. `C-o`) into the project's tmux session.
+
+    Unlike tmux_send, this doesn't type text or submit with Enter -- it's for
+    toggling Claude Code's own UI state (like expanding a collapsed
+    background-agent line), not for sending a message into the session.
+    """
+    if key not in ALLOWED_CONSOLE_KEYS:
+        return False
+    if not tmux_alive(project):
+        return False
+    session = tmux_session_name(project)
+    try:
+        subprocess.run(["tmux", "send-keys", "-t", session, key], timeout=5)
+        return True
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+
+
 # ---- Status / commit / sql-output readback -----------------------------------
 
 def read_status(project):

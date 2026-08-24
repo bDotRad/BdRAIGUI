@@ -284,6 +284,19 @@ def api_console_send(project):
     return jsonify({"ok": True})
 
 
+@app.route("/api/console/<project>/key", methods=["POST"])
+def api_console_key(project):
+    if not _is_console_target(project):
+        return jsonify({"ok": False, "error": "unknown project"}), 404
+    data = request.get_json(force=True) or {}
+    key = (data.get("key") or "").strip()
+    if key not in common.ALLOWED_CONSOLE_KEYS:
+        return jsonify({"ok": False, "error": "key not allowed"}), 400
+    if not common.tmux_send_key(project, key):
+        return jsonify({"ok": False, "error": "no active session for this project"}), 409
+    return jsonify({"ok": True})
+
+
 @app.route("/api/archive/<project>")
 def api_archive_list(project):
     if project not in common.list_projects():

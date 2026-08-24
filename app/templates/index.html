@@ -564,6 +564,7 @@
       <div id="console-status"></div>
       <div class="modal-actions">
         <button class="btn secondary" id="console-close">Close</button>
+        <button class="btn secondary" id="console-expand" title="Toggle Claude Code's collapsed background-agent status line (ctrl+o)">Expand agent</button>
         <button class="btn" id="console-refresh">Refresh</button>
       </div>
     </div>
@@ -1115,6 +1116,27 @@ async function refreshConsole() {
   }
 }
 
+async function expandConsoleAgent() {
+  if (!currentConsoleProject) return;
+  setConsoleStatus('Sending ctrl+o…');
+  try {
+    const res = await fetch(`/api/console/${encodeURIComponent(currentConsoleProject)}/key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'C-o' }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setConsoleStatus(data.error || 'Failed to send.', 'error');
+      return;
+    }
+    setConsoleStatus('');
+    setTimeout(refreshConsole, 300);
+  } catch (e) {
+    setConsoleStatus('Failed to send.', 'error');
+  }
+}
+
 async function sendConsoleReply() {
   if (!currentConsoleProject) return;
   const input = document.getElementById('console-input');
@@ -1411,6 +1433,7 @@ reqDropzone.addEventListener('drop', handleReqDrop);
 
 document.getElementById('console-close').addEventListener('click', closeConsole);
 document.getElementById('console-refresh').addEventListener('click', refreshConsole);
+document.getElementById('console-expand').addEventListener('click', expandConsoleAgent);
 document.getElementById('console-send').addEventListener('click', sendConsoleReply);
 document.getElementById('console-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendConsoleReply();
