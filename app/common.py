@@ -326,6 +326,19 @@ def read_project_file(project, rel_path):
         return None
 
 
+def write_description_file(project, content):
+    """Overwrite (or create) a project's Description.md. Only ever touches
+    the description file -- never CLAUDE.md or .claude/agents/ files, which
+    stay browse-only from the dashboard."""
+    proj_dir = PROJECTS_DIR / project
+    target = find_description_file(project) or (proj_dir / DESCRIPTION_FILENAMES[0])
+    try:
+        target.write_text(content)
+    except OSError:
+        return False
+    return True
+
+
 # ---- Request creation (web UI "drop a request" form) --------------------------
 
 _TITLE_ILLEGAL_RE = re.compile(r'[\\/:*?"<>|]')

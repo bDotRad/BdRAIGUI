@@ -65,6 +65,10 @@
   #req-edit-actions.open { display: flex; }
   #req-edit-status { font-size: 12px; color: var(--text-dim); align-self: center; }
   #req-edit-status.error { color: #f87171; }
+  #desc-edit-actions { display: none; margin-top: 8px; gap: 8px; }
+  #desc-edit-actions.open { display: flex; }
+  #desc-edit-status { font-size: 12px; color: var(--text-dim); align-self: center; }
+  #desc-edit-status.error { color: #f87171; }
   .req-status { font-size: 12px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
   .req-status.ready { color: var(--accent); background: rgba(79,140,255,0.14); }
   .req-status.processing { color: #4ade80; background: rgba(74,222,128,0.12); }
@@ -113,13 +117,21 @@
     <button class="btn secondary" onclick="cancelRequestEdit()">Cancel</button>
     <span id="req-edit-status"></span>
   </div>
+  <div id="desc-edit-actions">
+    <button class="btn" id="desc-edit-save" onclick="saveDescriptionEdit()">Save</button>
+    <button class="btn secondary" onclick="cancelDescriptionEdit()">Cancel</button>
+    <span id="desc-edit-status"></span>
+  </div>
 
 <script>
 const project = {{ project | tojson }};
+let currentDescription = null;
+let editingDescription = false;
 
 async function load() {
   const res = await fetch(`/api/project/${encodeURIComponent(project)}/files`);
   const data = await res.json();
+  currentDescription = data.description;
   renderDescription(data.description);
   renderAgentFiles(data.agent_files);
 
@@ -202,11 +214,14 @@ async function deleteShelvedRequest(name) {
 function renderDescription(description) {
   const panel = document.getElementById('description-panel');
   if (!description) {
-    panel.innerHTML = '<div class="empty-state">No Description.md found for this project.</div>';
+    panel.innerHTML = '<div class="empty-state">No Description.md found for this project.</div>' +
+      '<button class="btn secondary tiny" onclick="editDescription()">Create Description.md</button>';
     return;
   }
   panel.innerHTML = `<ul class="file-list"><li onclick="viewFile('${description.path.replace(/'/g, "\\'")}', this)">
-    <span>${escapeHtml(description.name)}</span></li></ul>`;
+    <span>${escapeHtml(description.name)}</span>
+    <button class="btn secondary tiny" onclick="event.stopPropagation(); editDescription()">Edit</button>
+  </li></ul>`;
 }
 
 function renderAgentFiles(files) {
@@ -224,6 +239,7 @@ function renderAgentFiles(files) {
 
 async function viewFile(path, el) {
   cancelRequestEdit();
+  cancelDescriptionEdit();
   document.querySelectorAll('.file-list li').forEach(li => li.classList.remove('active'));
   if (el) el.classList.add('active');
   const view = document.getElementById('file-view');
@@ -242,6 +258,7 @@ async function viewFile(path, el) {
 let currentEditRequestName = null;
 
 async function editRequest(name, el) {
+  cancelDescriptionEdit();
   document.querySelectorAll('.file-list li').forEach(li => li.classList.remove('active'));
   document.querySelectorAll('table.request-list td.req-name').forEach(td => td.classList.remove('active'));
   if (el) el.classList.add('active');
@@ -308,6 +325,68 @@ function cancelRequestEdit() {
   document.getElementById('file-view').style.display = 'none';
   document.getElementById('file-view').readOnly = true;
   document.querySelectorAll('table.request-list td.req-name').forEach(td => td.classList.remove('active'));
+}
+
+async function editDescription() {
+  cancelRequestEdit();
+  document.querySelectorAll('.file-list li').forEach(li => li.classList.remove('active'));
+  editingDescription = true;
+  const view = document.getElementById('file-view');
+  const actions = document.getElementById('desc-edit-actions');
+  const status = document.getElementById('desc-edit-status');
+  view.style.display = 'block';
+  view.readOnly = false;
+  actions.classList.add('open');
+  status.textContent = '';
+  status.className = '';
+  if (currentDescription) {
+    view.value = 'Loading…';
+    const res = await fetch(`/api/project/${encodeURIComponent(project)}/file?path=${encodeURIComponent(currentDescription.path)}`);
+    view.value = res.ok ? ((await res.json()).content || '') : '';
+  } else {
+    view.value = '';
+  }
+  view.focus();
+}
+
+async function saveDescriptionEdit() {
+  const status = document.getElementById('desc-edit-status');
+  const content = document.getElementById('file-view').value;
+  const btn = document.getElementById('desc-edit-save');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/project/${encodeURIComponent(project)}/description`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      status.textContent = data.error || 'Failed to save.';
+      status.className = 'error';
+      btn.disabled = false;
+      return;
+    }
+  } catch (e) {
+    status.textContent = 'Failed to save.';
+    status.className = 'error';
+    btn.disabled = false;
+    return;
+  }
+  btn.disabled = false;
+  editingDescription = false;
+  document.getElementById('desc-edit-actions').classList.remove('open');
+  document.getElementById('file-view').style.display = 'none';
+  document.getElementById('file-view').readOnly = true;
+  load();
+}
+
+function cancelDescriptionEdit() {
+  if (!editingDescription) return;
+  editingDescription = false;
+  document.getElementById('desc-edit-actions').classList.remove('open');
+  document.getElementById('file-view').style.display = 'none';
+  document.getElementById('file-view').readOnly = true;
 }
 
 function escapeHtml(str) {

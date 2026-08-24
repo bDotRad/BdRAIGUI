@@ -336,6 +336,20 @@ def api_project_file(project):
     return jsonify({"content": content})
 
 
+@app.route("/api/project/<project>/description", methods=["POST"])
+def api_project_description_save(project):
+    if project not in common.list_projects():
+        return jsonify({"ok": False, "error": "unknown project"}), 404
+    data = request.get_json(force=True) or {}
+    content = data.get("content")
+    if content is None:
+        return jsonify({"ok": False, "error": "content is required"}), 400
+    if not common.write_description_file(project, content):
+        return jsonify({"ok": False, "error": "failed to write file"}), 500
+    common.log_event(project, "description_edited")
+    return jsonify({"ok": True})
+
+
 @app.route("/api/log")
 def api_log():
     project = request.args.get("project") or None
