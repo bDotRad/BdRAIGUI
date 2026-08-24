@@ -709,7 +709,9 @@ function renderGrid(projects) {
     return;
   }
 
-  const active = projects.filter(p => p.in_rotation);
+  const hasWaiting = p => !!(p.requests && p.requests.some(r => r.status === 'Waiting Response'));
+  const active = projects.filter(p => p.in_rotation)
+    .sort((a, b) => (hasWaiting(b) ? 1 : 0) - (hasWaiting(a) ? 1 : 0));
   const inactive = projects.filter(p => !p.in_rotation);
 
   grid.innerHTML = active.length
