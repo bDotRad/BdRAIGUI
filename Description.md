@@ -19,3 +19,8 @@ picks it up on its own.
 See `README.md` for setup and architecture details. `CLAUDE.md` is a
 separate file, written for the Claude Code sessions the scheduler wakes
 in this project -- not this description.
+
+## Git repository
+
+Yes -- `git@github.com-bdraigui:bDotRad/BdRAIGUI.git` (both fetch and
+push remote `origin`).

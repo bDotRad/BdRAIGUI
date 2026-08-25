@@ -22,6 +22,14 @@ these conventions exist.
   who to contact, ownership notes) if a project ever needs it -- there's
   no separate "human agent" file mirroring `.claude/agents/`; see
   `_Requests/_Archive/260825_*_rDoco.md` for why.
+
+  `Description.md` also carries a `## Git repository` section stating
+  whether the project has a git repo at all and, if so, its remote
+  URL(s) (`git remote -v`). If there's no repo, say so plainly ("No git
+  repository -- not yet initialized") rather than omitting the section --
+  the point is that a glance at `Description.md` answers the question
+  without having to `cd` in and check. See
+  `_Requests/_Archive/260825_*_rClean Up.md` for why this was added.
 - **`.claude/agents/<agent-slug>/<agent-slug>.md`** — one folder per
   subagent, each holding a single Claude Code subagent-format `.md`
   (YAML frontmatter with `name`, `description`, `tools`, then the
