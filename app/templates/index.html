@@ -200,6 +200,31 @@
     animation: flash-waiting 1.1s ease-in-out infinite;
   }
 
+  #ecosystem-panel {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+    padding: 18px 20px; max-width: 720px;
+  }
+  .device-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+  .device-table th {
+    text-align: left; color: var(--text-dim); font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.03em; padding: 6px 10px 6px 0;
+    border-bottom: 1px solid var(--card-border);
+  }
+  .device-table td {
+    padding: 8px 10px 8px 0; border-bottom: 1px solid var(--card-border); vertical-align: top;
+  }
+  .device-table tr:last-child td { border-bottom: none; }
+  .device-table code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
+    background: #0b0d11; border: 1px solid var(--card-border); border-radius: 4px; padding: 1px 5px;
+  }
+  .folder-tree {
+    margin: 12px 0 0; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 12px 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.5; overflow-x: auto;
+  }
+
   #log-panel {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -460,6 +485,7 @@
     <button class="tab-btn active" id="tab-btn-projects" onclick="switchTab('projects')">Projects</button>
     <button class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">Activity Log</button>
     <button class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Admin</button>
+    <button class="tab-btn" id="tab-btn-ecosystem" onclick="switchTab('ecosystem')">Ecosystem</button>
     <button class="tab-btn" id="tab-btn-independent" onclick="openConsole(INDEPENDENT_SESSION)">Independent Claude</button>
     <a class="help-link" href="/help">Help</a>
   </div>
@@ -500,6 +526,53 @@
         <span id="palette-status"></span>
       </div>
       <div class="sql-meta" style="margin-top:10px;">Applies live to this page immediately on save; other tabs/devices pick it up on their next load.</div>
+    </div>
+  </div>
+
+  <div id="tab-panel-ecosystem" class="tab-panel">
+    <div id="ecosystem-panel">
+      <div class="ecosystem-block">
+        <h2>Devices</h2>
+        <div class="sql-meta">The physical/virtual machines this fleet runs on, and what each one hosts.</div>
+        <table class="device-table">
+          <thead><tr><th>Device</th><th>Kind</th><th>Address</th><th>Runs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>BdRDev</td>
+              <td>This host (server)</td>
+              <td>local</td>
+              <td>The dashboard + scheduler (this app), and every project under <code>~/projects/</code> that runs its Claude Code session here</td>
+            </tr>
+            <tr>
+              <td>PlanBdRadServer</td>
+              <td>VM</td>
+              <td>192.168.100.20</td>
+              <td>PlanBdRad</td>
+            </tr>
+            <tr>
+              <td>BdRadBirdDetector</td>
+              <td>Physical Raspberry Pi</td>
+              <td>192.168.1.187</td>
+              <td>BdRBirdDetector</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="sql-meta" style="margin-top:10px;">Deploy-key naming and other fleet-wide SSH conventions: <code>_Instructions/SSH.md</code>.</div>
+      </div>
+
+      <div class="ecosystem-block" style="margin-top:24px;">
+        <h2>Generic project folder structure</h2>
+        <div class="sql-meta">The standard shape every project under <code>~/projects/</code> should have. See <code>_Instructions/ProjectSetup.md</code> for the full convention ("Setup Project" as a trigger phrase).</div>
+        <pre class="folder-tree">&lt;project&gt;/
+├── CLAUDE.md              # agent-facing: scheduler wake/kill, gotchas, conventions
+├── Description.md         # human-facing: short summary + Git repository section
+├── .claude/
+│   └── agents/
+│       └── &lt;slug&gt;/
+│           └── &lt;slug&gt;.md  # one subagent definition per folder
+└── References/
+    └── README.md          # site-specific docs Brad drops in by hand</pre>
+      </div>
     </div>
   </div>
 
@@ -643,9 +716,11 @@ function switchTab(name) {
   document.getElementById('tab-panel-projects').classList.toggle('active', name === 'projects');
   document.getElementById('tab-panel-log').classList.toggle('active', name === 'log');
   document.getElementById('tab-panel-admin').classList.toggle('active', name === 'admin');
+  document.getElementById('tab-panel-ecosystem').classList.toggle('active', name === 'ecosystem');
   document.getElementById('tab-btn-projects').classList.toggle('active', name === 'projects');
   document.getElementById('tab-btn-log').classList.toggle('active', name === 'log');
   document.getElementById('tab-btn-admin').classList.toggle('active', name === 'admin');
+  document.getElementById('tab-btn-ecosystem').classList.toggle('active', name === 'ecosystem');
   try { localStorage.setItem('bdrdev-tab', name); } catch (e) { /* ignore */ }
 }
 
