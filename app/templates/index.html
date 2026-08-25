@@ -202,7 +202,13 @@
 
   #ecosystem-panel {
     background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
-    padding: 18px 20px; max-width: 720px;
+    padding: 18px 20px; max-width: 1120px;
+  }
+  .ecosystem-row {
+    display: flex; gap: 24px; flex-wrap: wrap; margin-top: 24px;
+  }
+  .ecosystem-row .ecosystem-block {
+    flex: 1 1 380px; min-width: 320px; margin-top: 0;
   }
   .device-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
   .device-table th {
@@ -560,10 +566,34 @@
         <div class="sql-meta" style="margin-top:10px;">Deploy-key naming and other fleet-wide SSH conventions: <code>_Instructions/SSH.md</code>.</div>
       </div>
 
-      <div class="ecosystem-block" style="margin-top:24px;">
-        <h2>Generic project folder structure</h2>
-        <div class="sql-meta">The standard shape every project under <code>~/projects/</code> should have. See <code>_Instructions/ProjectSetup.md</code> for the full convention ("Setup Project" as a trigger phrase).</div>
-        <pre class="folder-tree">&lt;project&gt;/
+      <div class="ecosystem-row">
+        <div class="ecosystem-block">
+          <h2>Servers → software / projects</h2>
+          <div class="sql-meta">What's physically running where, across the fleet.</div>
+          <pre class="folder-tree">BdRDev (this host, local)
+├── Dashboard + Scheduler   # this app
+├── PlanBdRad               # Claude session (app deployed to PlanBdRadServer)
+│   └── Agents: project-manager, asset-management-guru,
+│               sql-developer, web-developer
+├── BdRAMAssist             # Claude session (staging tool feeding PlanBdRad)
+│   └── Agents: asset-management-bulk-specialist
+├── BdRDungeon              # Claude session (ESP32/device hub, early)
+│   └── Agents: none yet
+└── BdRBirdDetector         # Claude session (app deployed to BdRadBirdDetector)
+    └── Agents: pi-pipeline, sql-expert, docs-writer,
+                docs-logs, db-webapp, esp32-nodes
+
+PlanBdRadServer (VM, 192.168.100.20)
+└── PlanBdRad               # deployed app: Vite dev server + built prod build
+
+BdRadBirdDetector (Physical Pi, 192.168.1.187)
+└── BdRBirdDetector         # deployed detection pipeline (edge/)</pre>
+        </div>
+
+        <div class="ecosystem-block">
+          <h2>Generic project folder structure</h2>
+          <div class="sql-meta">The standard shape every project under <code>~/projects/</code> should have. See <code>_Instructions/ProjectSetup.md</code> for the full convention ("Setup Project" as a trigger phrase).</div>
+          <pre class="folder-tree">&lt;project&gt;/
 ├── CLAUDE.md              # agent-facing: scheduler wake/kill, gotchas, conventions
 ├── Description.md         # human-facing: short summary + Git repository section
 ├── .claude/
@@ -572,6 +602,7 @@
 │           └── &lt;slug&gt;.md  # one subagent definition per folder
 └── References/
     └── README.md          # site-specific docs Brad drops in by hand</pre>
+        </div>
       </div>
     </div>
   </div>
