@@ -64,6 +64,7 @@ inventing its own naming.
 | `bdrdev_to_planbdradgit` | `github.com:bDotRad/PlanBdRad.git` | PlanBdRad repo deploy key, confirmed read+write |
 | `bdrdev_to_planbdradserver` | `bdr@192.168.100.20` (`PlanBdRadServer`) | Deploy access to the PlanBdRad VM — not yet installed in the VM's `authorized_keys` as of this writing |
 | `bdrdev_to_bdramassistgit` | `github.com:bDotRad/BdRAMAssist.git` | BdRAMAssist repo deploy key, generated 2026-08-26 — **not yet installed** as a deploy key on GitHub (adding it via API was blocked by a safety check); current push access is via the account-level `gh` HTTPS credential helper instead. Add the `.pub` under the repo's Settings -> Deploy keys (with write access) to switch to this SSH key. |
+| `bdrdev_to_bdrdungeongit` | `github.com:bDotRad/BdRDungeon.git` | BdRDungeon repo deploy key, generated 2026-08-26 — same not-yet-installed situation as the BdRAMAssist key above; pushing via `gh` HTTPS credential helper for now. |
 | `id_ed25519_pi` | `bdotrad@192.168.1.187` (`BdRadBirdDetector`) | Legitimate physical-Pi exception, see above |
 | `id_ed25519` | unknown | Not referenced by any project doc or `~/.ssh/config` entry — unexplained, flagged for cleanup but not yet resolved |
 
