@@ -1,4 +1,4 @@
-# BdRAIGUI
+# BdRDev
 
 Web dashboard + round-robin scheduler for the Claude Code projects under
 `~/projects` on this Pi. Built from the example dropped in
@@ -33,7 +33,7 @@ what counts as "pending".
   `_Instructions/Requests.md` for the full spec. `common.scan_requests()`
   is the implementation — it's what both the dashboard's pending badge
   and the scheduler's wake trigger read from, so they always agree.
-- **Orchestration context**: `_Instructions/BdRAIGUI.md` is the doc meant
+- **Orchestration context**: `_Instructions/BdRDev.md` is the doc meant
   to be copied into *other* projects' instructions so their Claude Code
   sessions understand they're running under this scheduler (why they get
   woken/killed, `.claude-status/status.json`, SQL output convention).
@@ -58,7 +58,7 @@ what counts as "pending".
 ## Setup
 
 ```bash
-cd ~/projects/_BdRAIGUI
+cd ~/projects/BdRDev
 python3 -m venv venv
 source venv/bin/activate
 pip install -r app/requirements.txt
@@ -83,15 +83,15 @@ Service files in `systemd/` are already pointed at `/home/bdr/...` and
 user `bdr`, matching this machine. Install once the venv above exists:
 
 ```bash
-sudo cp systemd/bdraigui-dashboard.service systemd/bdraigui-scheduler.service /etc/systemd/system/
+sudo cp systemd/bdrdev-dashboard.service systemd/bdrdev-scheduler.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now bdraigui-dashboard bdraigui-scheduler
+sudo systemctl enable --now bdrdev-dashboard bdrdev-scheduler
 ```
 
 Check they're both up:
 
 ```bash
-systemctl status bdraigui-dashboard bdraigui-scheduler
+systemctl status bdrdev-dashboard bdrdev-scheduler
 ```
 
 ## Notes

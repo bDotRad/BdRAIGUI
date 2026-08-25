@@ -1,4 +1,4 @@
-# BdRAIGUI
+# BdRDev
 
 Web dashboard + round-robin scheduler that orchestrates every Claude
 Code project on this Pi (`~/projects/*`) — including itself. If you're
@@ -15,7 +15,7 @@ itself; it just stops scheduling.
 - [_Instructions/Requests.md](_Instructions/Requests.md) — the
   request-intake convention this project both implements *and* uses on
   itself (`_Requests/rN.md`, READY/NOT READY marker, archive process)
-- [_Instructions/BdRAIGUI.md](_Instructions/BdRAIGUI.md) — the
+- [_Instructions/BdRDev.md](_Instructions/BdRDev.md) — the
   orchestration doc meant to be copied into *other* projects so their
   Claude sessions understand why they get woken/killed by this scheduler
 - `_Requests/_Archive/` — dated writeups of every request processed so
@@ -25,7 +25,7 @@ itself; it just stops scheduling.
 
 - **No sudo here.** Neither this session nor any tooling working on
   this repo has passwordless sudo. `systemctl restart/start` on
-  `bdraigui-dashboard`/`bdraigui-scheduler`, and anything under
+  `bdrdev-dashboard`/`bdrdev-scheduler`, and anything under
   `/etc/nginx/` or `/etc/systemd/`, needs Brad to run it by hand. Leave
   the exact command for him rather than trying to work around it.
 - **`kill <pid>` (SIGTERM) does not restart these services.** systemd's
@@ -52,9 +52,10 @@ itself; it just stops scheduling.
   project *names* (directory basenames), not paths. Renaming a project
   directory silently drops it out of the rotation until those names are
   fixed too — that's a real bug that already happened during the
-  BdRGUI → BdRAIGUI rename.
+  BdRGUI → BdRAIGUI rename, and again during the BdRAIGUI → BdRDev
+  rename (2026-08-25).
 - **This project is in its own rotation pool.** `state/
-  selected_projects.json` normally includes `"_BdRAIGUI"` itself, so
+  selected_projects.json` normally includes `"BdRDev"` itself, so
   the scheduler wakes a session here whenever `_Requests/` has a READY
   item — same as any other project it manages.
 

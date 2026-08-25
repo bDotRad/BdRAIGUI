@@ -30,7 +30,7 @@ so the dashboard can show a status log.
 
 Run:
   python3 scheduler.py
-(intended to run as a systemd service -- see ../systemd/bdraigui-scheduler.service)
+(intended to run as a systemd service -- see ../systemd/bdrdev-scheduler.service)
 """
 
 import json

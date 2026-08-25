@@ -1,0 +1,16 @@
+[Unit]
+Description=BdRDev dashboard (web UI)
+After=network.target
+
+[Service]
+Type=simple
+User=bdr
+WorkingDirectory=/home/bdr/projects/BdRDev/app
+Environment=PROJECTS_DIR=/home/bdr/projects
+Environment=STATE_DIR=/home/bdr/projects/BdRDev/state
+ExecStart=/home/bdr/projects/BdRDev/venv/bin/python3 /home/bdr/projects/BdRDev/app/dashboard.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

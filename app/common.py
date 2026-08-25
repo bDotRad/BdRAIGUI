@@ -71,13 +71,23 @@ INDEPENDENT_SESSION = "_IndependentClaude"
 
 # ---- Project listing / rotation selection -----------------------------------
 
+# Always shown first in the dashboard's project list -- this is the
+# scheduler/dashboard's own project, so it's pinned ahead of the
+# otherwise-alphabetical rest rather than sorting wherever its name lands.
+PINNED_FIRST_PROJECT = "BdRDev"
+
+
 def list_projects():
     if not PROJECTS_DIR.exists():
         return []
-    return sorted(
+    names = sorted(
         p.name for p in PROJECTS_DIR.iterdir()
         if p.is_dir() and not p.name.startswith(".")
     )
+    if PINNED_FIRST_PROJECT in names:
+        names.remove(PINNED_FIRST_PROJECT)
+        names.insert(0, PINNED_FIRST_PROJECT)
+    return names
 
 
 def load_selected():

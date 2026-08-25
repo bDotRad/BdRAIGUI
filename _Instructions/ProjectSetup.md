@@ -1,7 +1,7 @@
 # Project setup standard
 
 The standard shape a project on this Pi should have, and what "Setup
-Project" means as a trigger phrase. Like `BdRAIGUI.md` and `SSH.md`,
+Project" means as a trigger phrase. Like `BdRDev.md` and `SSH.md`,
 the canonical copy of this doc lives here; other projects don't need
 their own copy, but a session working in a new project should know
 these conventions exist.

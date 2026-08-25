@@ -440,14 +440,14 @@ def api_admin_theme_save():
         theme = common.save_theme(overrides)
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
-    common.log_event("_BdRAIGUI", "theme_updated")
+    common.log_event("BdRDev", "theme_updated")
     return jsonify({"ok": True, "theme": theme})
 
 
 @app.route("/api/admin/theme/reset", methods=["POST"])
 def api_admin_theme_reset():
     theme = common.save_theme({})
-    common.log_event("_BdRAIGUI", "theme_reset")
+    common.log_event("BdRDev", "theme_reset")
     return jsonify({"ok": True, "theme": theme})
 
 
@@ -462,7 +462,7 @@ def api_admin_status():
 
 @app.route("/api/admin/restart", methods=["POST"])
 def api_admin_restart():
-    common.log_event("_BdRAIGUI", "dashboard_restart_requested")
+    common.log_event("BdRDev", "dashboard_restart_requested")
 
     def _kill_self():
         # Give the response time to flush before the process dies. SIGKILL
@@ -500,7 +500,7 @@ def _scheduler_pid():
 
 @app.route("/api/admin/restart_scheduler", methods=["POST"])
 def api_admin_restart_scheduler():
-    common.log_event("_BdRAIGUI", "scheduler_restart_requested")
+    common.log_event("BdRDev", "scheduler_restart_requested")
     pid = _scheduler_pid()
     if pid is None:
         return jsonify({"ok": False, "error": "scheduler process not found"}), 404

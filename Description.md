@@ -1,4 +1,4 @@
-# BdRAIGUI
+# BdRDev
 
 Web dashboard + round-robin scheduler that runs Claude Code across every
 project under `~/projects` on this Pi (this project included).
@@ -22,5 +22,7 @@ in this project -- not this description.
 
 ## Git repository
 
-Yes -- `git@github.com-bdraigui:bDotRad/BdRAIGUI.git` (both fetch and
-push remote `origin`).
+Yes -- `git@github.com-bdrdev:bDotRad/BdRDev.git` (both fetch and
+push remote `origin`). Renamed from `BdRAIGUI` on 2026-08-25 (repo,
+local folder, SSH host alias, and deploy key all renamed together --
+see MIGRATION_REPORT.md in `~/projects/`).

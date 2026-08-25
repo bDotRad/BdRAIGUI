@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BdRAIGUI Dashboard</title>
+<title>BdRDev Dashboard</title>
 <style>
   :root {
     --bg: #0f1115;
@@ -444,7 +444,7 @@
 </head>
 <body>
   <div id="header-row">
-    <img id="site-logo" src="/static/rat-logo.png" alt="BdRAIGUI">
+    <img id="site-logo" src="/static/rat-logo.png" alt="BdRDev">
     <div id="header-text">
       <h1>BdR AI GUI</h1>
       <div id="site-version">{{ version }}</div>
@@ -483,14 +483,14 @@
         <span id="admin-status-badge" class="admin-status-badge running">Loading&hellip;</span>
       </div>
       <button class="btn" id="admin-restart-btn" onclick="triggerRestart()">Restart service</button>
-      <div class="sql-meta" style="margin-top:10px;">Restarts the <code>bdraigui-dashboard</code> process so template/code changes take effect. Causes a brief outage (a few seconds).</div>
+      <div class="sql-meta" style="margin-top:10px;">Restarts the <code>bdrdev-dashboard</code> process so template/code changes take effect. Causes a brief outage (a few seconds).</div>
 
       <h2 style="margin-top:24px;">Scheduler service</h2>
       <div id="admin-scheduler-status-row">
         <span id="admin-scheduler-status-badge" class="admin-status-badge running">Loading&hellip;</span>
       </div>
       <button class="btn" id="admin-scheduler-restart-btn" onclick="triggerSchedulerRestart()">Restart service</button>
-      <div class="sql-meta" style="margin-top:10px;">Restarts the <code>bdraigui-scheduler</code> process so scheduler code changes take effect. Any project it's mid-processing resumes on its next poll after the restart.</div>
+      <div class="sql-meta" style="margin-top:10px;">Restarts the <code>bdrdev-scheduler</code> process so scheduler code changes take effect. Any project it's mid-processing resumes on its next poll after the restart.</div>
 
       <h2 style="margin-top:24px;">Colour palette</h2>
       <div id="palette-grid"></div>
@@ -646,7 +646,7 @@ function switchTab(name) {
   document.getElementById('tab-btn-projects').classList.toggle('active', name === 'projects');
   document.getElementById('tab-btn-log').classList.toggle('active', name === 'log');
   document.getElementById('tab-btn-admin').classList.toggle('active', name === 'admin');
-  try { localStorage.setItem('bdraigui-tab', name); } catch (e) { /* ignore */ }
+  try { localStorage.setItem('bdrdev-tab', name); } catch (e) { /* ignore */ }
 }
 
 async function loadStatus() {
@@ -1494,7 +1494,7 @@ async function loadAdminStatus() {
 }
 
 async function triggerRestart() {
-  if (!confirm('Restart the BdRAIGUI dashboard service now? This causes a brief outage.')) return;
+  if (!confirm('Restart the BdRDev dashboard service now? This causes a brief outage.')) return;
   adminRestarting = true;
   renderAdminStatus('restarting');
   try {
@@ -1508,7 +1508,7 @@ async function triggerRestart() {
 }
 
 async function triggerSchedulerRestart() {
-  if (!confirm('Restart the BdRAIGUI scheduler service now? Any project it\'s mid-processing will resume shortly after.')) return;
+  if (!confirm('Restart the BdRDev scheduler service now? Any project it\'s mid-processing will resume shortly after.')) return;
   schedulerRestarting = true;
   renderSchedulerStatus('restarting');
   try {
@@ -1621,7 +1621,7 @@ async function resetPalette() {
 }
 
 let savedTab = 'projects';
-try { savedTab = localStorage.getItem('bdraigui-tab') || 'projects'; } catch (e) { /* ignore */ }
+try { savedTab = localStorage.getItem('bdrdev-tab') || 'projects'; } catch (e) { /* ignore */ }
 switchTab(savedTab);
 
 loadStatus();
