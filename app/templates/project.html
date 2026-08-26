@@ -85,6 +85,41 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 13px; resize: vertical; margin-top: 10px; display: none;
   }
+  .git-status-list { list-style: none; margin: 0; padding: 0; }
+  .git-status-list li {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    font-size: 13px; padding: 6px 4px; border-bottom: 1px solid var(--card-border);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .git-status-list li:last-child { border-bottom: none; }
+  .git-status-label {
+    font-size: 11px; padding: 1px 7px; border-radius: 10px; white-space: nowrap;
+    color: var(--text-dim); background: rgba(255,255,255,0.06); text-transform: uppercase;
+  }
+  textarea#git-commit-message {
+    width: 100%; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 8px;
+    font-family: inherit; font-size: 13px; resize: vertical; margin-top: 4px;
+  }
+  #git-commit-status { font-size: 12px; color: var(--text-dim); }
+  #git-commit-status.error { color: #f87171; }
+  #git-commit-status.ok { color: #4ade80; }
+  #git-commit-output {
+    display: none; margin-top: 8px; white-space: pre-wrap; font-size: 12px;
+    color: var(--text-dim); background: #0b0d11; border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  h3.git-subheading { font-size: 12px; font-weight: 600; margin: 18px 0 8px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  table.commit-list { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.commit-list th {
+    text-align: left; color: var(--text-dim); font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 4px 8px;
+  }
+  table.commit-list td { padding: 6px 4px; border-top: 1px solid var(--card-border); vertical-align: top; }
+  table.commit-list tr:first-child td { border-top: none; }
+  table.commit-list td.commit-hash { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text-dim); white-space: nowrap; }
+  table.commit-list td.commit-date { color: var(--text-dim); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -109,6 +144,23 @@
   <h2>Claude agent files</h2>
   <div class="panel">
     <ul class="file-list" id="agent-list"><li class="empty-state">Loading&hellip;</li></ul>
+  </div>
+
+  <div id="github-section" style="display:none;">
+    <h2>GitHub</h2>
+    <div class="panel">
+      <div id="git-status-panel"><div class="empty-state">Loading&hellip;</div></div>
+      <div style="margin-top:14px;">
+        <textarea id="git-commit-message" rows="2" placeholder="Commit message"></textarea>
+        <div style="display:flex; gap:10px; align-items:center; margin-top:8px;">
+          <button class="btn" id="git-commit-btn" onclick="commitAndPush()">Commit &amp; Push</button>
+          <span id="git-commit-status"></span>
+        </div>
+        <div id="git-commit-output"></div>
+      </div>
+      <h3 class="git-subheading">Version history</h3>
+      <div id="git-log-panel"><div class="empty-state">Loading&hellip;</div></div>
+    </div>
   </div>
 
   <textarea id="file-view" readonly></textarea>
@@ -142,6 +194,107 @@ async function load() {
   const shelvedRes = await fetch(`/api/requests/${encodeURIComponent(project)}/shelved/list`);
   const shelvedData = await shelvedRes.json();
   renderShelved(shelvedData.shelved);
+
+  if (data.has_github) {
+    document.getElementById('github-section').style.display = '';
+    loadGitStatus();
+    loadGitLog();
+  }
+}
+
+async function loadGitStatus() {
+  const panel = document.getElementById('git-status-panel');
+  const res = await fetch(`/api/project/${encodeURIComponent(project)}/git/status`);
+  const data = await res.json();
+  renderGitStatus(data.changes);
+}
+
+function renderGitStatus(changes) {
+  const panel = document.getElementById('git-status-panel');
+  if (!changes || changes.length === 0) {
+    panel.innerHTML = '<div class="empty-state">Working tree is clean -- nothing to commit.</div>';
+    return;
+  }
+  panel.innerHTML = `<ul class="git-status-list">${changes.map(c => `
+    <li>
+      <span>${escapeHtml(c.path)}</span>
+      <span class="git-status-label">${escapeHtml(c.label)}</span>
+    </li>
+  `).join('')}</ul>`;
+}
+
+async function loadGitLog() {
+  const panel = document.getElementById('git-log-panel');
+  const res = await fetch(`/api/project/${encodeURIComponent(project)}/git/log`);
+  const data = await res.json();
+  renderGitLog(data.commits);
+}
+
+function renderGitLog(commits) {
+  const panel = document.getElementById('git-log-panel');
+  if (!commits || commits.length === 0) {
+    panel.innerHTML = '<div class="empty-state">No commits yet.</div>';
+    return;
+  }
+  const rows = commits.map(c => `
+    <tr>
+      <td class="commit-hash">${escapeHtml(c.hash)}</td>
+      <td class="commit-date">${escapeHtml(c.time_relative || '')}</td>
+      <td>${escapeHtml(c.message)}</td>
+    </tr>
+  `).join('');
+  panel.innerHTML = `<table class="commit-list"><thead><tr><th>Hash</th><th>Date</th><th>Message</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function commitAndPush() {
+  const status = document.getElementById('git-commit-status');
+  const output = document.getElementById('git-commit-output');
+  const message = document.getElementById('git-commit-message').value;
+  const btn = document.getElementById('git-commit-btn');
+  status.textContent = '';
+  status.className = '';
+  output.style.display = 'none';
+  output.textContent = '';
+  if (!message.trim()) {
+    status.textContent = 'Commit message is required.';
+    status.className = 'error';
+    return;
+  }
+  btn.disabled = true;
+  status.textContent = 'Committing & pushing…';
+  try {
+    const res = await fetch(`/api/project/${encodeURIComponent(project)}/git/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      status.textContent = data.error || 'Failed to commit.';
+      status.className = 'error';
+      if (data.output) {
+        output.textContent = data.output;
+        output.style.display = 'block';
+      }
+      btn.disabled = false;
+      return;
+    }
+    status.textContent = 'Committed & pushed.';
+    status.className = 'ok';
+    if (data.output) {
+      output.textContent = data.output;
+      output.style.display = 'block';
+    }
+    document.getElementById('git-commit-message').value = '';
+  } catch (e) {
+    status.textContent = 'Failed to commit.';
+    status.className = 'error';
+    btn.disabled = false;
+    return;
+  }
+  btn.disabled = false;
+  loadGitStatus();
+  loadGitLog();
 }
 
 function renderRequests(items) {

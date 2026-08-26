@@ -928,6 +928,154 @@ def last_commit(project):
         return None
 
 
+def _project_git_dir(project):
+    """Project's directory if it's a git repo (has a .git/), else None."""
+    repo_dir = PROJECTS_DIR / project
+    return repo_dir if (repo_dir / ".git").exists() else None
+
+
+def has_github_remote(project):
+    """Whether this project is a git repo with an 'origin' remote pointing
+    at GitHub -- covers both `https://github.com/...` and SSH host-alias
+    forms like `git@github.com-bdrdev:...` used here for per-project
+    deploy keys (see _Instructions/SSH.md). Drives whether the project
+    page's GitHub section shows at all."""
+    repo_dir = _project_git_dir(project)
+    if repo_dir is None:
+        return False
+    try:
+        out = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            cwd=repo_dir, capture_output=True, text=True, timeout=3,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    if out.returncode != 0:
+        return False
+    return "github.com" in out.stdout.strip()
+
+
+_GIT_STATUS_LABELS = {
+    "M": "modified", "A": "added", "D": "deleted", "R": "renamed",
+    "C": "copied", "U": "conflict", "?": "untracked", "!": "ignored",
+}
+
+
+def _git_status_label(code):
+    """Human label for one `git status --porcelain` two-char code,
+    preferring the staged (index) character, falling back to the
+    unstaged (working-tree) one."""
+    for ch in code:
+        if ch != " " and ch in _GIT_STATUS_LABELS:
+            return _GIT_STATUS_LABELS[ch]
+    return code.strip() or "?"
+
+
+def git_status(project):
+    """Parsed `git status --porcelain` for a project's changed files, or
+    None if it's not a git repo -- lightweight "what am I about to
+    commit" readout for the GitHub tab, not a full diff viewer."""
+    repo_dir = _project_git_dir(project)
+    if repo_dir is None:
+        return None
+    try:
+        out = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=repo_dir, capture_output=True, text=True, timeout=5,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    if out.returncode != 0:
+        return None
+    entries = []
+    for line in out.stdout.splitlines():
+        if not line:
+            continue
+        code, path = line[:2], line[3:]
+        entries.append({"code": code, "path": path, "label": _git_status_label(code)})
+    return entries
+
+
+def git_log(project, limit=30):
+    """Recent commit history (short hash, relative date, subject) for a
+    project, newest first, or None if it's not a git repo. A simple
+    recent-history readout for the GitHub tab -- no pagination, no diffs."""
+    repo_dir = _project_git_dir(project)
+    if repo_dir is None:
+        return None
+    try:
+        out = subprocess.run(
+            ["git", "log", f"-{limit}", "--format=%h|%cI|%s"],
+            cwd=repo_dir, capture_output=True, text=True, timeout=5,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    if out.returncode != 0:
+        return []
+    commits = []
+    for line in out.stdout.splitlines():
+        parts = line.split("|", 2)
+        if len(parts) != 3:
+            continue
+        hash_, iso_time, subject = parts
+        commits.append({
+            "hash": hash_,
+            "time": iso_time,
+            "time_relative": relative_time(iso_time),
+            "message": subject,
+        })
+    return commits
+
+
+def git_commit_and_push(project, message):
+    """`git add -A`, commit with `message`, then `git push` to the current
+    branch's upstream -- the GitHub tab's "Commit & Push" button, all in
+    one action. Returns {"ok": bool, "output"/"error": str}. Every git
+    call is an argument list (never shell=True, never a string-interpolated
+    commit message) so `message` can't inject extra shell commands.
+    """
+    repo_dir = _project_git_dir(project)
+    if repo_dir is None:
+        return {"ok": False, "error": "not a git repo"}
+    if not message or not message.strip():
+        return {"ok": False, "error": "commit message is required"}
+
+    try:
+        add = subprocess.run(
+            ["git", "add", "-A"], cwd=repo_dir, capture_output=True, text=True, timeout=15,
+        )
+        if add.returncode != 0:
+            return {"ok": False, "error": add.stderr.strip() or "git add failed"}
+
+        status = subprocess.run(
+            ["git", "status", "--porcelain"], cwd=repo_dir, capture_output=True, text=True, timeout=5,
+        )
+        if not status.stdout.strip():
+            return {"ok": False, "error": "Nothing to commit -- working tree is clean."}
+
+        commit = subprocess.run(
+            ["git", "commit", "-m", message], cwd=repo_dir, capture_output=True, text=True, timeout=15,
+        )
+        if commit.returncode != 0:
+            return {"ok": False, "error": commit.stderr.strip() or commit.stdout.strip() or "git commit failed"}
+
+        push = subprocess.run(
+            ["git", "push"], cwd=repo_dir, capture_output=True, text=True, timeout=30,
+        )
+        if push.returncode != 0:
+            return {
+                "ok": False,
+                "error": push.stderr.strip() or push.stdout.strip() or "git push failed",
+                "output": commit.stdout.strip(),
+            }
+        return {
+            "ok": True,
+            "output": "\n".join(s for s in (commit.stdout.strip(), (push.stderr or push.stdout).strip()) if s),
+        }
+    except (subprocess.TimeoutExpired, OSError) as e:
+        return {"ok": False, "error": str(e)}
+
+
 _APP_VERSION_CACHE = None
 
 

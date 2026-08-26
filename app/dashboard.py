@@ -357,6 +357,7 @@ def api_project_files(project):
             {"path": str(p.relative_to(proj_dir)), "name": p.name}
             for p in agent_files
         ],
+        "has_github": common.has_github_remote(project),
     })
 
 
@@ -385,6 +386,38 @@ def api_project_description_save(project):
         return jsonify({"ok": False, "error": "failed to write file"}), 500
     common.log_event(project, "description_edited")
     return jsonify({"ok": True})
+
+
+@app.route("/api/project/<project>/git/status")
+def api_project_git_status(project):
+    if project not in common.list_projects():
+        abort(404)
+    if not common.has_github_remote(project):
+        return jsonify({"has_github": False})
+    return jsonify({"has_github": True, "changes": common.git_status(project) or []})
+
+
+@app.route("/api/project/<project>/git/log")
+def api_project_git_log(project):
+    if project not in common.list_projects():
+        abort(404)
+    if not common.has_github_remote(project):
+        return jsonify({"has_github": False})
+    return jsonify({"has_github": True, "commits": common.git_log(project) or []})
+
+
+@app.route("/api/project/<project>/git/commit", methods=["POST"])
+def api_project_git_commit(project):
+    if project not in common.list_projects():
+        return jsonify({"ok": False, "error": "unknown project"}), 404
+    if not common.has_github_remote(project):
+        return jsonify({"ok": False, "error": "not a GitHub project"}), 400
+    data = request.get_json(force=True) or {}
+    message = data.get("message", "")
+    result = common.git_commit_and_push(project, message)
+    if result.get("ok"):
+        common.log_event(project, "git_commit_push", detail=message.strip()[:200])
+    return jsonify(result)
 
 
 @app.route("/api/log")
