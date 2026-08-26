@@ -111,6 +111,18 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   h3.git-subheading { font-size: 12px; font-weight: 600; margin: 18px 0 8px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  #tabs {
+    display: flex; align-items: center; gap: 18px;
+    border-bottom: 1px solid var(--card-border); margin: 20px 0 20px;
+  }
+  .tab-btn {
+    background: transparent; border: none; color: var(--text-dim);
+    font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 10px 2px; cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
   table.commit-list { width: 100%; border-collapse: collapse; font-size: 13px; }
   table.commit-list th {
     text-align: left; color: var(--text-dim); font-weight: 600; font-size: 11px;
@@ -126,28 +138,34 @@
   <a class="back" href="/">&larr; Dashboard</a>
   <h1>{{ project }}</h1>
 
-  <h2>Requests</h2>
-  <div class="panel" id="requests-panel">
-    <div class="empty-state">Loading&hellip;</div>
+  <div id="tabs">
+    <button class="tab-btn active" id="tab-btn-overview" onclick="switchTab('overview')">Overview</button>
+    <button class="tab-btn" id="tab-btn-github" onclick="switchTab('github')" style="display:none;">GitHub</button>
   </div>
 
-  <h2>Shelved</h2>
-  <div class="panel" id="shelved-panel">
-    <div class="empty-state">Loading&hellip;</div>
+  <div id="tab-panel-overview" class="tab-panel active">
+    <h2>Requests</h2>
+    <div class="panel" id="requests-panel">
+      <div class="empty-state">Loading&hellip;</div>
+    </div>
+
+    <h2>Shelved</h2>
+    <div class="panel" id="shelved-panel">
+      <div class="empty-state">Loading&hellip;</div>
+    </div>
+
+    <h2>Description</h2>
+    <div class="panel" id="description-panel">
+      <div class="empty-state">Loading&hellip;</div>
+    </div>
+
+    <h2>Claude agent files</h2>
+    <div class="panel">
+      <ul class="file-list" id="agent-list"><li class="empty-state">Loading&hellip;</li></ul>
+    </div>
   </div>
 
-  <h2>Description</h2>
-  <div class="panel" id="description-panel">
-    <div class="empty-state">Loading&hellip;</div>
-  </div>
-
-  <h2>Claude agent files</h2>
-  <div class="panel">
-    <ul class="file-list" id="agent-list"><li class="empty-state">Loading&hellip;</li></ul>
-  </div>
-
-  <div id="github-section" style="display:none;">
-    <h2>GitHub</h2>
+  <div id="tab-panel-github" class="tab-panel">
     <div class="panel">
       <div id="git-status-panel"><div class="empty-state">Loading&hellip;</div></div>
       <div style="margin-top:14px;">
@@ -196,10 +214,31 @@ async function load() {
   renderShelved(shelvedData.shelved);
 
   if (data.has_github) {
-    document.getElementById('github-section').style.display = '';
+    document.getElementById('tab-btn-github').style.display = '';
     loadGitStatus();
     loadGitLog();
   }
+}
+
+function switchTab(name) {
+  document.getElementById('tab-panel-overview').classList.toggle('active', name === 'overview');
+  document.getElementById('tab-panel-github').classList.toggle('active', name === 'github');
+  document.getElementById('tab-btn-overview').classList.toggle('active', name === 'overview');
+  document.getElementById('tab-btn-github').classList.toggle('active', name === 'github');
+}
+
+// Appends a "Date Time - Comment" line to the (not-yet-pushed) commit message
+// log whenever an in-app action edits a file that lives in this project's own
+// repo (request edits, shelve/unshelve, Description.md edits, etc). Entries
+// accumulate rather than overwrite, so by the time the user visits the GitHub
+// tab and hits Commit & Push, the textarea already reads as a running log of
+// everything that happened since the last push.
+function logGitAction(comment) {
+  const ta = document.getElementById('git-commit-message');
+  if (!ta) return;
+  const stamp = new Date().toLocaleString();
+  const entry = `${stamp} - ${comment}`;
+  ta.value = ta.value.trim() ? `${ta.value}\n${entry}` : entry;
 }
 
 async function loadGitStatus() {
@@ -341,6 +380,7 @@ async function shelveRequest(name) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   });
+  logGitAction(`Shelved request "${name}"`);
   cancelRequestEdit();
   load();
 }
@@ -351,6 +391,7 @@ async function unshelveRequest(name) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   });
+  logGitAction(`Unshelved request "${name}"`);
   load();
 }
 
@@ -361,6 +402,7 @@ async function deleteShelvedRequest(name) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   });
+  logGitAction(`Deleted shelved request "${name}"`);
   load();
 }
 
@@ -465,6 +507,7 @@ async function saveRequestEdit() {
     btn.disabled = false;
     return;
   }
+  logGitAction(`Edited request "${currentEditRequestName}"`);
   btn.disabled = false;
   status.textContent = 'Saved.';
   status.className = '';
@@ -526,6 +569,7 @@ async function saveDescriptionEdit() {
     btn.disabled = false;
     return;
   }
+  logGitAction('Updated Description.md');
   btn.disabled = false;
   editingDescription = false;
   document.getElementById('desc-edit-actions').classList.remove('open');
