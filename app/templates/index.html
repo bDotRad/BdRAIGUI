@@ -547,22 +547,22 @@
 ├── Applications: BdRDev
 ├── Projects
 │   ├── BdRDev
-│   │   └── Agents: Project Manager, Web Dev Export,
+│   │   └── Agents: Project Manager, Web Dev Expert,
 │   │               Supabase SQL Expert, Doc Updater
 │   ├── BdRAMAssist
-│   │   └── Agents: Project Manager, Web Dev Export,
+│   │   └── Agents: Project Manager, Web Dev Expert,
 │   │               Supabase SQL Expert, Doc Updater
 │   ├── PlanBdRad
-│   │   └── Agents: Project Manager, Web Dev Export,
+│   │   └── Agents: Project Manager, Web Dev Expert,
 │   │               Supabase SQL Expert, Doc Updater
 │   ├── BdRIS
-│   │   └── Agents: Project Manager, Web Dev Export,
+│   │   └── Agents: Project Manager, Web Dev Expert,
 │   │               Supabase SQL Expert, Doc Updater
 │   ├── BdRBirdDetector
-│   │   └── Agents: Project Manager, Web Dev Export,
+│   │   └── Agents: Project Manager, Web Dev Expert,
 │   │               SQL Lite Expert, ESP32 Expert, Doc Updater
 │   └── BdRDungeon
-│       └── Agents: Project Manager, Web Dev Export,
+│       └── Agents: Project Manager, Web Dev Expert,
 │                   Supabase SQL Expert, ESP32 Expert, Doc Updater
 └── GitHub
     ├── Push to bDotRad/: BdRDev, BdRAMAssist, PlanBdRad,
@@ -597,10 +597,14 @@ BdRBirdDetector  (Physical Pi, 192.168.1.187)
             <code>PlanBdRadServer</code> (VM, 192.168.100.20), which runs just
             PlanBdRad. This host's machine hostname is still <code>BdRDev</code>,
             not yet renamed to <code>BdRSrvDev</code> (planned per <code>SSH.md</code>).
-            <code>BdRIS</code> doesn't exist as a project yet. None of the named
-            agents exist for BdRDev, BdRIS, or BdRDungeon; BdRAMAssist has 1
-            (not 4); PlanBdRad and BdRBirdDetector have real agents already, under
-            different names than shown here. Deploy-key conventions: <code>_Instructions/SSH.md</code>.
+            <code>BdRIS</code> doesn't exist as a project yet. BdRDev now has
+            all 4 named agents for real, under <code>.claude/agents/</code>,
+            written generically so they double as the copyable template for
+            other projects (see <code>_Instructions/ProjectSetup.md</code>).
+            None of the named agents exist yet for BdRIS or BdRDungeon;
+            BdRAMAssist has 1 (not 4); PlanBdRad and BdRBirdDetector have real
+            agents already, under different names than shown here. Deploy-key
+            conventions: <code>_Instructions/SSH.md</code>.
           </div>
         </div>
 

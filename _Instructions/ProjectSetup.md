@@ -39,7 +39,14 @@ these conventions exist.
   exists so an agent can keep reference material alongside its
   definition if it needs to. This shape was established on `PlanBdRad`
   (`project-manager`, `web-developer`, `sql-developer`,
-  `asset-management-guru`) -- follow that as the worked example.
+  `asset-management-guru`) -- follow that as the worked example for a
+  project with real domain-specific agents. `BdRDev`'s own
+  `.claude/agents/` (`project-manager`, `web-dev-expert`,
+  `supabase-sql-expert`, `doc-updater`) is written generically --
+  no project name or domain baked in, just "this project" throughout
+  -- specifically so it can be copied as-is into a new project's
+  `.claude/agents/` as a starting set when nothing more specific has
+  been asked for.
 - **`References/`** (repo root) — a plain folder for site-specific or
   external documentation Brad drops in by hand (vendor docs, network
   details, anything that isn't Claude-authored). Not agent instructions
