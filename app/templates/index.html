@@ -231,6 +231,33 @@
     font-size: 12px; line-height: 1.5; overflow-x: auto;
   }
 
+  .eco-diagram { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; }
+  .eco-server-card {
+    flex: 1 1 300px; min-width: 270px; background: #0b0d11;
+    border: 1px solid var(--card-border); border-radius: 8px; padding: 14px 16px;
+  }
+  .eco-server-card.eco-server-planned { border-style: dashed; opacity: 0.85; }
+  .eco-server-name { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  .eco-tag { font-weight: 400; font-size: 11px; color: var(--text-dim); margin-left: 6px; }
+  .eco-tag-planned { color: var(--waiting); }
+  .eco-specs-pill {
+    display: inline-block; font-size: 12px; color: var(--text-dim); background: var(--card);
+    border: 1px solid var(--card-border); border-radius: 12px; padding: 3px 10px; margin-bottom: 4px;
+  }
+  .eco-section-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-dim);
+    margin: 10px 0 6px; border-top: 1px solid var(--card-border); padding-top: 8px;
+  }
+  .eco-projects, .eco-apps { display: flex; flex-direction: column; gap: 8px; }
+  .eco-project-card, .eco-app-card { border-left: 2px solid var(--accent); padding: 4px 0 4px 10px; }
+  .eco-project-name, .eco-app-name { font-size: 13px; font-weight: 600; }
+  .eco-agents, .eco-meta-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .eco-chip {
+    font-size: 11px; background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 2px 8px; color: var(--text-dim);
+  }
+  .eco-chip-address { color: var(--accent); }
+
   #log-panel {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -537,6 +564,137 @@
 
   <div id="tab-panel-ecosystem" class="tab-panel">
     <div id="ecosystem-panel">
+      <h2 style="margin-top:0;">Fleet diagram</h2>
+      <div class="sql-meta">
+        Graphical view of each server → what runs on it, with DB and web
+        address per app where known. Same target layout as the tree below
+        (2026-08-26) — dashed cards are servers not provisioned yet; see
+        the "Not yet real" note under the tree for details.
+      </div>
+      <div class="eco-diagram">
+        <div class="eco-server-card">
+          <div class="eco-server-name">BdRSrvDev <span class="eco-tag">this host, local</span></div>
+          <div class="eco-specs-pill">Ubuntu Server · 8GB RAM · 512GB SSD</div>
+          <div class="eco-section-label">Projects</div>
+          <div class="eco-projects">
+            <div class="eco-project-card">
+              <div class="eco-project-name">BdRDev</div>
+              <div class="eco-agents">
+                <span class="eco-chip">Project Manager</span>
+                <span class="eco-chip">Web Dev Expert</span>
+                <span class="eco-chip">Supabase SQL Expert</span>
+                <span class="eco-chip">Doc Updater</span>
+              </div>
+            </div>
+            <div class="eco-project-card">
+              <div class="eco-project-name">BdRAMAssist</div>
+              <div class="eco-agents">
+                <span class="eco-chip">Project Manager</span>
+                <span class="eco-chip">Web Dev Expert</span>
+                <span class="eco-chip">Supabase SQL Expert</span>
+                <span class="eco-chip">Doc Updater</span>
+              </div>
+            </div>
+            <div class="eco-project-card">
+              <div class="eco-project-name">PlanBdRad</div>
+              <div class="eco-agents">
+                <span class="eco-chip">Project Manager</span>
+                <span class="eco-chip">web-developer</span>
+                <span class="eco-chip">sql-developer</span>
+              </div>
+            </div>
+            <div class="eco-project-card">
+              <div class="eco-project-name">BdRIS <span class="eco-tag eco-tag-planned">doesn't exist yet</span></div>
+            </div>
+            <div class="eco-project-card">
+              <div class="eco-project-name">BdRBirdDetector</div>
+              <div class="eco-agents">
+                <span class="eco-chip">Project Manager</span>
+                <span class="eco-chip">Web Dev Expert</span>
+                <span class="eco-chip">sql-expert</span>
+                <span class="eco-chip">esp32-nodes</span>
+                <span class="eco-chip">docs-logs</span>
+              </div>
+            </div>
+            <div class="eco-project-card">
+              <div class="eco-project-name">BdRDungeon</div>
+              <div class="eco-agents">
+                <span class="eco-chip">Project Manager</span>
+                <span class="eco-chip">Web Dev Expert</span>
+                <span class="eco-chip">Supabase SQL Expert</span>
+                <span class="eco-chip">ESP32 Expert</span>
+                <span class="eco-chip">Doc Updater</span>
+              </div>
+            </div>
+          </div>
+          <div class="eco-section-label">Apps on this host</div>
+          <div class="eco-apps">
+            <div class="eco-app-card">
+              <div class="eco-app-name">BdRDev dashboard + scheduler</div>
+              <div class="eco-meta-row">
+                <span class="eco-chip eco-chip-address">🌐 http://&lt;pi-ip&gt;:8420</span>
+                <span class="eco-chip">DB: none (JSON state files)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="eco-server-card eco-server-planned">
+          <div class="eco-server-name">BdRSrvAMI <span class="eco-tag eco-tag-planned">not provisioned yet</span></div>
+          <div class="eco-specs-pill">Ubuntu Server · 8GB RAM · 256GB SSD</div>
+          <div class="eco-section-label">Apps</div>
+          <div class="eco-apps">
+            <div class="eco-app-card">
+              <div class="eco-app-name">PlanBdRad <span class="eco-tag">today: runs on PlanBdRadServer</span></div>
+              <div class="eco-meta-row">
+                <span class="eco-chip eco-chip-address">🌐 192.168.100.20</span>
+                <span class="eco-chip">DB: Supabase (Postgres)</span>
+              </div>
+            </div>
+            <div class="eco-app-card">
+              <div class="eco-app-name">BdRAMAssist</div>
+              <div class="eco-meta-row">
+                <span class="eco-chip eco-chip-address">🌐 not deployed yet</span>
+                <span class="eco-chip">DB: none — feeds PlanBdRad's DB</span>
+              </div>
+            </div>
+            <div class="eco-app-card">
+              <div class="eco-app-name">BdRIS <span class="eco-tag eco-tag-planned">project doesn't exist yet</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="eco-server-card eco-server-planned">
+          <div class="eco-server-name">BdRSrvDungeon <span class="eco-tag eco-tag-planned">not provisioned yet</span></div>
+          <div class="eco-specs-pill">Ubuntu Server · 4GB RAM · 256GB SSD</div>
+          <div class="eco-section-label">Apps</div>
+          <div class="eco-apps">
+            <div class="eco-app-card">
+              <div class="eco-app-name">BdRDungeon</div>
+              <div class="eco-meta-row">
+                <span class="eco-chip eco-chip-address">🌐 not deployed yet</span>
+                <span class="eco-chip">DB: Supabase (planned)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="eco-server-card">
+          <div class="eco-server-name">BdRBirdDetector <span class="eco-tag">physical Pi, 192.168.1.187</span></div>
+          <div class="eco-specs-pill">RPI OS Lite · 4GB RAM · 64GB SD Card</div>
+          <div class="eco-section-label">Apps</div>
+          <div class="eco-apps">
+            <div class="eco-app-card">
+              <div class="eco-app-name">BdRBirdDetector <span class="eco-tag">edge/gui.py — Streamlit</span></div>
+              <div class="eco-meta-row">
+                <span class="eco-chip eco-chip-address">🌐 local network only, no fixed URL</span>
+                <span class="eco-chip">DB: none yet — cloud DB planned</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="ecosystem-row">
         <div class="ecosystem-block">
           <h2>Servers → software / projects</h2>
