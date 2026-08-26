@@ -133,6 +133,19 @@ It'll keep showing up in `_Requests/` (and won't get picked up by a
 passive "scan requests", same as `NOT READY`) until Brad answers and
 flips it back to `READY`.
 
+**This is the right move even when the blocker is an interactive
+prompt**, not just a written question -- e.g. auto-mode's safety
+classifier declining a risky action (a live-service restart, `kill -9`,
+etc.), or a tool asking a multiple-choice question. Running unattended,
+nobody is watching the session's terminal in real time, so an open
+confirmation dialog with no one there to answer it just sits forever,
+burning the project's scheduler slot for no benefit -- decline/cancel
+the prompt rather than leave it open, then use `WAITING RESPONSE` as
+above and end the turn. The dashboard already flashes a "Waiting Input"
+button whenever a request is `WAITING RESPONSE`, and the scheduler
+hibernates the session on its own once nothing's left `READY` -- that's
+the actual channel Brad monitors, not the live tmux pane.
+
 ## Not yet built (per the convention doc, deferred until needed)
 
 - Automated folder watcher -- purely manual/on-request for now.

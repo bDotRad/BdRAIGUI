@@ -537,57 +537,71 @@
 
   <div id="tab-panel-ecosystem" class="tab-panel">
     <div id="ecosystem-panel">
-      <div class="ecosystem-block">
-        <h2>Devices</h2>
-        <div class="sql-meta">The physical/virtual machines this fleet runs on, and what each one hosts.</div>
-        <table class="device-table">
-          <thead><tr><th>Device</th><th>Kind</th><th>Address</th><th>Runs</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>BdRDev</td>
-              <td>This host (server)</td>
-              <td>local</td>
-              <td>The dashboard + scheduler (this app), and every project under <code>~/projects/</code> that runs its Claude Code session here</td>
-            </tr>
-            <tr>
-              <td>PlanBdRadServer</td>
-              <td>VM</td>
-              <td>192.168.100.20</td>
-              <td>PlanBdRad</td>
-            </tr>
-            <tr>
-              <td>BdRadBirdDetector</td>
-              <td>Physical Raspberry Pi</td>
-              <td>192.168.1.187</td>
-              <td>BdRBirdDetector</td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="sql-meta" style="margin-top:10px;">Deploy-key naming and other fleet-wide SSH conventions: <code>_Instructions/SSH.md</code>.</div>
-      </div>
-
       <div class="ecosystem-row">
         <div class="ecosystem-block">
           <h2>Servers → software / projects</h2>
-          <div class="sql-meta">What's physically running where, across the fleet.</div>
-          <pre class="folder-tree">BdRDev (this host, local)
-├── Dashboard + Scheduler   # this app
-├── PlanBdRad               # Claude session (app deployed to PlanBdRadServer)
-│   └── Agents: project-manager, asset-management-guru,
-│               sql-developer, web-developer
-├── BdRAMAssist             # Claude session (staging tool feeding PlanBdRad)
-│   └── Agents: asset-management-bulk-specialist
-├── BdRDungeon              # Claude session (ESP32/device hub, early)
-│   └── Agents: none yet
-└── BdRBirdDetector         # Claude session (app deployed to BdRadBirdDetector)
-    └── Agents: pi-pipeline, sql-expert, docs-writer,
-                docs-logs, db-webapp, esp32-nodes
+          <div class="sql-meta">Target fleet layout per Brad's spec (2026-08-26). Not all provisioned yet — see note below.</div>
+          <pre class="folder-tree">BdRSrvDev  (this host, local)
+├── Specs:        Ubuntu Server · 8GB RAM · 512GB SSD
+├── Software:     Claude Code · Nginx · Scheduler
+├── Applications: BdRDev
+├── Projects
+│   ├── BdRDev
+│   │   └── Agents: Project Manager, Web Dev Export,
+│   │               Supabase SQL Expert, Doc Updater
+│   ├── BdRAMAssist
+│   │   └── Agents: Project Manager, Web Dev Export,
+│   │               Supabase SQL Expert, Doc Updater
+│   ├── PlanBdRad
+│   │   └── Agents: Project Manager, Web Dev Export,
+│   │               Supabase SQL Expert, Doc Updater
+│   ├── BdRIS
+│   │   └── Agents: Project Manager, Web Dev Export,
+│   │               Supabase SQL Expert, Doc Updater
+│   ├── BdRBirdDetector
+│   │   └── Agents: Project Manager, Web Dev Export,
+│   │               SQL Lite Expert, ESP32 Expert, Doc Updater
+│   └── BdRDungeon
+│       └── Agents: Project Manager, Web Dev Export,
+│                   Supabase SQL Expert, ESP32 Expert, Doc Updater
+└── GitHub
+    ├── Push to bDotRad/: BdRDev, BdRAMAssist, PlanBdRad,
+    │                     BdRIS, BdRBirdDetector, BdRDungeon
+    └── Pull from bDotRad/: BdRDev
 
-PlanBdRadServer (VM, 192.168.100.20)
-└── PlanBdRad               # deployed app: Vite dev server + built prod build
+BdRSrvAMI
+├── Specs:        Ubuntu Server · 8GB RAM · 256GB SSD
+├── Software:     Claude Code · Nginx · Supabase
+├── Applications: BdRAMAssist, PlanBdRad, BdRIS
+└── GitHub
+    └── Pull from bDotRad/: BdRAMAssist, PlanBdRad, BdRIS
 
-BdRadBirdDetector (Physical Pi, 192.168.1.187)
-└── BdRBirdDetector         # deployed detection pipeline (edge/)</pre>
+BdRSrvDungeon
+├── Specs:        Ubuntu Server · 4GB RAM · 256GB SSD
+├── Software:     Claude Code · Nginx · Supabase
+├── Applications: BdRDungeon
+└── GitHub
+    └── Pull from bDotRad/: BdRDungeon
+
+BdRBirdDetector  (Physical Pi, 192.168.1.187)
+├── Specs:        RPI OS Lite · 4GB RAM · 64GB SD Card
+├── Software:     Nginx · SQL Lite
+├── Applications: BdRBirdDetector
+├── GitHub
+│   └── Pull from bDotRad/: BdRBirdDetector
+└── Firebase
+    └── Push</pre>
+          <div class="sql-meta" style="margin-top:10px;">
+            <b>Not yet real, per current state:</b> <code>BdRSrvAMI</code> and
+            <code>BdRSrvDungeon</code> aren't provisioned — today there's only
+            <code>PlanBdRadServer</code> (VM, 192.168.100.20), which runs just
+            PlanBdRad. This host's machine hostname is still <code>BdRDev</code>,
+            not yet renamed to <code>BdRSrvDev</code> (planned per <code>SSH.md</code>).
+            <code>BdRIS</code> doesn't exist as a project yet. None of the named
+            agents exist for BdRDev, BdRIS, or BdRDungeon; BdRAMAssist has 1
+            (not 4); PlanBdRad and BdRBirdDetector have real agents already, under
+            different names than shown here. Deploy-key conventions: <code>_Instructions/SSH.md</code>.
+          </div>
         </div>
 
         <div class="ecosystem-block">

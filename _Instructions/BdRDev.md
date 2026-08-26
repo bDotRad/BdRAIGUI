@@ -36,6 +36,31 @@ your environment that aren't otherwise obvious from inside the session.
    session outright.** This is not a signal you can intercept or a
    `SIGTERM` you can handle gracefully — the process just ends.
 
+## If you need Brad's input (or hit an auto-mode block)
+
+Nobody is watching this session's terminal in real time — it runs
+unattended between scheduler wake-ups. Don't rely on an interactive
+confirmation dialog (a permission prompt, or the `AskUserQuestion` tool)
+to get an answer out of Brad: the scheduler has no visibility into that
+dialog either, it only counts files in `_Requests/`, so sitting at an
+open prompt just burns your rotation slot indefinitely with no way for
+anyone to know you're stuck.
+
+If you hit something only Brad can decide — including auto-mode's
+safety classifier blocking a risky action (a live-service restart,
+`kill -9`, etc.) — don't leave that dialog open waiting for a reply:
+
+1. Decline/cancel the interactive prompt (choose "No" / don't proceed)
+   rather than leaving it hanging.
+2. Set the relevant request file's first line to `WAITING RESPONSE` and
+   write your question in the body (see `_Instructions/Requests.md`).
+3. End your turn. Once nothing in `_Requests/` is `READY`, the scheduler
+   hibernates you automatically after its grace period — no need to
+   stay alive waiting for an answer. The dashboard already flashes a
+   "Waiting Input" button whenever a request is `WAITING RESPONSE`, so
+   Brad sees the question next time he checks, answers it in the file,
+   and flips it back to `READY` to wake a fresh session.
+
 ## What this means for how you should work
 
 - **Don't leave work uncommitted.** Because your session can be killed
