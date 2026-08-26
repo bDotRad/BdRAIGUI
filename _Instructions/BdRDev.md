@@ -121,3 +121,11 @@ and you shouldn't need to. If a request references work that belongs in
 a different project, say so rather than reaching outside this project's
 directory — the scheduler and dashboard are the only things with a
 cross-project view, and they're not something you can query.
+
+## If this project also runs live on a separate app server
+
+If a change is ever made directly on that machine instead of here, it
+should **not** get pushed to GitHub from there — see
+`BdRDev/_Instructions/AppServerSync.md` for the drop-folder convention
+(`_AppServerDrops/`) that funnels app-server-side edits back through
+this dev server instead.

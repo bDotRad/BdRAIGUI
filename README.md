@@ -37,6 +37,12 @@ what counts as "pending".
   to be copied into *other* projects' instructions so their Claude Code
   sessions understand they're running under this scheduler (why they get
   woken/killed, `.claude-status/status.json`, SQL output convention).
+- **App server sync**: `_Instructions/AppServerSync.md` -- for projects
+  that also run live on a separate app server, the convention for
+  funneling any app-server-side edit back through this dev server
+  (drop the changed file in `_AppServerDrops/`, fold it in and push from
+  here, then pull it back down on the app server) instead of pushing
+  straight from the app server.
 - **Status line** (optional, per project): a project can write
   `.claude-status/status.json` with `{"current_task": "...",
   "last_active": "<ISO8601>"}` to show a human-readable task line on its
