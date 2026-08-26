@@ -597,14 +597,20 @@ BdRBirdDetector  (Physical Pi, 192.168.1.187)
             <code>PlanBdRadServer</code> (VM, 192.168.100.20), which runs just
             PlanBdRad. This host's machine hostname is still <code>BdRDev</code>,
             not yet renamed to <code>BdRSrvDev</code> (planned per <code>SSH.md</code>).
-            <code>BdRIS</code> doesn't exist as a project yet. BdRDev now has
-            all 4 named agents for real, under <code>.claude/agents/</code>,
-            written generically so they double as the copyable template for
-            other projects (see <code>_Instructions/ProjectSetup.md</code>).
-            None of the named agents exist yet for BdRIS or BdRDungeon;
-            BdRAMAssist has 1 (not 4); PlanBdRad and BdRBirdDetector have real
-            agents already, under different names than shown here. Deploy-key
-            conventions: <code>_Instructions/SSH.md</code>.
+            <code>BdRIS</code> doesn't exist as a project yet. BdRDev,
+            BdRAMAssist, and BdRDungeon now have all the agents shown above
+            for real, under <code>.claude/agents/</code> (BdRDev's set is
+            written generically so it doubles as the copyable template for
+            other projects — see <code>_Instructions/ProjectSetup.md</code>).
+            PlanBdRad and BdRBirdDetector have equivalent agents under
+            different, domain-specific names (e.g. PlanBdRad's
+            <code>web-developer</code>/<code>sql-developer</code>,
+            BdRBirdDetector's <code>sql-expert</code>/<code>esp32-nodes</code>/
+            <code>docs-logs</code>) rather than the generic names shown here —
+            both now also have a real <code>project-manager</code>. None of
+            the named agents exist for <code>BdRIS</code>, since the project
+            itself doesn't exist. Deploy-key conventions:
+            <code>_Instructions/SSH.md</code>.
           </div>
         </div>
 
