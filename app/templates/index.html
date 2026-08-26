@@ -97,10 +97,19 @@
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
-  #admin-panel {
+  .admin-panel-box {
     background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
     padding: 18px 20px; max-width: 680px;
   }
+  #admin-subtabs { display: flex; gap: 14px; border-bottom: 1px solid var(--card-border); margin-bottom: 18px; }
+  .admin-subtab-btn {
+    background: transparent; border: none; color: var(--text-dim);
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 8px 2px; cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .admin-subtab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+  .admin-subpanel { display: none; }
+  .admin-subpanel.active { display: block; }
   #admin-status-row, #admin-scheduler-status-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
   .admin-status-badge {
     font-size: 13px; font-weight: 600; padding: 4px 12px; border-radius: 10px;
@@ -266,12 +275,12 @@
     border-radius: 10px;
     padding: 16px 18px;
   }
-  #log-list { list-style: none; margin: 0; padding: 0; max-height: calc(100vh - 260px); overflow-y: auto; }
-  #log-list li {
+  .log-list { list-style: none; margin: 0; padding: 0; max-height: calc(100vh - 260px); overflow-y: auto; }
+  .log-list li {
     display: flex; gap: 10px; font-size: 13px; padding: 6px 0;
     border-bottom: 1px solid var(--card-border);
   }
-  #log-list li:last-child { border-bottom: none; }
+  .log-list li:last-child { border-bottom: none; }
   .log-time { color: var(--text-dim); width: 70px; flex-shrink: 0; }
   .log-project { font-weight: 600; }
   .log-event { color: var(--text-dim); }
@@ -521,7 +530,7 @@
     <button class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">Activity Log</button>
     <button class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Admin</button>
     <button class="tab-btn" id="tab-btn-ecosystem" onclick="switchTab('ecosystem')">Ecosystem</button>
-    <button class="tab-btn" id="tab-btn-independent" onclick="openConsole(INDEPENDENT_SESSION)">Independent Claude</button>
+    <button class="tab-btn" id="tab-btn-independent" onclick="openConsole(INDEPENDENT_SESSION)">CLAUDE</button>
     <a class="help-link" href="/help">Help</a>
   </div>
 
@@ -533,37 +542,52 @@
   <div id="tab-panel-log" class="tab-panel">
     <div id="log-panel">
       <h2>Activity log</h2>
-      <ul id="log-list"><li class="log-event">Loading&hellip;</li></ul>
+      <ul class="log-list" id="log-list"><li class="log-event">Loading&hellip;</li></ul>
     </div>
   </div>
 
   <div id="tab-panel-admin" class="tab-panel">
-    <div id="admin-panel">
-      <button class="btn" id="admin-restart-both-btn" onclick="triggerRestartBoth()">Restart both services</button>
-      <div class="sql-meta" style="margin-top:10px;">Restarts <code>bdrdev-dashboard</code> and <code>bdrdev-scheduler</code> together. Same as clicking both restart buttons below, in one step.</div>
-
-      <h2 style="margin-top:24px;">Dashboard service</h2>
-      <div id="admin-status-row">
-        <span id="admin-status-badge" class="admin-status-badge running">Loading&hellip;</span>
+    <div id="admin-panel" class="admin-panel-box">
+      <div id="admin-subtabs">
+        <button class="admin-subtab-btn active" id="admin-subtab-btn-system" onclick="switchAdminSubtab('system')">System</button>
+        <button class="admin-subtab-btn" id="admin-subtab-btn-log" onclick="switchAdminSubtab('log')">Log</button>
+        <button class="admin-subtab-btn" id="admin-subtab-btn-colour" onclick="switchAdminSubtab('colour')">Colour</button>
       </div>
-      <button class="btn" id="admin-restart-btn" onclick="triggerRestart()">Restart service</button>
-      <div class="sql-meta" style="margin-top:10px;">Restarts the <code>bdrdev-dashboard</code> process so template/code changes take effect. Causes a brief outage (a few seconds).</div>
 
-      <h2 style="margin-top:24px;">Scheduler service</h2>
-      <div id="admin-scheduler-status-row">
-        <span id="admin-scheduler-status-badge" class="admin-status-badge running">Loading&hellip;</span>
-      </div>
-      <button class="btn" id="admin-scheduler-restart-btn" onclick="triggerSchedulerRestart()">Restart service</button>
-      <div class="sql-meta" style="margin-top:10px;">Restarts the <code>bdrdev-scheduler</code> process so scheduler code changes take effect. Any project it's mid-processing resumes on its next poll after the restart.</div>
+      <div id="admin-subpanel-system" class="admin-subpanel active">
+        <button class="btn" id="admin-restart-both-btn" onclick="triggerRestartBoth()">Restart both services</button>
+        <div class="sql-meta" style="margin-top:10px;">Restarts <code>bdrdev-dashboard</code> and <code>bdrdev-scheduler</code> together. Same as clicking both restart buttons below, in one step.</div>
 
-      <h2 style="margin-top:24px;">Colour palette</h2>
-      <div id="palette-grid"></div>
-      <div id="palette-actions">
-        <button class="btn" id="palette-save-btn" onclick="savePalette()">Save</button>
-        <button class="btn secondary" id="palette-reset-btn" onclick="resetPalette()">Reset to defaults</button>
-        <span id="palette-status"></span>
+        <h2 style="margin-top:24px;">Dashboard service</h2>
+        <div id="admin-status-row">
+          <span id="admin-status-badge" class="admin-status-badge running">Loading&hellip;</span>
+        </div>
+        <button class="btn" id="admin-restart-btn" onclick="triggerRestart()">Restart service</button>
+        <div class="sql-meta" style="margin-top:10px;">Restarts the <code>bdrdev-dashboard</code> process so template/code changes take effect. Causes a brief outage (a few seconds).</div>
+
+        <h2 style="margin-top:24px;">Scheduler service</h2>
+        <div id="admin-scheduler-status-row">
+          <span id="admin-scheduler-status-badge" class="admin-status-badge running">Loading&hellip;</span>
+        </div>
+        <button class="btn" id="admin-scheduler-restart-btn" onclick="triggerSchedulerRestart()">Restart service</button>
+        <div class="sql-meta" style="margin-top:10px;">Restarts the <code>bdrdev-scheduler</code> process so scheduler code changes take effect. Any project it's mid-processing resumes on its next poll after the restart.</div>
       </div>
-      <div class="sql-meta" style="margin-top:10px;">Applies live to this page immediately on save; other tabs/devices pick it up on their next load.</div>
+
+      <div id="admin-subpanel-log" class="admin-subpanel">
+        <h2 style="margin-top:0;">Activity log</h2>
+        <ul class="log-list" id="admin-log-list"><li class="log-event">Loading&hellip;</li></ul>
+      </div>
+
+      <div id="admin-subpanel-colour" class="admin-subpanel">
+        <h2 style="margin-top:0;">Colour palette</h2>
+        <div id="palette-grid"></div>
+        <div id="palette-actions">
+          <button class="btn" id="palette-save-btn" onclick="savePalette()">Save</button>
+          <button class="btn secondary" id="palette-reset-btn" onclick="resetPalette()">Reset to defaults</button>
+          <span id="palette-status"></span>
+        </div>
+        <div class="sql-meta" style="margin-top:10px;">Applies live to this page immediately on save; other tabs/devices pick it up on their next load.</div>
+      </div>
     </div>
   </div>
 
@@ -945,6 +969,16 @@ function switchTab(name) {
   try { localStorage.setItem('bdrdev-tab', name); } catch (e) { /* ignore */ }
 }
 
+function switchAdminSubtab(name) {
+  document.getElementById('admin-subpanel-system').classList.toggle('active', name === 'system');
+  document.getElementById('admin-subpanel-log').classList.toggle('active', name === 'log');
+  document.getElementById('admin-subpanel-colour').classList.toggle('active', name === 'colour');
+  document.getElementById('admin-subtab-btn-system').classList.toggle('active', name === 'system');
+  document.getElementById('admin-subtab-btn-log').classList.toggle('active', name === 'log');
+  document.getElementById('admin-subtab-btn-colour').classList.toggle('active', name === 'colour');
+  try { localStorage.setItem('bdrdev-admin-subtab', name); } catch (e) { /* ignore */ }
+}
+
 async function loadStatus() {
   const res = await fetch('/api/status');
   const data = await res.json();
@@ -1156,12 +1190,13 @@ document.getElementById('edit-req-overlay').addEventListener('click', (e) => {
 });
 
 function renderLog(entries) {
-  const list = document.getElementById('log-list');
+  const lists = document.querySelectorAll('.log-list');
+  if (!lists.length) return;
   if (!entries || entries.length === 0) {
-    list.innerHTML = '<li class="log-event">No activity yet.</li>';
+    lists.forEach(list => { list.innerHTML = '<li class="log-event">No activity yet.</li>'; });
     return;
   }
-  list.innerHTML = entries.map(e => {
+  const html = entries.map(e => {
     const label = EVENT_LABELS[e.event] || e.event;
     const t = new Date(e.time);
     // Pin display to Brad's actual timezone rather than letting this convert
@@ -1180,6 +1215,7 @@ function renderLog(entries) {
       </li>
     `;
   }).join('');
+  lists.forEach(list => { list.innerHTML = html; });
 }
 
 async function toggleRotation(project, selected) {
@@ -1951,6 +1987,10 @@ async function resetPalette() {
 let savedTab = 'projects';
 try { savedTab = localStorage.getItem('bdrdev-tab') || 'projects'; } catch (e) { /* ignore */ }
 switchTab(savedTab);
+
+let savedAdminSubtab = 'system';
+try { savedAdminSubtab = localStorage.getItem('bdrdev-admin-subtab') || 'system'; } catch (e) { /* ignore */ }
+switchAdminSubtab(savedAdminSubtab);
 
 loadStatus();
 loadLog();
