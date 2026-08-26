@@ -537,7 +537,10 @@
 
   <div id="tab-panel-admin" class="tab-panel">
     <div id="admin-panel">
-      <h2>Dashboard service</h2>
+      <button class="btn" id="admin-restart-both-btn" onclick="triggerRestartBoth()">Restart both services</button>
+      <div class="sql-meta" style="margin-top:10px;">Restarts <code>bdrdev-dashboard</code> and <code>bdrdev-scheduler</code> together. Same as clicking both restart buttons below, in one step.</div>
+
+      <h2 style="margin-top:24px;">Dashboard service</h2>
       <div id="admin-status-row">
         <span id="admin-status-badge" class="admin-status-badge running">Loading&hellip;</span>
       </div>
@@ -1782,6 +1785,39 @@ async function loadAdminStatus() {
   } catch (e) {
     if (adminRestarting) renderAdminStatus('restarting');
   }
+}
+
+async function triggerRestartBoth() {
+  if (!confirm('Restart both the Dashboard and Scheduler services now? This causes a brief outage.')) return;
+
+  schedulerRestarting = true;
+  renderSchedulerStatus('restarting');
+  try {
+    await fetch('/api/admin/restart_scheduler', { method: 'POST' });
+  } catch (e) { /* ignore -- status poll below will reflect reality */ }
+  const schedPoll = setInterval(async () => {
+    if (!schedulerRestarting) { clearInterval(schedPoll); return; }
+    try {
+      const res = await fetch('/api/admin/status');
+      const data = await res.json();
+      if (data.scheduler_running) {
+        schedulerRestarting = false;
+        renderSchedulerStatus(data.scheduler_needs_restart ? 'requires_restart' : 'running');
+      }
+    } catch (e) { /* keep polling */ }
+    if (!schedulerRestarting) clearInterval(schedPoll);
+  }, 1000);
+
+  adminRestarting = true;
+  renderAdminStatus('restarting');
+  try {
+    await fetch('/api/admin/restart', { method: 'POST' });
+  } catch (e) { /* the process may die before the response completes */ }
+  const poll = setInterval(async () => {
+    if (!adminRestarting) { clearInterval(poll); return; }
+    await loadAdminStatus();
+    if (!adminRestarting) clearInterval(poll);
+  }, 1000);
 }
 
 async function triggerRestart() {
