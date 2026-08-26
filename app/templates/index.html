@@ -632,15 +632,15 @@
             <div class="eco-app-card">
               <div class="eco-app-name">BdRDev dashboard + scheduler</div>
               <div class="eco-meta-row">
-                <span class="eco-chip eco-chip-address">🌐 http://&lt;pi-ip&gt;:8420</span>
+                <span class="eco-chip eco-chip-address">🌐 http://192.168.100.10:8420</span>
                 <span class="eco-chip">DB: none (JSON state files)</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="eco-server-card eco-server-planned">
-          <div class="eco-server-name">BdRSrvAMI <span class="eco-tag eco-tag-planned">not provisioned yet</span></div>
+        <div class="eco-server-card">
+          <div class="eco-server-name">BdRSrvAMI <span class="eco-tag">VM, 192.168.100.20</span></div>
           <div class="eco-specs-pill">Ubuntu Server · 8GB RAM · 256GB SSD</div>
           <div class="eco-section-label">Apps</div>
           <div class="eco-apps">
@@ -699,7 +699,7 @@
         <div class="ecosystem-block">
           <h2>Servers → software / projects</h2>
           <div class="sql-meta">Target fleet layout per Brad's spec (2026-08-26). Not all provisioned yet — see note below.</div>
-          <pre class="folder-tree">BdRSrvDev  (this host, local)
+          <pre class="folder-tree">BdRSrvDev  (this host, local, 192.168.100.10)
 ├── Specs:        Ubuntu Server · 8GB RAM · 512GB SSD
 ├── Software:     Claude Code · Nginx · Scheduler
 ├── Applications: BdRDev
@@ -727,7 +727,7 @@
     │                     BdRIS, BdRBirdDetector, BdRDungeon
     └── Pull from bDotRad/: BdRDev
 
-BdRSrvAMI
+BdRSrvAMI  (VM, 192.168.100.20)
 ├── Specs:        Ubuntu Server · 8GB RAM · 256GB SSD
 ├── Software:     Claude Code · Nginx · Supabase
 ├── Applications: BdRAMAssist, PlanBdRad, BdRIS
@@ -750,11 +750,14 @@ BdRBirdDetector  (Physical Pi, 192.168.1.187)
 └── Firebase
     └── Push</pre>
           <div class="sql-meta" style="margin-top:10px;">
-            <b>Not yet real, per current state:</b> <code>BdRSrvAMI</code> and
-            <code>BdRSrvDungeon</code> aren't provisioned — today there's only
-            <code>PlanBdRadServer</code> (VM, 192.168.100.20), which runs just
-            PlanBdRad. This host's machine hostname is still <code>BdRDev</code>,
-            not yet renamed to <code>BdRSrvDev</code> (planned per <code>SSH.md</code>).
+            <b>Not yet real, per current state:</b> <code>BdRSrvDungeon</code>
+            isn't provisioned yet. <code>BdRSrvAMI</code> (the renamed/repurposed
+            <code>PlanBdRadServer</code> VM, 192.168.100.20) is real and reachable —
+            it currently runs PlanBdRad, with BdRAMAssist's repo cloned there too
+            (not yet confirmed running as a deployed service). This host
+            (<code>BdRSrvDev</code>, 192.168.100.10) is real; its machine hostname
+            is still <code>BdRDev</code>, not yet renamed to <code>BdRSrvDev</code>
+            (planned per <code>SSH.md</code>).
             <code>BdRIS</code> doesn't exist as a project yet. BdRDev,
             BdRAMAssist, and BdRDungeon now have all the agents shown above
             for real, under <code>.claude/agents/</code> (BdRDev's set is
