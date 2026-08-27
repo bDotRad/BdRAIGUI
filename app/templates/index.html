@@ -669,14 +669,14 @@
         </div>
 
         <div class="eco-server-card">
-          <div class="eco-server-name">BdRSrvAMI <span class="eco-tag">VM, 192.168.100.20</span></div>
-          <div class="eco-specs-pill">Ubuntu Server · 8GB RAM · 256GB SSD</div>
+          <div class="eco-server-name">BdRPiAMI <span class="eco-tag">Raspberry Pi 8GB, 10.10.10.20</span></div>
+          <div class="eco-specs-pill">Raspberry Pi · 8GB RAM</div>
           <div class="eco-section-label">Apps</div>
           <div class="eco-apps">
             <div class="eco-app-card">
               <div class="eco-app-name">PlanBdRad <span class="eco-tag">today: runs on PlanBdRadServer</span></div>
               <div class="eco-meta-row">
-                <span class="eco-chip eco-chip-address">🌐 192.168.100.20</span>
+                <span class="eco-chip eco-chip-address">🌐 10.10.10.20</span>
                 <span class="eco-chip">DB: Supabase (Postgres)</span>
               </div>
             </div>
@@ -756,8 +756,8 @@
     │                     BdRIS, BdRBirdDetector, BdRDungeon
     └── Pull from bDotRad/: BdRDev
 
-BdRSrvAMI  (VM, 192.168.100.20)
-├── Specs:        Ubuntu Server · 8GB RAM · 256GB SSD
+BdRPiAMI  (Raspberry Pi 8GB, 10.10.10.20)
+├── Specs:        Raspberry Pi · 8GB RAM
 ├── Software:     Claude Code · Nginx · Supabase
 ├── Applications: BdRAMAssist, PlanBdRad, BdRIS
 └── GitHub
@@ -780,10 +780,11 @@ BdRBirdDetector  (Physical Pi, 192.168.1.187)
     └── Push</pre>
           <div class="sql-meta" style="margin-top:10px;">
             <b>Not yet real, per current state:</b> <code>BdRSrvDungeon</code>
-            isn't provisioned yet. <code>BdRSrvAMI</code> (the renamed/repurposed
-            <code>PlanBdRadServer</code> VM, 192.168.100.20) is real and reachable —
-            it currently runs PlanBdRad, with BdRAMAssist's repo cloned there too
-            (not yet confirmed running as a deployed service). This host
+            isn't provisioned yet. <code>BdRPiAMI</code> (formerly the
+            <code>PlanBdRadServer</code> VM; now a physical Raspberry Pi 8GB at
+            10.10.10.20) is real and reachable — it currently runs PlanBdRad,
+            with BdRAMAssist's repo cloned there too (not yet confirmed running
+            as a deployed service). This host
             (<code>BdRSrvDev</code>, 192.168.100.10) is real; its machine hostname
             is still <code>BdRDev</code>, not yet renamed to <code>BdRSrvDev</code>
             (planned per <code>SSH.md</code>).
