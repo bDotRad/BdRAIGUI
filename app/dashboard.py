@@ -46,6 +46,11 @@ def help_page():
     return render_template("help.html")
 
 
+@app.route("/help-simple")
+def help_simple_page():
+    return render_template("help_simple.html")
+
+
 @app.route("/api/status")
 def api_status():
     scheduler = common.load_scheduler_state()

@@ -86,6 +86,7 @@
     margin-left: auto; color: var(--text-dim); font-size: 13px; text-decoration: none;
   }
   #tabs .help-link:hover { color: var(--text); }
+  #tabs .help-link-extra { margin-left: 0; }
   .tab-btn {
     background: transparent; border: none; color: var(--text-dim);
     font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
@@ -532,6 +533,7 @@
     <button class="tab-btn" id="tab-btn-ecosystem" onclick="switchTab('ecosystem')">Ecosystem</button>
     <button class="tab-btn" id="tab-btn-independent" onclick="openConsole(INDEPENDENT_SESSION)">CLAUDE</button>
     <a class="help-link" href="/help">Help</a>
+    <a class="help-link help-link-extra" href="/help-simple">Help for Retards</a>
   </div>
 
   <div id="tab-panel-projects" class="tab-panel active">

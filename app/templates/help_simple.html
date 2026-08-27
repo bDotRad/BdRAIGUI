@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help for Retards — BdRDev</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --card-border: #262b35;
+    --text: #e7e9ee;
+    --text-dim: #8b90a0;
+    --accent: #4f8cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+    max-width: 720px;
+  }
+  a.back { color: var(--accent); font-size: 13px; text-decoration: none; }
+  h1 { font-size: 22px; font-weight: 600; margin: 12px 0 4px; }
+  h2 { font-size: 14px; font-weight: 600; margin: 28px 0 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  p { font-size: 13px; line-height: 1.65; color: var(--text); margin: 0 0 10px; }
+  .lead { color: var(--text-dim); }
+  .panel {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .panel p:last-child { margin-bottom: 0; }
+  code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  strong { color: var(--text); }
+  .tldr { border-left: 2px solid var(--accent); padding-left: 12px; margin: 10px 0 0; color: var(--text-dim); font-size: 12px; }
+</style>
+</head>
+<body>
+  <a class="back" href="/">&larr; Dashboard</a>
+  <h1>Help for Retards</h1>
+  <p class="lead">Right boet, here's the whole thing in small words. No jargon. Read it once, you'll get it.</p>
+
+  <h2>1. The servers (the computers)</h2>
+  <div class="panel">
+    <p>A "server" is just a computer that stays on all the time so other people can reach it. Brad has a few:</p>
+    <p><strong>BdRSrvDev</strong> — the "dev" (development) machine. This is the workbench. All the building and fixing happens here. The dashboard you're looking at right now runs on this one.</p>
+    <p><strong>BdRPiAMI</strong> — a little Raspberry Pi (tiny cheap computer) that runs the finished apps so real users can use them.</p>
+    <p><strong>BdRBirdDetector</strong> — another Pi that does one job: watching birds.</p>
+    <p>A couple more are planned but don't physically exist yet.</p>
+    <p class="tldr">TL;DR: one computer to build on, other computers to run the finished stuff on.</p>
+  </div>
+
+  <h2>2. The DEV application (this dashboard)</h2>
+  <div class="panel">
+    <p>The thing you're clicking around in is called <strong>BdRDev</strong>. It's a control panel. Two jobs:</p>
+    <p><strong>a)</strong> Show every project Brad is working on and let him drop in new jobs ("requests").</p>
+    <p><strong>b)</strong> Run a <strong>scheduler</strong> — a timer that takes turns waking up each project, letting a robot assistant do the outstanding work, then putting it back to sleep. Round-robin, like taking turns.</p>
+    <p class="tldr">TL;DR: it's the foreman. It hands out jobs and keeps the crew rotating.</p>
+  </div>
+
+  <h2>3. Project folders + READY / Waiting Input</h2>
+  <div class="panel">
+    <p>Every project is just a folder on the dev machine. Inside each one is a folder called <code>_Requests</code> — that's the in-tray. You want something done, you drop a note in the in-tray.</p>
+    <p>Each note has a status written at the top:</p>
+    <p><strong>NOT READY</strong> — "I'm still writing this, don't touch it yet."</p>
+    <p><strong>READY</strong> — "Go. Do this now." The scheduler will pick it up next time it wakes that project.</p>
+    <p><strong>WAITING RESPONSE</strong> ("Waiting Input" on the dashboard) — the robot started the job, got stuck, and needs Brad to answer a question before it can carry on. Nothing happens until Brad replies and flips it back to READY.</p>
+    <p>When a job's done, the note gets moved into an <code>_Archive</code> folder with a write-up of what happened, so there's a paper trail.</p>
+    <p class="tldr">TL;DR: leave a note in the in-tray, mark it READY, wait. If it says Waiting Input, the robot needs you.</p>
+  </div>
+
+  <h2>4. GitHub — push and pull</h2>
+  <div class="panel">
+    <p><strong>GitHub</strong> is an website in the cloud that keeps the master copy of every project's code, plus its full history (every change ever, who made it, when).</p>
+    <p><strong>Push</strong> = "upload my latest changes to the master copy." You do this after finishing work.</p>
+    <p><strong>Pull</strong> = "download the latest master copy onto this machine." You do this before starting work, or to update a server with the newest code.</p>
+    <p>Rule here: real changes are only ever made on the <strong>dev</strong> machine and pushed from there. The other servers are <strong>pull-only</strong> — they just download, they never upload. Keeps things tidy and stops two machines fighting over what's correct.</p>
+    <p class="tldr">TL;DR: push = save to the cloud. pull = get the latest from the cloud. Only the dev machine pushes.</p>
+  </div>
+
+  <h2>5. How the apps run on the servers</h2>
+  <div class="panel">
+    <p>Once an app is built and tested on the dev machine, it gets <strong>deployed</strong> (installed and switched on) on one of the other servers — usually the Pi.</p>
+    <p>The steps are always: build on dev &rarr; push to GitHub &rarr; the server does a pull to grab it &rarr; the app restarts on the server with the new code.</p>
+    <p>On the server the app runs as a <strong>service</strong> — meaning the computer keeps it running automatically and restarts it if it falls over, without anyone logging in. Each app has its own web address (an IP number, sometimes a proper URL) so users can open it in a browser.</p>
+    <p>If someone has to tweak something directly on a live server in an emergency, they don't push from there. They copy the changed file back to the dev machine, leave a request, and let the normal process fold it in properly.</p>
+    <p class="tldr">TL;DR: build on dev, ship to the server via GitHub, the server runs it as a background service on its own address.</p>
+  </div>
+
+  <h2>6. How the Claude robots (agents &amp; sessions) work</h2>
+  <div class="panel">
+    <p><strong>Claude</strong> is an AI. <strong>Claude Code</strong> is Claude wired into a computer so it can actually read files, write code, run commands — do the work, not just chat about it.</p>
+    <p>A <strong>session</strong> is one running copy of that robot, parked in one project's folder. The scheduler starts a session when a project has READY work, and stops it when there's nothing left to do. Each project gets its own session; they don't share.</p>
+    <p>An <strong>agent</strong> is a specialist the main session can call in for a specific kind of job. Think of the session as a general contractor who phones a subbie:</p>
+    <p>&bull; <strong>Project Manager</strong> — reads the in-tray, works out what each job needs, hands it to the right specialist.<br>
+       &bull; <strong>Web Dev Expert</strong> — writes the actual app code.<br>
+       &bull; <strong>Supabase SQL Expert</strong> — handles the database (where the app's data is stored).<br>
+       &bull; <strong>Doc Updater</strong> — keeps the written instructions in step with reality.</p>
+    <p>There's also one permanent <strong>Independent Claude</strong> session that never sleeps. Its job is to keep an eye on all the other sessions and answer Brad directly if he asks something that isn't tied to one project.</p>
+    <p class="tldr">TL;DR: a session is one robot working one project. Agents are specialist robots it calls in. The scheduler switches them on and off.</p>
+  </div>
+
+  <h2>The whole loop, in one breath</h2>
+  <div class="panel">
+    <p>Brad drops a note in a project's in-tray and marks it READY &rarr; the scheduler wakes a Claude session in that project &rarr; the session (with help from its specialist agents) does the work on the dev machine &rarr; it commits and pushes the result to GitHub &rarr; the live server pulls it down and restarts the app &rarr; the session archives the note and goes back to sleep. Then it's the next project's turn.</p>
+  </div>
+</body>
+</html>
