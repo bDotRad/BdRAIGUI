@@ -489,6 +489,25 @@ def api_admin_theme_reset():
     return jsonify({"ok": True, "theme": theme})
 
 
+@app.route("/api/ecosystem")
+def api_ecosystem():
+    return jsonify({
+        "ecosystem": common.load_ecosystem(),
+        "options": common.ECOSYSTEM_FIELD_OPTIONS,
+    })
+
+
+@app.route("/api/ecosystem", methods=["POST"])
+def api_ecosystem_save():
+    data = request.get_json(force=True) or {}
+    eco = data.get("ecosystem")
+    if not isinstance(eco, dict):
+        return jsonify({"ok": False, "error": "ecosystem object is required"}), 400
+    saved = common.save_ecosystem(eco)
+    common.log_event("BdRDev", "ecosystem_updated")
+    return jsonify({"ok": True, "ecosystem": saved})
+
+
 @app.route("/api/admin/status")
 def api_admin_status():
     return jsonify({

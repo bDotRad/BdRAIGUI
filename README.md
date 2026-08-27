@@ -60,6 +60,16 @@ what counts as "pending".
   `_Requests/rN/` containing `request.md` plus the files. Numbering
   auto-increments per project. Meant as the first step toward dropping
   requests in remotely (e.g. over Tailscale) without opening a terminal.
+- **Ecosystem / fleet data**: the Ecosystem tab (fleet diagram + the
+  servers→projects tree) is rendered from `state/ecosystem.json`, not
+  hand-written HTML. The **Fleet** tab edits that file with
+  dropdown/text fields — servers (OS, RAM, disk, software, git notes),
+  the apps running on each (web address, DB, planned flag), projects and
+  their agents, plus a free-text notes block. `common.load_ecosystem()`
+  seeds the file from `common.DEFAULT_ECOSYSTEM` on first use; after that
+  the file is the source of truth. Dashboard-only — the scheduler never
+  reads it. `state/` is gitignored, so the checked-in seed lives in
+  `common.py`.
 
 ## Setup
 

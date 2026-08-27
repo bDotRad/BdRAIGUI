@@ -269,6 +269,45 @@
     border-radius: 10px; padding: 2px 8px; color: var(--text-dim);
   }
   .eco-chip-address { color: var(--accent); }
+  .eco-app-name .eco-tag-planned, .eco-project-name .eco-tag-planned { color: var(--waiting); }
+
+  /* Fleet editor */
+  #fleet-panel { max-width: 1120px; }
+  #fleet-panel h2 { font-size: 15px; margin-bottom: 10px; }
+  .fleet-row {
+    border: 1px solid var(--card-border); border-radius: 8px; padding: 12px 14px;
+    margin-bottom: 10px; background: #0b0d11;
+  }
+  .fleet-row-fields { display: flex; flex-wrap: wrap; gap: 10px 14px; }
+  .fleet-field { display: flex; flex-direction: column; gap: 3px; }
+  .fleet-field.wide { flex: 1 1 100%; }
+  .fleet-field.grow { flex: 1 1 240px; }
+  .fleet-field label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-dim);
+  }
+  .fleet-field input[type="text"], .fleet-field textarea {
+    background: var(--card); color: var(--text); border: 1px solid var(--card-border);
+    border-radius: 5px; padding: 6px 8px; font-size: 13px; font-family: inherit; min-width: 140px;
+  }
+  .fleet-field.grow input[type="text"] { min-width: 0; width: 100%; }
+  .fleet-field textarea { min-height: 60px; resize: vertical; width: 100%; }
+  .fleet-check { flex-direction: row; align-items: center; gap: 6px; }
+  .fleet-check label { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--text); }
+  .fleet-row-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .fleet-row-head .fleet-row-title { font-weight: 600; font-size: 13px; }
+  .fleet-remove {
+    background: transparent; border: 1px solid var(--card-border); color: #f87171;
+    border-radius: 5px; padding: 3px 9px; font-size: 12px; cursor: pointer;
+  }
+  .fleet-notes {
+    width: 100%; min-height: 130px; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
+    font-family: inherit; font-size: 13px; resize: vertical;
+  }
+  #fleet-actions { display: flex; gap: 10px; align-items: center; margin-top: 18px; }
+  #fleet-status { font-size: 13px; color: var(--text-dim); }
+  #fleet-status.ok { color: var(--processing); }
+  #fleet-status.error { color: #f87171; }
 
   #log-panel {
     background: var(--card);
@@ -531,6 +570,7 @@
     <button class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">Activity Log</button>
     <button class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Admin</button>
     <button class="tab-btn" id="tab-btn-ecosystem" onclick="switchTab('ecosystem')">Ecosystem</button>
+    <button class="tab-btn" id="tab-btn-fleet" onclick="switchTab('fleet')">Fleet</button>
     <button class="tab-btn" id="tab-btn-independent" onclick="openConsole(INDEPENDENT_SESSION)">CLAUDE</button>
     <a class="help-link" href="/help">Help</a>
     <a class="help-link help-link-extra" href="/help-simple">Help for Retards</a>
@@ -598,213 +638,17 @@
       <h2 style="margin-top:0;">Fleet diagram</h2>
       <div class="sql-meta">
         Graphical view of each server → what runs on it, with DB and web
-        address per app where known. Same target layout as the tree below
-        (2026-08-26) — dashed cards are servers not provisioned yet; see
-        the "Not yet real" note under the tree for details.
+        address per app where known. Editable on the <b>Fleet</b> tab —
+        dashed cards are servers not marked provisioned yet.
       </div>
-      <div class="eco-diagram">
-        <div class="eco-server-card">
-          <div class="eco-server-name">BdRSrvDev <span class="eco-tag">this host, local</span></div>
-          <div class="eco-specs-pill">Ubuntu Server · 8GB RAM · 512GB SSD</div>
-          <div class="eco-section-label">Projects</div>
-          <div class="eco-projects">
-            <div class="eco-project-card">
-              <div class="eco-project-name">BdRDev</div>
-              <div class="eco-agents">
-                <span class="eco-chip">Project Manager</span>
-                <span class="eco-chip">Web Dev Expert</span>
-                <span class="eco-chip">Supabase SQL Expert</span>
-                <span class="eco-chip">Doc Updater</span>
-              </div>
-            </div>
-            <div class="eco-project-card">
-              <div class="eco-project-name">BdRAMAssist</div>
-              <div class="eco-agents">
-                <span class="eco-chip">Project Manager</span>
-                <span class="eco-chip">Web Dev Expert</span>
-                <span class="eco-chip">Supabase SQL Expert</span>
-                <span class="eco-chip">Doc Updater</span>
-              </div>
-            </div>
-            <div class="eco-project-card">
-              <div class="eco-project-name">PlanBdRad</div>
-              <div class="eco-agents">
-                <span class="eco-chip">Project Manager</span>
-                <span class="eco-chip">web-developer</span>
-                <span class="eco-chip">sql-developer</span>
-              </div>
-            </div>
-            <div class="eco-project-card">
-              <div class="eco-project-name">BdRIS <span class="eco-tag eco-tag-planned">doesn't exist yet</span></div>
-            </div>
-            <div class="eco-project-card">
-              <div class="eco-project-name">BdRBirdDetector</div>
-              <div class="eco-agents">
-                <span class="eco-chip">Project Manager</span>
-                <span class="eco-chip">Web Dev Expert</span>
-                <span class="eco-chip">sql-expert</span>
-                <span class="eco-chip">esp32-nodes</span>
-                <span class="eco-chip">docs-logs</span>
-              </div>
-            </div>
-            <div class="eco-project-card">
-              <div class="eco-project-name">BdRDungeon</div>
-              <div class="eco-agents">
-                <span class="eco-chip">Project Manager</span>
-                <span class="eco-chip">Web Dev Expert</span>
-                <span class="eco-chip">Supabase SQL Expert</span>
-                <span class="eco-chip">ESP32 Expert</span>
-                <span class="eco-chip">Doc Updater</span>
-              </div>
-            </div>
-          </div>
-          <div class="eco-section-label">Apps on this host</div>
-          <div class="eco-apps">
-            <div class="eco-app-card">
-              <div class="eco-app-name">BdRDev dashboard + scheduler</div>
-              <div class="eco-meta-row">
-                <span class="eco-chip eco-chip-address">🌐 http://192.168.100.10:8420</span>
-                <span class="eco-chip">DB: none (JSON state files)</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="eco-server-card">
-          <div class="eco-server-name">BdRPiAMI <span class="eco-tag">Raspberry Pi 8GB, 10.10.10.20</span></div>
-          <div class="eco-specs-pill">Raspberry Pi · 8GB RAM</div>
-          <div class="eco-section-label">Apps</div>
-          <div class="eco-apps">
-            <div class="eco-app-card">
-              <div class="eco-app-name">PlanBdRad <span class="eco-tag">today: runs on PlanBdRadServer</span></div>
-              <div class="eco-meta-row">
-                <span class="eco-chip eco-chip-address">🌐 10.10.10.20</span>
-                <span class="eco-chip">DB: Supabase (Postgres)</span>
-              </div>
-            </div>
-            <div class="eco-app-card">
-              <div class="eco-app-name">BdRAMAssist</div>
-              <div class="eco-meta-row">
-                <span class="eco-chip eco-chip-address">🌐 not deployed yet</span>
-                <span class="eco-chip">DB: none — feeds PlanBdRad's DB</span>
-              </div>
-            </div>
-            <div class="eco-app-card">
-              <div class="eco-app-name">BdRIS <span class="eco-tag eco-tag-planned">project doesn't exist yet</span></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="eco-server-card eco-server-planned">
-          <div class="eco-server-name">BdRSrvDungeon <span class="eco-tag eco-tag-planned">not provisioned yet</span></div>
-          <div class="eco-specs-pill">Ubuntu Server · 4GB RAM · 256GB SSD</div>
-          <div class="eco-section-label">Apps</div>
-          <div class="eco-apps">
-            <div class="eco-app-card">
-              <div class="eco-app-name">BdRDungeon</div>
-              <div class="eco-meta-row">
-                <span class="eco-chip eco-chip-address">🌐 not deployed yet</span>
-                <span class="eco-chip">DB: Supabase (planned)</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="eco-server-card">
-          <div class="eco-server-name">BdRBirdDetector <span class="eco-tag">physical Pi, 192.168.1.187</span></div>
-          <div class="eco-specs-pill">RPI OS Lite · 4GB RAM · 64GB SD Card</div>
-          <div class="eco-section-label">Apps</div>
-          <div class="eco-apps">
-            <div class="eco-app-card">
-              <div class="eco-app-name">BdRBirdDetector <span class="eco-tag">edge/gui.py — Streamlit</span></div>
-              <div class="eco-meta-row">
-                <span class="eco-chip eco-chip-address">🌐 local network only, no fixed URL</span>
-                <span class="eco-chip">DB: none yet — cloud DB planned</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div class="eco-diagram" id="eco-diagram-live"></div>
 
       <div class="ecosystem-row">
         <div class="ecosystem-block">
           <h2>Servers → software / projects</h2>
-          <div class="sql-meta">Target fleet layout per Brad's spec (2026-08-26). Not all provisioned yet — see note below.</div>
-          <pre class="folder-tree">BdRSrvDev  (this host, local, 192.168.100.10)
-├── Specs:        Ubuntu Server · 8GB RAM · 512GB SSD
-├── Software:     Claude Code · Nginx · Scheduler
-├── Applications: BdRDev
-├── Projects
-│   ├── BdRDev
-│   │   └── Agents: Project Manager, Web Dev Expert,
-│   │               Supabase SQL Expert, Doc Updater
-│   ├── BdRAMAssist
-│   │   └── Agents: Project Manager, Web Dev Expert,
-│   │               Supabase SQL Expert, Doc Updater
-│   ├── PlanBdRad
-│   │   └── Agents: Project Manager, Web Dev Expert,
-│   │               Supabase SQL Expert, Doc Updater
-│   ├── BdRIS
-│   │   └── Agents: Project Manager, Web Dev Expert,
-│   │               Supabase SQL Expert, Doc Updater
-│   ├── BdRBirdDetector
-│   │   └── Agents: Project Manager, Web Dev Expert,
-│   │               SQL Lite Expert, ESP32 Expert, Doc Updater
-│   └── BdRDungeon
-│       └── Agents: Project Manager, Web Dev Expert,
-│                   Supabase SQL Expert, ESP32 Expert, Doc Updater
-└── GitHub
-    ├── Push to bDotRad/: BdRDev, BdRAMAssist, PlanBdRad,
-    │                     BdRIS, BdRBirdDetector, BdRDungeon
-    └── Pull from bDotRad/: BdRDev
-
-BdRPiAMI  (Raspberry Pi 8GB, 10.10.10.20)
-├── Specs:        Raspberry Pi · 8GB RAM
-├── Software:     Claude Code · Nginx · Supabase
-├── Applications: BdRAMAssist, PlanBdRad, BdRIS
-└── GitHub
-    └── Pull from bDotRad/: BdRAMAssist, PlanBdRad, BdRIS
-
-BdRSrvDungeon
-├── Specs:        Ubuntu Server · 4GB RAM · 256GB SSD
-├── Software:     Claude Code · Nginx · Supabase
-├── Applications: BdRDungeon
-└── GitHub
-    └── Pull from bDotRad/: BdRDungeon
-
-BdRBirdDetector  (Physical Pi, 192.168.1.187)
-├── Specs:        RPI OS Lite · 4GB RAM · 64GB SD Card
-├── Software:     Nginx · SQL Lite
-├── Applications: BdRBirdDetector
-├── GitHub
-│   └── Pull from bDotRad/: BdRBirdDetector
-└── Firebase
-    └── Push</pre>
-          <div class="sql-meta" style="margin-top:10px;">
-            <b>Not yet real, per current state:</b> <code>BdRSrvDungeon</code>
-            isn't provisioned yet. <code>BdRPiAMI</code> (formerly the
-            <code>PlanBdRadServer</code> VM; now a physical Raspberry Pi 8GB at
-            10.10.10.20) is real and reachable — it currently runs PlanBdRad,
-            with BdRAMAssist's repo cloned there too (not yet confirmed running
-            as a deployed service). This host
-            (<code>BdRSrvDev</code>, 192.168.100.10) is real; its machine hostname
-            is still <code>BdRDev</code>, not yet renamed to <code>BdRSrvDev</code>
-            (planned per <code>SSH.md</code>).
-            <code>BdRIS</code> doesn't exist as a project yet. BdRDev,
-            BdRAMAssist, and BdRDungeon now have all the agents shown above
-            for real, under <code>.claude/agents/</code> (BdRDev's set is
-            written generically so it doubles as the copyable template for
-            other projects — see <code>_Instructions/ProjectSetup.md</code>).
-            PlanBdRad and BdRBirdDetector have equivalent agents under
-            different, domain-specific names (e.g. PlanBdRad's
-            <code>web-developer</code>/<code>sql-developer</code>,
-            BdRBirdDetector's <code>sql-expert</code>/<code>esp32-nodes</code>/
-            <code>docs-logs</code>) rather than the generic names shown here —
-            both now also have a real <code>project-manager</code>. None of
-            the named agents exist for <code>BdRIS</code>, since the project
-            itself doesn't exist. Deploy-key conventions:
-            <code>_Instructions/SSH.md</code>.
-          </div>
+          <div class="sql-meta">Generated from the <b>Fleet</b>-tab data. Not all provisioned yet — see note below.</div>
+          <pre class="folder-tree" id="eco-tree-live"></pre>
+          <div class="sql-meta" style="margin-top:10px;" id="eco-notes-live"></div>
         </div>
 
         <div class="ecosystem-block">
@@ -821,6 +665,44 @@ BdRBirdDetector  (Physical Pi, 192.168.1.187)
     └── README.md          # site-specific docs Brad drops in by hand</pre>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div id="tab-panel-fleet" class="tab-panel">
+    <div id="fleet-panel" class="admin-panel-box">
+      <div class="sql-meta" style="margin-bottom:14px;">
+        The fleet data behind the <b>Ecosystem</b> tab — servers, the apps
+        running on each, projects and their agents. Edit below and Save; the
+        Ecosystem diagram and tree re-render from this. Stored in
+        <code>state/ecosystem.json</code>.
+      </div>
+
+      <h2 style="margin-top:0;">Servers</h2>
+      <div id="fleet-servers"></div>
+      <button class="btn secondary" type="button" onclick="fleetAdd('servers')">+ Server</button>
+
+      <h2 style="margin-top:26px;">Apps</h2>
+      <div id="fleet-apps"></div>
+      <button class="btn secondary" type="button" onclick="fleetAdd('apps')">+ App</button>
+
+      <h2 style="margin-top:26px;">Projects</h2>
+      <div id="fleet-projects"></div>
+      <button class="btn secondary" type="button" onclick="fleetAdd('projects')">+ Project</button>
+
+      <h2 style="margin-top:26px;">Notes</h2>
+      <textarea id="fleet-notes" class="fleet-notes" placeholder="Free-text note shown under the tree on the Ecosystem tab."></textarea>
+
+      <div id="fleet-actions">
+        <button class="btn" type="button" onclick="saveEcosystem()">Save</button>
+        <button class="btn secondary" type="button" onclick="loadEcosystem()">Revert</button>
+        <span id="fleet-status"></span>
+      </div>
+
+      <datalist id="dl-os"></datalist>
+      <datalist id="dl-ram"></datalist>
+      <datalist id="dl-disk"></datalist>
+      <datalist id="dl-software"></datalist>
+      <datalist id="dl-db"></datalist>
     </div>
   </div>
 
@@ -951,6 +833,7 @@ const EVENT_LABELS = {
   request_unshelved: 'request unshelved',
   request_shelved_deleted: 'shelved request deleted',
   dashboard_restart_requested: 'dashboard restart requested',
+  ecosystem_updated: 'fleet data updated',
 };
 
 const INDEPENDENT_SESSION = '_IndependentClaude';
@@ -959,17 +842,19 @@ let currentSqlProject = null;
 let currentRequestProject = null;
 let currentConsoleProject = null;
 let consolePollTimer = null;
+let ecoData = null;
+let ecoOptions = {};
+
+const TAB_NAMES = ['projects', 'log', 'admin', 'ecosystem', 'fleet'];
 
 function switchTab(name) {
-  document.getElementById('tab-panel-projects').classList.toggle('active', name === 'projects');
-  document.getElementById('tab-panel-log').classList.toggle('active', name === 'log');
-  document.getElementById('tab-panel-admin').classList.toggle('active', name === 'admin');
-  document.getElementById('tab-panel-ecosystem').classList.toggle('active', name === 'ecosystem');
-  document.getElementById('tab-btn-projects').classList.toggle('active', name === 'projects');
-  document.getElementById('tab-btn-log').classList.toggle('active', name === 'log');
-  document.getElementById('tab-btn-admin').classList.toggle('active', name === 'admin');
-  document.getElementById('tab-btn-ecosystem').classList.toggle('active', name === 'ecosystem');
+  if (!TAB_NAMES.includes(name)) name = 'projects';
+  for (const t of TAB_NAMES) {
+    document.getElementById('tab-panel-' + t).classList.toggle('active', name === t);
+    document.getElementById('tab-btn-' + t).classList.toggle('active', name === t);
+  }
   try { localStorage.setItem('bdrdev-tab', name); } catch (e) { /* ignore */ }
+  if ((name === 'ecosystem' || name === 'fleet') && ecoData === null) loadEcosystem();
 }
 
 function switchAdminSubtab(name) {
@@ -1738,6 +1623,266 @@ function jsStr(str) {
   return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
+function escAttr(str) {
+  return escapeHtml(String(str == null ? '' : str)).replace(/"/g, '&quot;');
+}
+
+// ---- Ecosystem / Fleet ----------------------------------------------------
+
+function ecoSpecs(s) {
+  return [s.os, s.ram ? s.ram + ' RAM' : '', s.disk].filter(Boolean).join(' · ');
+}
+
+function buildDiagram(eco) {
+  return eco.servers.map(s => {
+    const planned = !s.provisioned;
+    const specs = ecoSpecs(s);
+    let html = `<div class="eco-server-card${planned ? ' eco-server-planned' : ''}">`;
+    html += `<div class="eco-server-name">${escapeHtml(s.name)}`;
+    if (s.tag) html += ` <span class="eco-tag${planned ? ' eco-tag-planned' : ''}">${escapeHtml(s.tag)}</span>`;
+    html += `</div>`;
+    if (specs) html += `<div class="eco-specs-pill">${escapeHtml(specs)}</div>`;
+
+    if (s.dev_host && eco.projects.length) {
+      html += `<div class="eco-section-label">Projects</div><div class="eco-projects">`;
+      html += eco.projects.map(p => {
+        let pc = `<div class="eco-project-card"><div class="eco-project-name">${escapeHtml(p.name)}`;
+        if (!p.exists) pc += ` <span class="eco-tag eco-tag-planned">doesn't exist yet</span>`;
+        pc += `</div>`;
+        if (p.agents.length) {
+          pc += `<div class="eco-agents">${p.agents.map(a => `<span class="eco-chip">${escapeHtml(a)}</span>`).join('')}</div>`;
+        }
+        return pc + `</div>`;
+      }).join('');
+      html += `</div>`;
+    }
+
+    const apps = eco.apps.filter(a => a.server === s.name);
+    if (apps.length) {
+      html += `<div class="eco-section-label">Apps</div><div class="eco-apps">`;
+      html += apps.map(a => {
+        let ac = `<div class="eco-app-card"><div class="eco-app-name">${escapeHtml(a.name)}`;
+        if (a.tag) ac += ` <span class="eco-tag${a.planned ? ' eco-tag-planned' : ''}">${escapeHtml(a.tag)}</span>`;
+        ac += `</div>`;
+        const chips = [];
+        if (a.web_address) chips.push(`<span class="eco-chip eco-chip-address">🌐 ${escapeHtml(a.web_address)}</span>`);
+        if (a.db) chips.push(`<span class="eco-chip">DB: ${escapeHtml(a.db)}</span>`);
+        if (chips.length) ac += `<div class="eco-meta-row">${chips.join('')}</div>`;
+        return ac + `</div>`;
+      }).join('');
+      html += `</div>`;
+    }
+    return html + `</div>`;
+  }).join('');
+}
+
+function buildTree(eco) {
+  const out = [];
+  eco.servers.forEach((s, si) => {
+    if (si > 0) out.push('');
+    const paren = s.tag || s.address;
+    out.push(s.name + (paren ? '  (' + paren + ')' : ''));
+
+    const sections = [];
+    const specs = ecoSpecs(s);
+    if (specs) sections.push(['Specs:        ' + specs]);
+    if (s.software) sections.push(['Software:     ' + s.software]);
+    const apps = eco.apps.filter(a => a.server === s.name);
+    if (apps.length) sections.push(['Applications: ' + apps.map(a => a.name).join(', ')]);
+    if (s.dev_host && eco.projects.length) {
+      const pl = ['Projects'];
+      eco.projects.forEach((p, pi) => {
+        const last = pi === eco.projects.length - 1;
+        pl.push((last ? '└── ' : '├── ') + p.name + (p.exists ? '' : "  (doesn't exist yet)"));
+        if (p.agents.length) pl.push((last ? '    ' : '│   ') + '└── Agents: ' + p.agents.join(', '));
+      });
+      sections.push(pl);
+    }
+    if (s.git) s.git.split('\n').forEach(g => sections.push([g]));
+
+    sections.forEach((sec, idx) => {
+      const lastSec = idx === sections.length - 1;
+      sec.forEach((line, li) => {
+        if (li === 0) out.push((lastSec ? '└── ' : '├── ') + line);
+        else out.push((lastSec ? '    ' : '│   ') + line);
+      });
+    });
+  });
+  return out.join('\n');
+}
+
+function renderEcoView() {
+  if (!ecoData) return;
+  const d = document.getElementById('eco-diagram-live');
+  if (d) d.innerHTML = buildDiagram(ecoData);
+  const t = document.getElementById('eco-tree-live');
+  if (t) t.textContent = buildTree(ecoData);
+  const n = document.getElementById('eco-notes-live');
+  if (n) {
+    if (ecoData.notes && ecoData.notes.trim()) {
+      n.innerHTML = `<b>Notes:</b> ${escapeHtml(ecoData.notes)}`;
+      n.style.display = '';
+    } else {
+      n.textContent = '';
+      n.style.display = 'none';
+    }
+  }
+}
+
+function setDatalist(id, opts) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = (opts || []).map(o => `<option value="${escAttr(o)}"></option>`).join('');
+}
+
+function ensureServerDatalist() {
+  let el = document.getElementById('dl-servers');
+  if (!el) {
+    el = document.createElement('datalist');
+    el.id = 'dl-servers';
+    document.getElementById('fleet-panel').appendChild(el);
+  }
+  el.innerHTML = ecoData.servers.map(s => `<option value="${escAttr(s.name)}"></option>`).join('');
+}
+
+function fleetInput(kind, idx, field, label, value, o) {
+  o = o || {};
+  const id = `f-${kind}-${idx}-${field}`;
+  if (o.check) {
+    return `<div class="fleet-field fleet-check"><input type="checkbox" id="${id}" data-field="${field}" ${value ? 'checked' : ''}><label for="${id}">${label}</label></div>`;
+  }
+  if (o.textarea) {
+    return `<div class="fleet-field wide"><label for="${id}">${label}</label><textarea id="${id}" data-field="${field}">${escapeHtml(value || '')}</textarea></div>`;
+  }
+  const cls = o.cls ? ' ' + o.cls : '';
+  const list = o.list ? ` list="${o.list}"` : '';
+  return `<div class="fleet-field${cls}"><label for="${id}">${label}</label><input type="text" id="${id}" data-field="${field}" value="${escAttr(value || '')}"${list}></div>`;
+}
+
+function fleetRowShell(kind, idx, title, fields) {
+  return `<div class="fleet-row" data-kind="${kind}" data-idx="${idx}">
+    <div class="fleet-row-head"><span class="fleet-row-title">${escapeHtml(title)}</span>
+      <button type="button" class="fleet-remove" onclick="fleetRemove('${kind}', ${idx})">Remove</button></div>
+    <div class="fleet-row-fields">${fields}</div>
+  </div>`;
+}
+
+function renderFleetEditor() {
+  if (!ecoData) return;
+  setDatalist('dl-os', ecoOptions.os);
+  setDatalist('dl-ram', ecoOptions.ram);
+  setDatalist('dl-disk', ecoOptions.disk);
+  setDatalist('dl-software', ecoOptions.software);
+  setDatalist('dl-db', ecoOptions.db);
+  ensureServerDatalist();
+
+  document.getElementById('fleet-servers').innerHTML = ecoData.servers.map((s, i) => fleetRowShell(
+    'servers', i, s.name || `Server ${i + 1}`,
+    fleetInput('servers', i, 'name', 'Name', s.name) +
+    fleetInput('servers', i, 'tag', 'Tag / label', s.tag, {cls: 'grow'}) +
+    fleetInput('servers', i, 'address', 'Address', s.address) +
+    fleetInput('servers', i, 'os', 'OS', s.os, {list: 'dl-os'}) +
+    fleetInput('servers', i, 'ram', 'RAM', s.ram, {list: 'dl-ram'}) +
+    fleetInput('servers', i, 'disk', 'Disk', s.disk, {list: 'dl-disk'}) +
+    fleetInput('servers', i, 'software', 'Software', s.software, {list: 'dl-software', cls: 'grow'}) +
+    fleetInput('servers', i, 'git', 'Git / deploy notes', s.git, {textarea: true}) +
+    fleetInput('servers', i, 'provisioned', 'Provisioned', s.provisioned, {check: true}) +
+    fleetInput('servers', i, 'dev_host', 'Dev host (shows Projects list)', s.dev_host, {check: true})
+  )).join('');
+
+  document.getElementById('fleet-apps').innerHTML = ecoData.apps.map((a, i) => fleetRowShell(
+    'apps', i, a.name || `App ${i + 1}`,
+    fleetInput('apps', i, 'name', 'Name', a.name, {cls: 'grow'}) +
+    fleetInput('apps', i, 'server', 'Runs on server', a.server, {list: 'dl-servers'}) +
+    fleetInput('apps', i, 'tag', 'Tag / label', a.tag, {cls: 'grow'}) +
+    fleetInput('apps', i, 'web_address', 'Web address', a.web_address, {cls: 'grow'}) +
+    fleetInput('apps', i, 'db', 'DB', a.db, {list: 'dl-db', cls: 'grow'}) +
+    fleetInput('apps', i, 'planned', 'Planned / not real yet', a.planned, {check: true})
+  )).join('');
+
+  document.getElementById('fleet-projects').innerHTML = ecoData.projects.map((p, i) => fleetRowShell(
+    'projects', i, p.name || `Project ${i + 1}`,
+    fleetInput('projects', i, 'name', 'Name', p.name) +
+    fleetInput('projects', i, 'exists', 'Exists', p.exists, {check: true}) +
+    fleetInput('projects', i, 'agents', 'Agents (comma-separated)', p.agents.join(', '), {cls: 'grow'})
+  )).join('');
+
+  document.getElementById('fleet-notes').value = ecoData.notes || '';
+}
+
+function fleetSync() {
+  if (!ecoData) return;
+  document.querySelectorAll('#fleet-panel .fleet-row').forEach(row => {
+    const kind = row.dataset.kind;
+    const idx = +row.dataset.idx;
+    const obj = ecoData[kind] && ecoData[kind][idx];
+    if (!obj) return;
+    row.querySelectorAll('[data-field]').forEach(inp => {
+      const f = inp.dataset.field;
+      if (inp.type === 'checkbox') obj[f] = inp.checked;
+      else if (f === 'agents') obj[f] = inp.value.split(',').map(x => x.trim()).filter(Boolean);
+      else obj[f] = inp.value;
+    });
+  });
+  const notes = document.getElementById('fleet-notes');
+  if (notes) ecoData.notes = notes.value;
+}
+
+function fleetAdd(kind) {
+  fleetSync();
+  if (kind === 'servers') ecoData.servers.push({name: '', tag: '', address: '', os: '', ram: '', disk: '', software: '', git: '', provisioned: true, dev_host: false});
+  else if (kind === 'apps') ecoData.apps.push({name: '', server: '', tag: '', web_address: '', db: '', planned: false});
+  else if (kind === 'projects') ecoData.projects.push({name: '', exists: true, agents: []});
+  renderFleetEditor();
+}
+
+function fleetRemove(kind, idx) {
+  fleetSync();
+  if (ecoData[kind]) ecoData[kind].splice(idx, 1);
+  renderFleetEditor();
+}
+
+async function loadEcosystem() {
+  try {
+    const res = await fetch('/api/ecosystem');
+    const data = await res.json();
+    ecoData = data.ecosystem;
+    ecoOptions = data.options || {};
+    renderEcoView();
+    renderFleetEditor();
+    const st = document.getElementById('fleet-status');
+    if (st) { st.textContent = ''; st.className = ''; }
+  } catch (e) { /* ignore */ }
+}
+
+async function saveEcosystem() {
+  fleetSync();
+  const st = document.getElementById('fleet-status');
+  st.className = '';
+  st.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/ecosystem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ecosystem: ecoData }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      ecoData = data.ecosystem;
+      renderEcoView();
+      renderFleetEditor();
+      st.className = 'ok';
+      st.textContent = 'Saved — Ecosystem tab updated';
+      setTimeout(() => { st.textContent = ''; st.className = ''; }, 2500);
+    } else {
+      st.className = 'error';
+      st.textContent = data.error || 'Save failed';
+    }
+  } catch (e) {
+    st.className = 'error';
+    st.textContent = 'Save failed';
+  }
+}
+
 document.getElementById('sql-close').addEventListener('click', closeSql);
 document.getElementById('sql-copy').addEventListener('click', copySql);
 document.getElementById('sql-clear').addEventListener('click', clearSql);
@@ -1999,6 +2144,7 @@ loadStatus();
 loadLog();
 loadAdminStatus();
 loadPalette();
+loadEcosystem();
 setInterval(loadStatus, 5000);
 setInterval(loadLog, 5000);
 setInterval(loadAdminStatus, 5000);

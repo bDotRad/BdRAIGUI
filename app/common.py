@@ -133,6 +133,212 @@ def save_theme(overrides):
     return theme
 
 
+# ---- Ecosystem / fleet data ------------------------------------------------
+#
+# The Ecosystem tab (fleet diagram + servers->projects tree) used to be
+# hand-written HTML in index.html, so every "the AMI box is now a Pi" style
+# change meant editing the template and restarting. It's now a single JSON
+# file here that the read-only Ecosystem tab renders from and the Fleet tab
+# edits with dropdown/text fields. Dashboard-only -- the scheduler never
+# reads it.
+#
+# DEFAULT_ECOSYSTEM is the seed written on first use (it reproduces what the
+# template showed as of 2026-08-28); after that the file is the source of
+# truth and this is just the fallback shape.
+
+ECOSYSTEM_FILE = STATE_DIR / "ecosystem.json"
+
+# Suggestions offered in the Fleet editor (rendered as <datalist> options so
+# free text is still allowed -- existing values often carry a parenthetical
+# note like "none (JSON state files)" that no fixed list would cover).
+ECOSYSTEM_FIELD_OPTIONS = {
+    "os": ["Ubuntu Server", "Raspberry Pi OS", "Raspberry Pi", "RPI OS Lite"],
+    "ram": ["2GB", "4GB", "8GB", "16GB"],
+    "disk": ["64GB SD Card", "128GB SD Card", "256GB SSD", "512GB SSD", "1TB SSD"],
+    "software": [
+        "Claude Code · Nginx · Scheduler",
+        "Claude Code · Nginx · Supabase",
+        "Nginx · SQL Lite",
+    ],
+    "db": [
+        "none",
+        "SQLite",
+        "SQL Lite",
+        "Supabase (Postgres)",
+        "Postgres",
+        "Firebase",
+    ],
+}
+
+DEFAULT_ECOSYSTEM = {
+    "servers": [
+        {
+            "name": "BdRSrvDev", "tag": "this host, local", "address": "192.168.100.10",
+            "os": "Ubuntu Server", "ram": "8GB", "disk": "512GB SSD",
+            "software": "Claude Code · Nginx · Scheduler",
+            "provisioned": True, "dev_host": True,
+            "git": (
+                "GitHub\n"
+                "Push to bDotRad/: BdRDev, BdRAMAssist, PlanBdRad, BdRIS, BdRBirdDetector, BdRDungeon\n"
+                "Pull from bDotRad/: BdRDev"
+            ),
+        },
+        {
+            "name": "BdRPiAMI", "tag": "Raspberry Pi 8GB, 10.10.10.20", "address": "10.10.10.20",
+            "os": "Raspberry Pi", "ram": "8GB", "disk": "",
+            "software": "Claude Code · Nginx · Supabase",
+            "provisioned": True, "dev_host": False,
+            "git": "GitHub\nPull from bDotRad/: BdRAMAssist, PlanBdRad, BdRIS",
+        },
+        {
+            "name": "BdRSrvDungeon", "tag": "not provisioned yet", "address": "",
+            "os": "Ubuntu Server", "ram": "4GB", "disk": "256GB SSD",
+            "software": "Claude Code · Nginx · Supabase",
+            "provisioned": False, "dev_host": False,
+            "git": "GitHub\nPull from bDotRad/: BdRDungeon",
+        },
+        {
+            "name": "BdRBirdDetector", "tag": "physical Pi, 192.168.1.187", "address": "192.168.1.187",
+            "os": "RPI OS Lite", "ram": "4GB", "disk": "64GB SD Card",
+            "software": "Nginx · SQL Lite",
+            "provisioned": True, "dev_host": False,
+            "git": "GitHub\nPull from bDotRad/: BdRBirdDetector\nFirebase\nPush",
+        },
+    ],
+    "projects": [
+        {"name": "BdRDev", "exists": True,
+         "agents": ["Project Manager", "Web Dev Expert", "Supabase SQL Expert", "Doc Updater"]},
+        {"name": "BdRAMAssist", "exists": True,
+         "agents": ["Project Manager", "Web Dev Expert", "Supabase SQL Expert", "Doc Updater"]},
+        {"name": "PlanBdRad", "exists": True,
+         "agents": ["Project Manager", "web-developer", "sql-developer"]},
+        {"name": "BdRIS", "exists": False, "agents": []},
+        {"name": "BdRBirdDetector", "exists": True,
+         "agents": ["Project Manager", "Web Dev Expert", "sql-expert", "esp32-nodes", "docs-logs"]},
+        {"name": "BdRDungeon", "exists": True,
+         "agents": ["Project Manager", "Web Dev Expert", "Supabase SQL Expert", "ESP32 Expert", "Doc Updater"]},
+    ],
+    "apps": [
+        {"name": "BdRDev dashboard + scheduler", "server": "BdRSrvDev", "tag": "",
+         "web_address": "http://192.168.100.10:8420", "db": "none (JSON state files)", "planned": False},
+        {"name": "PlanBdRad", "server": "BdRPiAMI", "tag": "today: runs on PlanBdRadServer",
+         "web_address": "10.10.10.20", "db": "Supabase (Postgres)", "planned": False},
+        {"name": "BdRAMAssist", "server": "BdRPiAMI", "tag": "",
+         "web_address": "not deployed yet", "db": "none — feeds PlanBdRad's DB", "planned": False},
+        {"name": "BdRIS", "server": "BdRPiAMI", "tag": "project doesn't exist yet",
+         "web_address": "", "db": "", "planned": True},
+        {"name": "BdRDungeon", "server": "BdRSrvDungeon", "tag": "",
+         "web_address": "not deployed yet", "db": "Supabase (planned)", "planned": False},
+        {"name": "BdRBirdDetector", "server": "BdRBirdDetector", "tag": "edge/gui.py — Streamlit",
+         "web_address": "local network only, no fixed URL", "db": "none yet — cloud DB planned", "planned": False},
+    ],
+    "notes": (
+        "Not yet real, per current state: BdRSrvDungeon isn't provisioned yet. "
+        "BdRPiAMI (formerly the PlanBdRadServer VM; now a physical Raspberry Pi 8GB "
+        "at 10.10.10.20) is real and reachable — it currently runs PlanBdRad, with "
+        "BdRAMAssist's repo cloned there too (not yet confirmed running as a deployed "
+        "service). This host (BdRSrvDev, 192.168.100.10) is real; its machine hostname "
+        "is still BdRDev, not yet renamed to BdRSrvDev (planned per SSH.md). BdRIS "
+        "doesn't exist as a project yet. BdRDev, BdRAMAssist, and BdRDungeon now have "
+        "all the agents shown above for real, under .claude/agents/ (BdRDev's set is "
+        "written generically so it doubles as the copyable template for other projects "
+        "— see _Instructions/ProjectSetup.md). PlanBdRad and BdRBirdDetector have "
+        "equivalent agents under different, domain-specific names rather than the "
+        "generic names shown here — both now also have a real project-manager. None of "
+        "the named agents exist for BdRIS, since the project itself doesn't exist. "
+        "Deploy-key conventions: _Instructions/SSH.md."
+    ),
+}
+
+
+def _eco_str(value):
+    if isinstance(value, str):
+        return value.strip()
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _normalize_ecosystem(data):
+    """Coerce arbitrary parsed JSON into the exact ecosystem shape the UI
+    expects -- every field present, right type, unknown keys dropped."""
+    if not isinstance(data, dict):
+        data = {}
+
+    servers = []
+    for s in data.get("servers") or []:
+        if not isinstance(s, dict):
+            continue
+        servers.append({
+            "name": _eco_str(s.get("name")),
+            "tag": _eco_str(s.get("tag")),
+            "address": _eco_str(s.get("address")),
+            "os": _eco_str(s.get("os")),
+            "ram": _eco_str(s.get("ram")),
+            "disk": _eco_str(s.get("disk")),
+            "software": _eco_str(s.get("software")),
+            "git": _eco_str(s.get("git")),
+            "provisioned": bool(s.get("provisioned", True)),
+            "dev_host": bool(s.get("dev_host", False)),
+        })
+
+    projects = []
+    for p in data.get("projects") or []:
+        if not isinstance(p, dict):
+            continue
+        agents = p.get("agents")
+        if not isinstance(agents, list):
+            agents = []
+        projects.append({
+            "name": _eco_str(p.get("name")),
+            "exists": bool(p.get("exists", True)),
+            "agents": [a for a in (_eco_str(x) for x in agents) if a],
+        })
+
+    apps = []
+    for a in data.get("apps") or []:
+        if not isinstance(a, dict):
+            continue
+        apps.append({
+            "name": _eco_str(a.get("name")),
+            "server": _eco_str(a.get("server")),
+            "tag": _eco_str(a.get("tag")),
+            "web_address": _eco_str(a.get("web_address")),
+            "db": _eco_str(a.get("db")),
+            "planned": bool(a.get("planned", False)),
+        })
+
+    return {
+        "servers": servers,
+        "projects": projects,
+        "apps": apps,
+        "notes": data.get("notes") if isinstance(data.get("notes"), str) else "",
+    }
+
+
+def load_ecosystem():
+    """Current fleet data. Seeds the file from DEFAULT_ECOSYSTEM on first use
+    so there's always something concrete to edit on the Fleet tab."""
+    if ECOSYSTEM_FILE.exists():
+        try:
+            return _normalize_ecosystem(json.loads(ECOSYSTEM_FILE.read_text()))
+        except (json.JSONDecodeError, OSError):
+            pass
+    seed = _normalize_ecosystem(DEFAULT_ECOSYSTEM)
+    try:
+        ECOSYSTEM_FILE.write_text(json.dumps(seed, indent=2))
+    except OSError:
+        pass
+    return seed
+
+
+def save_ecosystem(data):
+    """Persist the whole fleet object (normalized). Returns what was written."""
+    normalized = _normalize_ecosystem(data)
+    ECOSYSTEM_FILE.write_text(json.dumps(normalized, indent=2))
+    return normalized
+
+
 def load_scheduler_state():
     if not SCHEDULER_STATE_FILE.exists():
         return {"active_project": None, "phase": "idle"}
