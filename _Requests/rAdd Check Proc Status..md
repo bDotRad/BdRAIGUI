@@ -1,5 +1,35 @@
 WAITING RESPONSE
 
+## You flipped this to READY with no notes — what do you want changed? (Claude, 2026-08-28)
+
+I picked up the session. Before flipping this, you restarted the
+dashboard (19:16) and had it running the new code for ~3 min. It's live
+and working:
+
+- The **Processing** tab is present (2nd tab) and `/api/proc-status`
+  returns sensible data — one card per project session, colour badge
+  (working / waiting input / idle / stuck?), ready-vs-open request
+  counts, scheduler phase, the pane tail, and the last 30 activity-log
+  events below. Auto-refreshes every 4s. Tab label turns red when a
+  project is flagged `stuck`.
+- Right now it correctly shows BdRDev = `working` (this session), the
+  other projects with no live session, `_IndependentClaude` idle and
+  "not in rotation", nothing stuck.
+
+So the feature itself checks out. But you marked this READY instead of
+archiving, which the request says means "notes on what to change" — and
+there are no notes. I can't guess what you want, so I've set this back
+to **WAITING RESPONSE**.
+
+**Tell me one of:**
+- "Archive it, looks fine" — I'll archive it next pass.
+- What's wrong / missing / what you want different on the Processing
+  tab (layout, extra info, different stuck detection, a manual
+  "kick this session" button, etc.).
+- If you flipped it to READY by accident, just say so.
+
+---
+
 ## Built — needs a dashboard restart to see it (Claude, 2026-08-28)
 
 New **Processing** tab (second tab, after Projects). Click it for a live
