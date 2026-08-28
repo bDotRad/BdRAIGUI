@@ -18,6 +18,11 @@ itself; it just stops scheduling.
 - [_Instructions/BdRDev.md](_Instructions/BdRDev.md) — the
   orchestration doc meant to be copied into *other* projects so their
   Claude sessions understand why they get woken/killed by this scheduler
+- [_Instructions/Standards.md](_Instructions/Standards.md) — the
+  two-layer standards system: `_Instructions/*` here is the canonical
+  fleet-wide layer (incl. [WebUI.md](_Instructions/WebUI.md) — look &
+  feel, 7-char-SHA versioning, the Edit/Save/Cancel table pattern);
+  each project's own docs are the override layer
 - `_Requests/_Archive/` — dated writeups of every request processed so
   far; check here before re-solving something already handled
 

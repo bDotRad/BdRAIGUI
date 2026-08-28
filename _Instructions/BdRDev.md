@@ -4,6 +4,17 @@ This project runs inside a scheduler that manages multiple projects on
 this Pi. Read this before you start working — it explains things about
 your environment that aren't otherwise obvious from inside the session.
 
+## Fleet-wide standards
+
+This project is part of a fleet with shared conventions — request
+handling, project layout, web look & feel, versioning (the version is
+the deployed **7-char commit SHA**), the **Edit / Save / Cancel**
+pattern for editable tables, SSH key naming, and more. The canonical
+copies live in **`BdRDev/_Instructions/`** on the dev box (start at
+`Standards.md`); they are *not* copied into each project. Follow them
+unless this project's own `CLAUDE.md` / `_Instructions/` explicitly
+say otherwise.
+
 ## The setup, in short
 
 - You (this Claude Code session) are running inside a tmux session named

@@ -903,17 +903,19 @@
       <h2 style="margin-top:0;">Fleet — server grid</h2>
       <div class="sql-meta">
         One row per server, one Y/N column per package, so you can scan
-        down what runs where. Edit cells directly here and hit Save, or
-        use the fuller form on the <b>Fleet</b> tab. Saved to Supabase
-        when reachable, otherwise to <code>state/ecosystem.json</code>.
-        (This is "Ecosystem 2" — a spreadsheet-style alternative to the
-        diagram on the <b>Ecosystem</b> tab, kept side by side for now.)
+        down what runs where. Read-only until you hit <b>Edit</b>; then
+        edit cells in place and <b>Save</b> (or <b>Cancel</b>). Saved to
+        Supabase when reachable, otherwise to
+        <code>state/ecosystem.json</code>. The fuller form is on the
+        <b>Fleet</b> tab. (This is "Ecosystem 2" — a spreadsheet-style
+        alternative to the diagram on the <b>Ecosystem</b> tab, kept side
+        by side for now.)
       </div>
       <div class="sql-meta" id="eco2-source" style="margin-top:6px;"></div>
       <div class="eco2-scroll">
         <table class="eco2-table" id="eco2-table"></table>
       </div>
-      <div id="eco2-edit-hint">
+      <div id="eco2-edit-hint" style="display:none;">
         Click any cell to edit it; click a Y/N cell to toggle. The
         <b>Other</b> and <b>Apps</b> columns are derived (from the
         free-text Software field and the App rows on the <b>Fleet</b> tab)
@@ -921,8 +923,9 @@
         apps across — do that on the Fleet tab.
       </div>
       <div id="eco2-actions">
-        <button class="btn" type="button" onclick="saveEco2()">Save changes</button>
-        <button class="btn secondary" type="button" onclick="loadEcosystem()">Revert</button>
+        <button class="btn" type="button" id="eco2-edit-btn" onclick="eco2EnterEdit()">Edit</button>
+        <button class="btn" type="button" id="eco2-save-btn" onclick="saveEco2()" style="display:none;">Save</button>
+        <button class="btn secondary" type="button" id="eco2-cancel-btn" onclick="eco2CancelEdit()" style="display:none;">Cancel</button>
         <span id="eco2-status"></span>
       </div>
       <div class="sql-meta" style="margin-top:10px;" id="eco2-notes"></div>
@@ -2014,16 +2017,25 @@ function renderEcoSource() {
   });
 }
 
+// Ecosystem 2 grid follows the fleet table-editing standard
+// (_Instructions/WebUI.md): read-only until Edit, then Save / Cancel.
+let eco2Editing = false;
+
 function eco2EditCell(i, field, value, extraClass) {
-  const cls = 'eco2-edit' + (extraClass ? ' ' + extraClass : '');
-  return `<td class="${cls}" contenteditable="true" data-si="${i}" data-field="${field}">${escapeHtml(value || '')}</td>`;
+  const editable = eco2Editing ? ' eco2-edit' : '';
+  const cls = (extraClass ? extraClass : '') + editable;
+  const ce = eco2Editing ? ' contenteditable="true"' : '';
+  return `<td class="${cls.trim()}"${ce} data-si="${i}" data-field="${field}">${escapeHtml(value || '')}</td>`;
 }
 
 function eco2YnCell(i, field, v) {
-  return `<td class="eco2-yn eco2-edit ${v ? 'eco2-y' : 'eco2-n'}" data-si="${i}" data-field="${field}" data-yn="1" onclick="eco2ToggleYn(this)">${v ? 'Y' : 'N'}</td>`;
+  const editable = eco2Editing ? ' eco2-edit' : '';
+  const click = eco2Editing ? ' onclick="eco2ToggleYn(this)"' : '';
+  return `<td class="eco2-yn${editable} ${v ? 'eco2-y' : 'eco2-n'}" data-si="${i}" data-field="${field}" data-yn="1"${click}>${v ? 'Y' : 'N'}</td>`;
 }
 
 function eco2ToggleYn(td) {
+  if (!eco2Editing) return;
   const on = !td.classList.contains('eco2-y');
   td.classList.toggle('eco2-y', on);
   td.classList.toggle('eco2-n', !on);
@@ -2037,6 +2049,30 @@ function eco2Dirty() {
     st.className = 'dirty';
     st.textContent = 'Unsaved changes';
   }
+}
+
+function eco2RenderActions() {
+  const editBtn = document.getElementById('eco2-edit-btn');
+  const saveBtn = document.getElementById('eco2-save-btn');
+  const cancelBtn = document.getElementById('eco2-cancel-btn');
+  const hint = document.getElementById('eco2-edit-hint');
+  if (!editBtn) return;
+  editBtn.style.display = eco2Editing ? 'none' : '';
+  saveBtn.style.display = eco2Editing ? '' : 'none';
+  cancelBtn.style.display = eco2Editing ? '' : 'none';
+  if (hint) hint.style.display = eco2Editing ? '' : 'none';
+}
+
+function eco2EnterEdit() {
+  eco2Editing = true;
+  renderEco2();
+}
+
+function eco2CancelEdit() {
+  eco2Editing = false;
+  const st = document.getElementById('eco2-status');
+  if (st) { st.className = ''; st.textContent = ''; }
+  renderEco2();   // re-renders from unchanged ecoData, discarding edits
 }
 
 function renderEco2() {
@@ -2078,13 +2114,14 @@ function renderEco2() {
     </tr>`;
   }).join('');
   table.innerHTML = head + '<tbody>' + rows + '</tbody>';
-  table.oninput = (e) => { if (e.target.classList.contains('eco2-edit')) eco2Dirty(); };
+  table.oninput = (e) => { if (eco2Editing && e.target.classList.contains('eco2-edit')) eco2Dirty(); };
   table.onkeydown = (e) => {
     if (e.key === 'Enter' && e.target.classList.contains('eco2-edit') && e.target.isContentEditable) {
       e.preventDefault();
       e.target.blur();
     }
   };
+  eco2RenderActions();
 
   const n = document.getElementById('eco2-notes');
   if (n) {
@@ -2286,6 +2323,7 @@ async function saveEco2() {
     if (data.ok) {
       ecoData = data.ecosystem;
       ecoSource = data.source || ecoSource;
+      eco2Editing = false;
       renderEcoView();
       renderFleetEditor();
       st.className = 'ok';

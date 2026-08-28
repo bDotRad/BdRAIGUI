@@ -58,6 +58,13 @@ None of this replaces a project's own free-form docs (`README.md`,
 `DESIGN_NOTES.md`, `CHANGELOG.md`, etc, as seen on `PlanBdRad`) -- those
 stay project-specific and aren't standardized here.
 
+Everything in this folder (`BdRDev/_Instructions/`) is the **fleet-wide
+top layer** of the two-layer standards system -- see
+[`Standards.md`](Standards.md). A project inherits all of it (look &
+feel and versioning from [`WebUI.md`](WebUI.md), request handling from
+`Requests.md`, etc.) without copying anything; its own `CLAUDE.md` /
+`_Instructions/` only need to record where it *deviates*.
+
 ## "Setup Project" as a trigger phrase
 
 When Brad says **"Setup Project"** (in a request, or directly), it
