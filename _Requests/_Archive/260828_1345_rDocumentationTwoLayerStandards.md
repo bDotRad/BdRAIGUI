@@ -1,4 +1,44 @@
-WAITING RESPONSE
+# Two-layer documentation / standards system
+
+**Asked:** In reference to `rEditing Tables`, set up a two-layer `.md`
+system. Top layer = generic fleet-wide stuff (setting up servers, web
+page basics like versioning, the Edit/Save/Cancel table pattern).
+Bottom layer = project-specific instructions, so every project gets the
+same overall look & feel unless it overrides.
+
+**Built (committed + pushed, `0742263`):**
+
+- **Layer 1 lives in the existing `BdRDev/_Instructions/`** folder
+  (not a new `_Standards/`) — it already holds the fleet-wide generic
+  docs (`ProjectSetup`, `SSH`, `Requests`, `AppServerSync`), so this
+  extends it rather than splitting conventions across two places.
+- `_Instructions/Standards.md` — describes the two-layer model itself,
+  indexes every Layer-1 doc, states precedence rules (project overrides
+  win where explicit; silence = inherit; don't fork a Layer-1 doc into
+  a project).
+- `_Instructions/WebUI.md` — first real generic web standard: look &
+  feel, versioning (= deployed 7-char commit SHA shown under the
+  title), and the Edit/Save/Cancel table pattern (from `rEditing
+  Tables`), written normatively for ALL apps. "Setting up servers" is
+  covered by pointing at the existing `BdRPiAMI-PROVISION.md` worked
+  example.
+- **Layer 2** — no new per-project file. Precedence and the "only
+  document deviations" rule are written into `Standards.md`; pointers
+  added to `CLAUDE.md`, `_Instructions/ProjectSetup.md`, and
+  `_Instructions/BdRDev.md` (the doc copied into other projects) so
+  every project's session learns the top layer exists.
+
+**Outcome:** Brad reviewed the structure and replied "Yep sounds good."
+— approved as-is, living in `_Instructions/`, no dedicated folder or
+separate repo, no extra Layer-1 topics to stub right now. No further
+work. Docs only; no restart needed.
+
+---
+
+READY
+
+Yep sounds good.
+
 
 ## Built — review the structure (Claude, 2026-08-28)
 
