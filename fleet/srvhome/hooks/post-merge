@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# srvhome deploy-history hook.
+#
+# Installed into each configured app repo as .git/hooks/post-merge by
+# install.sh. `git pull` == fetch + merge, so this fires on every pull
+# and records the new HEAD (7-char SHA, title, description) into the
+# srvhome deploy DB with recorded_at = now. Idempotent - re-recording
+# the same SHA is a no-op.
+#
+# Kept tiny and non-fatal: a hook failure must never break `git pull`.
+
+SRVHOME_DIR="${SRVHOME_DIR:-/home/bdr/projects/BdRPiAMI/srvhome}"
+APP_NAME="$(basename "$(git rev-parse --show-toplevel 2>/dev/null)")"
+REPO_PATH="$(git rev-parse --show-toplevel 2>/dev/null)"
+
+[ -n "$APP_NAME" ] || exit 0
+[ -f "$SRVHOME_DIR/record_deploy.py" ] || exit 0
+
+python3 "$SRVHOME_DIR/record_deploy.py" "$APP_NAME" "$REPO_PATH" \
+  >>"$SRVHOME_DIR/hook.log" 2>&1 || true
+exit 0
