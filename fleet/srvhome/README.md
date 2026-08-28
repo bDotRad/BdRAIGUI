@@ -11,6 +11,12 @@ app that server hosts:
 - a **history of updates** — every version this box has pulled, with the
   deploy timestamp, commit title and description.
 
+The page is **colour-coded** per the fleet WebUI standard: each tile has
+a status-coloured left border (green = running, red = down, amber = not
+tracked, grey = repo absent), the history row matching the SHA currently
+checked out is highlighted green and tagged "live here", backfilled rows
+are muted, and the footer carries a legend.
+
 First deployment target: **BdRPiSrvAMI** (the Pi, `10.10.10.20` /
 tailnet `bdrpiami`). Canonical source of these files lives in
 `BdRDev/fleet/srvhome/`; the running copy on the Pi is

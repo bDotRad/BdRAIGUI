@@ -56,6 +56,18 @@ inventing its own naming.
   reach a physical Pi, `BdRadBirdDetector` at `192.168.1.187`, for the
   BdRBirdDetector project.)
 
+## Asking Brad to run SSH commands
+
+The unattended session can `ssh` to fleet boxes for read-only checks and
+file copies, but auto-mode blocks it from starting/restarting daemons on
+a remote host or running any `sudo`. When a request needs one of those,
+hand the commands back in the **Action block** format from
+[`Requests.md`](Requests.md#how-to-write-actions-and-questions-back-into-a-request-file)
+-- a quoted description above each command, numbered steps, `# on <box>`
+where it runs -- and set the request to `WAITING RESPONSE`. Don't
+paraphrase the command ("restart srvhome on the Pi"); write the exact
+line Brad will paste.
+
 ## Current inventory (as of 2026-08-26)
 
 | File | Target | Purpose |

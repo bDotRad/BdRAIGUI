@@ -122,24 +122,42 @@ header{padding:22px 28px;border-bottom:1px solid #232a31;background:#12171d}
 header h1{margin:0;font-size:19px;letter-spacing:.3px}
 header .sub{color:#8b96a1;font-size:13px;margin-top:4px}
 main{padding:24px 28px;max-width:1100px;margin:0 auto}
-.tile{background:#141a20;border:1px solid #232a31;border-radius:10px;
-      padding:18px 20px;margin-bottom:22px}
+.tile{background:#141a20;border:1px solid #232a31;border-left:4px solid #3a4550;
+      border-radius:10px;padding:18px 20px;margin-bottom:22px}
+.tile.is-running{border-left-color:#3fb950}
+.tile.is-stopped{border-left-color:#f85149}
+.tile.is-unknown{border-left-color:#d29922}
+.tile.is-absent {border-left-color:#3a4550}
 .tile h2{margin:0 0 2px;font-size:16px}
 .row{display:flex;flex-wrap:wrap;gap:14px;align-items:baseline;margin:8px 0 14px}
 .badge{font-size:12px;padding:2px 9px;border-radius:20px;border:1px solid #333d47;
        color:#aab4bf;background:#1a2129}
-.badge.ok{color:#7fd18c;border-color:#2f5136}
-.badge.off{color:#e08a8a;border-color:#5a2f2f}
+.badge.ok{color:#7fd18c;border-color:#2f5136;background:#132018}
+.badge.off{color:#e08a8a;border-color:#5a2f2f;background:#201313}
+.badge.unknown{color:#e3b341;border-color:#5c4813;background:#211c0f}
 .sha{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#e2c08d}
+.sha.live{color:#7fd18c}
 .muted{color:#8b96a1}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #202730;vertical-align:top}
 th{color:#8b96a1;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
 td.v{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#e2c08d;white-space:nowrap}
+td.v.live{color:#7fd18c}
 td.t{white-space:nowrap;color:#9aa5b0}
 td.desc{color:#9aa5b0;white-space:pre-wrap}
+tr.live td{background:#122017}
+tr.backfilled td.v{color:#8b96a1}
+.live-tag{display:inline-block;margin-left:7px;padding:0 6px;font-size:10.5px;
+          color:#7fd18c;border:1px solid #2f5136;border-radius:20px}
 .empty{color:#8b96a1;font-style:italic;padding:6px 0}
 footer{max-width:1100px;margin:0 auto;padding:8px 28px 40px;color:#6b7580;font-size:12px}
+.legend{display:flex;gap:15px;flex-wrap:wrap;margin-bottom:10px;font-size:11.5px}
+.legend span::before{content:'';display:inline-block;width:9px;height:9px;border-radius:2px;
+                     margin-right:5px;vertical-align:middle;background:currentColor}
+.legend .l-run{color:#3fb950}
+.legend .l-stop{color:#f85149}
+.legend .l-unknown{color:#d29922}
+.legend .l-live{color:#7fd18c}
 """
 
 
@@ -174,18 +192,24 @@ def render_html(state: dict) -> str:
     for app in state["apps"]:
         if app["running"] is True:
             badge = "<span class='badge ok'>running</span>"
+            tile_cls = "is-running"
         elif app["running"] is False:
             badge = "<span class='badge off'>not running</span>"
+            tile_cls = "is-stopped"
+        elif not app["present"]:
+            badge = "<span class='badge unknown' title='live status not tracked yet'>status not tracked</span>"
+            tile_cls = "is-absent"
         else:
-            badge = "<span class=badge title='live status not tracked yet'>status not tracked</span>"
+            badge = "<span class='badge unknown' title='live status not tracked yet'>status not tracked</span>"
+            tile_cls = "is-unknown"
 
-        out.append("<div class=tile>")
+        out.append(f"<div class='tile {tile_cls}'>")
         out.append(f"<h2>{e(app['name'])}</h2>")
         out.append("<div class=row>")
         out.append(badge)
         if app["present"]:
             out.append(
-                f"<span>version <span class=sha>{e(app['deployed_sha'] or '?')}</span></span>"
+                f"<span>version <span class='sha live'>{e(app['deployed_sha'] or '?')}</span></span>"
             )
             if app["branch"]:
                 out.append(f"<span class=muted>branch {e(app['branch'])}</span>")
@@ -200,10 +224,17 @@ def render_html(state: dict) -> str:
             out.append("<table><thead><tr><th>Version</th><th>Deployed</th>"
                        "<th>Title</th><th>Description</th></tr></thead><tbody>")
             for r in rows:
+                is_live = bool(r["sha"]) and r["sha"] == app["deployed_sha"]
+                row_cls = " ".join(c for c in (
+                    "live" if is_live else "",
+                    "backfilled" if r.get("backfilled") else "",
+                ) if c)
+                tr_attr = f" class='{row_cls}'" if row_cls else ""
                 tag = " <span class=muted>(backfilled)</span>" if r.get("backfilled") else ""
+                live_tag = " <span class=live-tag>live here</span>" if is_live else ""
                 out.append(
-                    "<tr>"
-                    f"<td class=v>{e(r['sha'])}</td>"
+                    f"<tr{tr_attr}>"
+                    f"<td class='v{' live' if is_live else ''}'>{e(r['sha'])}{live_tag}</td>"
                     f"<td class=t>{e(_fmt_ts(r['recorded_at']))}{tag}</td>"
                     f"<td>{e(r['subject'] or '')}</td>"
                     f"<td class=desc>{e((r['body'] or '').strip())}</td>"
@@ -215,9 +246,17 @@ def render_html(state: dict) -> str:
         out.append("</div>")
 
     out.append("</main>")
-    out.append("<footer>srvhome &middot; canonical source: "
-               "BdRDev/fleet/srvhome &middot; "
-               "history written by each repo's git post-merge hook</footer>")
+    out.append(
+        "<footer>"
+        "<div class=legend>"
+        "<span class=l-run>running</span>"
+        "<span class=l-stop>not running</span>"
+        "<span class=l-unknown>status not tracked</span>"
+        "<span class=l-live>version currently deployed on this box</span>"
+        "</div>"
+        "srvhome &middot; canonical source: BdRDev/fleet/srvhome &middot; "
+        "history written by each repo's git post-merge hook</footer>"
+    )
     out.append("</body></html>")
     return "".join(out)
 

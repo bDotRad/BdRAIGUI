@@ -146,6 +146,87 @@ button whenever a request is `WAITING RESPONSE`, and the scheduler
 hibernates the session on its own once nothing's left `READY` -- that's
 the actual channel Brad monitors, not the live tmux pane.
 
+## How to write actions and questions back into a request file
+
+When a pass can't finish without Brad doing something (running a
+command, making a decision), the leftover work goes **into the request
+file body** in one of two fixed block formats, so it's unambiguous what
+Brad has to do or answer. Use these verbatim -- same delimiter lines,
+same headings -- in this project and every other project on the fleet.
+
+### Action block -- "here is exactly what to run"
+
+For anything Brad has to execute by hand: `sudo`, a live-service
+restart, an interactive login (`gcloud auth login`), or **SSH commands
+to run on another box** (the unattended session's auto-mode classifier
+blocks starting/restarting daemons on remote hosts and all `sudo`).
+
+```
+@@@ --- Action --- @@@
+
+1. What this step achieves (one line)
+
+"Description of what these commands do"
+command one
+command two
+
+"Description of the next thing"
+command three
+
+2. What the second step achieves
+
+"Description"
+command four
+
+@@@ ------------- @@@
+```
+
+Rules:
+- Every command (or contiguous group of commands that share a purpose)
+  gets a **quoted plain-English description on the line above it**. A
+  group that must be run together as a unit can share one description.
+- Number the steps if there's more than one; keep them in run order.
+- Say where each step runs if it isn't obvious -- `# on the Pi`,
+  `# on this dev box`, `# in the Supabase SQL editor`.
+- Put **only** copy-pasteable commands inside the block. Explanation,
+  caveats, and "why" go in prose outside it.
+- If a step needs `sudo`, still write the exact `sudo ...` line -- don't
+  paraphrase it as "restart nginx".
+- Leave the request's first line `WAITING RESPONSE` while an Action
+  block is outstanding. Brad runs the steps, then flips it back to
+  `READY` (with a note if anything failed) or archives it.
+
+### Question block -- "I need a decision"
+
+```
+??? --- Question --- ???
+
+The question, stated so it can be answered standalone.
+
+Options:
+1. First option -- what it implies
+2. Second option -- what it implies
+3. Third option
+
+Answer:
+<Brad writes here>
+
+??? --------------- ???
+```
+
+Rules:
+- One block per distinct decision -- don't bundle unrelated questions.
+- Always offer numbered options when you can, even if one is "leave it
+  for now". If it's genuinely open-ended, still give the block and note
+  that.
+- If you have a recommendation, mark it: `1. ... (recommended)`.
+- Brad answers on the `Answer:` line(s) in place; don't require him to
+  restructure the block.
+- Same as above: first line stays `WAITING RESPONSE` until answered.
+
+Both blocks can appear in the same file. Keep the original request text
+intact underneath; these blocks go above it (newest at the top).
+
 ## Not yet built (per the convention doc, deferred until needed)
 
 - Automated folder watcher -- purely manual/on-request for now.

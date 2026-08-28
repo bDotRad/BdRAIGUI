@@ -57,6 +57,15 @@ dashboard (`app/templates/index.html`, `eco2EnterEdit` /
   `overflow-x: auto` wrapper rather than stretching the page.
 - Primary action = filled button; secondary/destructive-cancel =
   outlined ("secondary") button.
+- **Colour-code status.** Anywhere the UI shows the state of something
+  (a service, a deploy, a check), use colour, not just a word: green =
+  good / running / current, red = bad / down / error, amber = unknown /
+  pending / not-tracked, muted grey = n/a or historical. Carry the same
+  colour onto the container (a tile's left border, a row background) so
+  state is scannable without reading each label. Always pair colour with
+  text -- never colour alone. Reference: `fleet/srvhome/srvhome.py`
+  (`is-running` / `is-stopped` / `is-unknown` tiles, the "live here"
+  row highlight, and the footer legend).
 
 Extend this section as shared patterns get settled (forms, modals,
 status lines, empty states).

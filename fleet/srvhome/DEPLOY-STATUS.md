@@ -1,8 +1,8 @@
-# srvhome on BdRPiSrvAMI — deploy status (2026-08-28)
+# srvhome on BdRPiSrvAMI — deploy status (updated 2026-08-28 pm)
 
 Built for request `rEach server running apps`. First target: the Pi.
 
-## Done (by the unattended session, over SSH from the dev box)
+## Done
 
 - Code deployed to `~/projects/BdRPiAMI/srvhome/` on the Pi.
 - Deploy DB `srvhome.db` back-filled from `git log`:
@@ -10,37 +10,44 @@ Built for request `rEach server running apps`. First target: the Pi.
 - `post-merge` hook installed in `~/projects/PlanBdRad/.git/hooks/` and
   `~/projects/BdRAMAssist/.git/hooks/` — every future `git pull` on the
   Pi records the pulled version into `srvhome.db`.
-- App verified working on the Pi (foreground run: `/healthz` ok,
-  `/api/state` and the HTML page render with full history).
+- **`install.sh` run by Brad** — user-crontab keepalive active
+  (`@reboot` + per-minute `run.sh`); server running on `127.0.0.1:8610`,
+  `/healthz` → `ok`.
+- **Colour-coding added** (request follow-up) and redeployed to the Pi:
+  tiles carry a status-coloured left border (green running / red down /
+  amber not-tracked / grey absent), the history row whose SHA matches
+  the currently-deployed checkout is highlighted green with a "live
+  here" tag, backfilled rows are muted, and the footer has a colour
+  legend. Old process killed so the per-minute cron picked up the new
+  code; verified rendering on the Pi.
 
-## Left for Brad — 2 steps (the unattended session's auto-mode
-## classifier blocks starting a daemon on a remote box and all sudo)
+## Nginx route — DONE (Brad, 2026-08-28)
 
-**1. Start it + make it stay up (no sudo):**
+The `nginx-snippet.conf` block is in the `listen 443` server block of
+the Pi's site config. Verified live from the dev box:
 
-```bash
-cd ~/projects/BdRPiAMI/srvhome
-./install.sh          # re-runs backfill (idempotent), re-installs hooks,
-                      # adds a user-crontab keepalive, starts the server
-curl -s http://127.0.0.1:8610/healthz     # -> ok
+```
+https://10.10.10.20/status/    → 200   (page renders, full history)
+https://bdrpiami/status/       → 200
+https://100.86.25.88/status/   → 200   (Tailscale)
 ```
 
-`install.sh` is safe to run repeatedly. If you'd rather use systemd than
-the crontab keepalive: `sudo cp srvhome.service /etc/systemd/system/ &&
-sudo systemctl enable --now srvhome`, then delete the two
-`srvhome/run.sh` lines from `crontab -e`.
+Supabase stays on `/`, untouched.
 
-**2. Expose it through Nginx (needs sudo):** add the block from
-`nginx-snippet.conf` into the `listen 443` server block of
-`/etc/nginx/sites-available/bdrpiami`, above the existing
-`location / { proxy_pass ... :8000; }`, then:
+### Hostname note
 
-```bash
-sudo nginx -t && sudo systemctl reload nginx
-```
+`https://bdrpisrvami.local/status/` does **not** work, and won't until
+the Pi is actually renamed. The box's hostname is still `bdrpiami`, so
+its mDNS name is `bdrpiami.local`. `BdRPiSrvAMI` is only the canonical
+name in the docs — the host + Tailscale rename is still pending (tracked
+in `~/projects/CLAUDE.md`). Working URL today from a machine with mDNS
+(Brad's desktop/laptop): **https://bdrpiami.local/status/**. From this
+dev box (no mDNS resolver): `https://bdrpiami/status/` or the LAN IP.
 
-Page is then live at **https://bdrpiami.local/status/**
-(Supabase stays on `https://bdrpiami.local/`, untouched).
+If you'd rather use systemd than the crontab keepalive:
+`sudo cp srvhome.service /etc/systemd/system/ && sudo systemctl enable
+--now srvhome`, then delete the two `srvhome/run.sh` lines from
+`crontab -e`.
 
 ## Design decisions made (flagged for review — see request answers)
 

@@ -64,7 +64,11 @@ safety classifier blocking a risky action (a live-service restart,
 1. Decline/cancel the interactive prompt (choose "No" / don't proceed)
    rather than leaving it hanging.
 2. Set the relevant request file's first line to `WAITING RESPONSE` and
-   write your question in the body (see `_Instructions/Requests.md`).
+   write the leftover work into the body using the **Action block** /
+   **Question block** formats in `_Instructions/Requests.md` ("How to
+   write actions and questions back into a request file") -- exact
+   commands with a description per command for anything Brad must run,
+   numbered options for anything he must decide.
 3. End your turn. Once nothing in `_Requests/` is `READY`, the scheduler
    hibernates you automatically after its grace period — no need to
    stay alive waiting for an answer. The dashboard already flashes a
