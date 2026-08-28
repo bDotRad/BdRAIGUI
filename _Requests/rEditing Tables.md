@@ -1,5 +1,66 @@
 WAITING RESPONSE
 
+## Third pass — answering "Is Eco2 linked to a Supabase table?" (Claude, 2026-08-28)
+
+**Short answer: no, not right now — but it's fully built to be, and
+you're right that it's "the same thing plus the projects".**
+
+### What exists
+
+The Supabase side is written and committed, just not *activated*:
+
+- **Schema + seed**: `supabase/migrations/20260828120000_fleet_schema.sql`
+  and `..._120100_fleet_seed.sql`. The same thing bundled as one
+  paste-into-the-SQL-editor file is `.claude-status/sql_output.sql`
+  (safe to re-run).
+- **Tables**: `servers`, `software`, `server_software` (which packages
+  run where), `apps`, `fleet_meta` (the notes blob) — **plus**
+  `projects` and `project_agents`. Those last two are exactly the
+  "extra for the projects" you mean.
+- **One read view**: `public.fleet_ecosystem_json` — a single jsonb
+  column shaped identically to what the tab renders from today. The
+  dashboard client is `app/fleet_db.py` (plain REST, no new deps).
+
+### Why the tab still says "not configured"
+
+Two switches are off, **both need you** (sudo / the Pi — I have neither):
+
+1. **The SQL has never been run on the Pi's Supabase.** Until it is,
+   there's no `fleet_ecosystem_json` view to read, so even with env
+   vars the dashboard would fall back to JSON.
+2. **The dashboard service has no `SUPABASE_*` env vars**, so
+   `fleet_db.is_configured()` is false and it reads/writes
+   `state/ecosystem.json`.
+
+### What I can and can't do
+
+- I **can** run `sql_output.sql` against the Pi's Supabase for you if
+  you say go (it's re-run-safe). Or you paste it into the Supabase SQL
+  editor yourself.
+- I **can't** set the systemd env vars or restart the dashboard — no
+  sudo. That part is yours regardless.
+
+??? --- Question --- ???
+
+How do you want to proceed? Pick one:
+
+1. **Wire it up now.** Say "run the SQL" and I'll apply
+   `sql_output.sql` to the Pi next pass; then you do the systemd env
+   vars + restart (exact commands in the Action block below — the
+   `SUPABASE_URL=https://10.10.10.20` / `SUPABASE_VERIFY_SSL=0` block).
+   Flip back to READY afterwards if the source line doesn't switch to
+   "source: Supabase".
+2. **You run the SQL yourself** (paste `.claude-status/sql_output.sql`
+   into the Supabase SQL editor), then do the systemd step. I just wait.
+3. **Leave it on JSON for now** — the editor, dropdown and
+   Edit/Save/Cancel all work regardless. Archive this once the
+   Fleet-tab dropdown + Eco2 Edit/Save/Cancel check out for you.
+
+Answer:
+
+
+??? --------------- ???
+
 ## Second pass (Claude, 2026-08-28 pm)
 
 Your three follow-ups:
