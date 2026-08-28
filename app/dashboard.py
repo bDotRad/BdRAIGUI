@@ -26,6 +26,7 @@ import time
 from flask import Flask, abort, jsonify, render_template, request, send_file
 
 import common
+import fleet_db
 
 app = Flask(__name__)
 
@@ -491,9 +492,18 @@ def api_admin_theme_reset():
 
 @app.route("/api/ecosystem")
 def api_ecosystem():
+    # Try Supabase first; fall back to the JSON cache when it's not
+    # configured or unreachable. fetch_ecosystem() refreshes the JSON
+    # cache itself on a successful read.
+    eco = fleet_db.fetch_ecosystem()
+    source = "supabase"
+    if eco is None:
+        eco = common.load_ecosystem()
+        source = "json-fallback"
     return jsonify({
-        "ecosystem": common.load_ecosystem(),
+        "ecosystem": eco,
         "options": common.ECOSYSTEM_FIELD_OPTIONS,
+        "source": source,
     })
 
 
@@ -503,9 +513,12 @@ def api_ecosystem_save():
     eco = data.get("ecosystem")
     if not isinstance(eco, dict):
         return jsonify({"ok": False, "error": "ecosystem object is required"}), 400
+    # Push to Supabase if we can; always keep the JSON file in sync so it
+    # stays a usable fallback whether or not the DB write landed.
+    source = "supabase" if fleet_db.push_ecosystem(eco) else "json-fallback"
     saved = common.save_ecosystem(eco)
     common.log_event("BdRDev", "ecosystem_updated")
-    return jsonify({"ok": True, "ecosystem": saved})
+    return jsonify({"ok": True, "ecosystem": saved, "source": source})
 
 
 @app.route("/api/admin/status")

@@ -55,7 +55,14 @@ IDLE_POOL_SLEEP = 5            # how long to sleep if no projects are selected (
 SESSION_COLS = 150
 SESSION_ROWS = 70
 
-SCAN_PROMPT = "Check the requests folder for new or updated files and process them now."
+SCAN_PROMPT = (
+    "Check the requests folder for new or updated files and process them now. "
+    "This session runs unattended -- nobody is watching the terminal. If you "
+    "hit a decision only Brad can make, or any interactive prompt (a permission "
+    "dialog, the AskUserQuestion tool, etc.), do NOT wait on it: cancel it, "
+    "write your questions into the request file, set that file's first line to "
+    "WAITING RESPONSE, and end your turn. See _Instructions/BdRDev.md."
+)
 
 
 def write_state(active, pool):

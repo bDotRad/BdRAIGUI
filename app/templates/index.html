@@ -243,6 +243,25 @@
     font-size: 12px; line-height: 1.5; overflow-x: auto;
   }
 
+  .eco2-scroll { overflow-x: auto; margin-top: 14px; }
+  .eco2-table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+  .eco2-table th, .eco2-table td {
+    border: 1px solid var(--card-border); padding: 6px 10px; text-align: left; white-space: nowrap;
+  }
+  .eco2-table thead th {
+    color: var(--text-dim); font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.03em; background: #0b0d11;
+  }
+  .eco2-table th.eco2-group { text-align: center; }
+  .eco2-table td.eco2-yn { text-align: center; font-weight: 700; }
+  .eco2-table td.eco2-y { color: var(--processing); }
+  .eco2-table td.eco2-n { color: var(--text-dim); }
+  .eco2-table tr.eco2-unprov td { opacity: 0.6; }
+  .eco2-table code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
+    background: #0b0d11; border: 1px solid var(--card-border); border-radius: 4px; padding: 1px 5px;
+  }
+
   .eco-diagram { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; }
   .eco-server-card {
     flex: 1 1 300px; min-width: 270px; background: #0b0d11;
@@ -685,6 +704,7 @@
     <button class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">Activity Log</button>
     <button class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Admin</button>
     <button class="tab-btn" id="tab-btn-ecosystem" onclick="switchTab('ecosystem')">Ecosystem</button>
+    <button class="tab-btn" id="tab-btn-ecosystem2" onclick="switchTab('ecosystem2')">Ecosystem 2</button>
     <button class="tab-btn" id="tab-btn-fleet" onclick="switchTab('fleet')">Fleet</button>
     <button class="tab-btn" id="tab-btn-independent" onclick="openConsole(INDEPENDENT_SESSION)">CLAUDE</button>
     <a class="help-link" href="/help">Help</a>
@@ -861,6 +881,24 @@
     </div>
   </div>
 
+  <div id="tab-panel-ecosystem2" class="tab-panel">
+    <div id="ecosystem-panel">
+      <h2 style="margin-top:0;">Fleet — server grid</h2>
+      <div class="sql-meta">
+        One row per server, one Y/N column per package, so you can scan
+        down what runs where. Editable on the <b>Fleet</b> tab; stored in
+        <code>state/ecosystem.json</code>. (This is "Ecosystem 2" — a
+        spreadsheet-style alternative to the diagram on the
+        <b>Ecosystem</b> tab, kept side by side for now.)
+      </div>
+      <div class="sql-meta" id="eco2-source" style="margin-top:6px;"></div>
+      <div class="eco2-scroll">
+        <table class="eco2-table" id="eco2-table"></table>
+      </div>
+      <div class="sql-meta" style="margin-top:10px;" id="eco2-notes"></div>
+    </div>
+  </div>
+
   <div id="tab-panel-fleet" class="tab-panel">
     <div id="fleet-panel" class="admin-panel-box">
       <div class="sql-meta" style="margin-bottom:14px;">
@@ -869,6 +907,7 @@
         Ecosystem diagram and tree re-render from this. Stored in
         <code>state/ecosystem.json</code>.
       </div>
+      <div class="sql-meta" id="fleet-source" style="margin-bottom:14px;"></div>
 
       <h2 style="margin-top:0;">Servers</h2>
       <div id="fleet-servers"></div>
@@ -891,6 +930,7 @@
         <span id="fleet-status"></span>
       </div>
 
+      <datalist id="dl-host"></datalist>
       <datalist id="dl-os"></datalist>
       <datalist id="dl-ram"></datalist>
       <datalist id="dl-disk"></datalist>
@@ -1036,9 +1076,10 @@ let currentRequestProject = null;
 let currentConsoleProject = null;
 let consolePollTimer = null;
 let ecoData = null;
+let ecoSource = null;
 let ecoOptions = {};
 
-const TAB_NAMES = ['projects', 'workspace', 'log', 'admin', 'ecosystem', 'fleet'];
+const TAB_NAMES = ['projects', 'workspace', 'log', 'admin', 'ecosystem', 'ecosystem2', 'fleet'];
 
 function switchTab(name) {
   if (!TAB_NAMES.includes(name)) name = 'projects';
@@ -1047,7 +1088,8 @@ function switchTab(name) {
     document.getElementById('tab-btn-' + t).classList.toggle('active', name === t);
   }
   try { localStorage.setItem('bdrdev-tab', name); } catch (e) { /* ignore */ }
-  if ((name === 'ecosystem' || name === 'fleet') && ecoData === null) loadEcosystem();
+  if ((name === 'ecosystem' || name === 'ecosystem2' || name === 'fleet') && ecoData === null) loadEcosystem();
+  if (name === 'ecosystem2' && ecoData) renderEco2();
   if (name === 'workspace') enterWorkspace();
   else stopWsConsolePoll();
 }
@@ -1928,6 +1970,74 @@ function renderEcoView() {
       n.style.display = 'none';
     }
   }
+  renderEco2();
+  renderEcoSource();
+}
+
+function renderEcoSource() {
+  const txt = ecoSource === 'supabase'
+    ? 'source: Supabase'
+    : (ecoSource ? 'source: local JSON (Supabase unreachable)' : '');
+  ['eco2-source', 'fleet-source'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = txt; el.style.display = txt ? '' : 'none'; }
+  });
+}
+
+function eco2Yn(v) {
+  return v
+    ? '<td class="eco2-yn eco2-y">Y</td>'
+    : '<td class="eco2-yn eco2-n">N</td>';
+}
+
+function renderEco2() {
+  if (!ecoData) return;
+  const table = document.getElementById('eco2-table');
+  if (!table) return;
+  const head = `<thead>
+    <tr>
+      <th rowspan="2">Name</th>
+      <th rowspan="2">Address</th>
+      <th class="eco2-group" colspan="4">Hardware</th>
+      <th class="eco2-group" colspan="5">Software</th>
+      <th rowspan="2">Apps</th>
+    </tr>
+    <tr>
+      <th>Host</th><th>RAM</th><th>Disk</th><th>OS</th>
+      <th>Claude</th><th>Nginx</th><th>Supabase</th><th>SQL Lite</th><th>Other</th>
+    </tr>
+  </thead>`;
+  const rows = ecoData.servers.map(s => {
+    const apps = ecoData.apps.filter(a => a.server === s.name).map(a => a.name).join(', ');
+    const known = ['claude', 'nginx', 'supabase', 'sql lite', 'sqlite'];
+    const other = (s.software || '').split('·').map(x => x.trim())
+      .filter(x => x && !known.includes(x.toLowerCase())
+                     && !known.some(k => x.toLowerCase().includes(k)))
+      .join(', ');
+    return `<tr class="${s.provisioned ? '' : 'eco2-unprov'}">
+      <td><code>${escapeHtml(s.name)}</code>${s.provisioned ? '' : ' <span class="eco-tag eco-tag-planned">not provisioned</span>'}</td>
+      <td>${s.address ? '<code>' + escapeHtml(s.address) + '</code>' : '—'}</td>
+      <td>${escapeHtml(s.host || '—')}</td>
+      <td>${escapeHtml(s.ram || '—')}</td>
+      <td>${escapeHtml(s.disk || '—')}</td>
+      <td>${escapeHtml(s.os || '—')}</td>
+      ${eco2Yn(s.claude)}${eco2Yn(s.nginx)}${eco2Yn(s.supabase)}${eco2Yn(s.sqlite)}
+      <td>${escapeHtml(other || '—')}</td>
+      <td>${escapeHtml(apps || '—')}</td>
+    </tr>`;
+  }).join('');
+  table.innerHTML = head + '<tbody>' + rows + '</tbody>';
+
+  const n = document.getElementById('eco2-notes');
+  if (n) {
+    if (ecoData.notes && ecoData.notes.trim()) {
+      n.innerHTML = `<b>Notes:</b> ${escapeHtml(ecoData.notes)}`;
+      n.style.display = '';
+    } else {
+      n.textContent = '';
+      n.style.display = 'none';
+    }
+  }
 }
 
 function setDatalist(id, opts) {
@@ -1969,6 +2079,7 @@ function fleetRowShell(kind, idx, title, fields) {
 
 function renderFleetEditor() {
   if (!ecoData) return;
+  setDatalist('dl-host', ecoOptions.host);
   setDatalist('dl-os', ecoOptions.os);
   setDatalist('dl-ram', ecoOptions.ram);
   setDatalist('dl-disk', ecoOptions.disk);
@@ -1981,10 +2092,15 @@ function renderFleetEditor() {
     fleetInput('servers', i, 'name', 'Name', s.name) +
     fleetInput('servers', i, 'tag', 'Tag / label', s.tag, {cls: 'grow'}) +
     fleetInput('servers', i, 'address', 'Address', s.address) +
+    fleetInput('servers', i, 'host', 'Host', s.host, {list: 'dl-host'}) +
     fleetInput('servers', i, 'os', 'OS', s.os, {list: 'dl-os'}) +
     fleetInput('servers', i, 'ram', 'RAM', s.ram, {list: 'dl-ram'}) +
     fleetInput('servers', i, 'disk', 'Disk', s.disk, {list: 'dl-disk'}) +
-    fleetInput('servers', i, 'software', 'Software', s.software, {list: 'dl-software', cls: 'grow'}) +
+    fleetInput('servers', i, 'software', 'Software (free text — "Other" column on Ecosystem 2)', s.software, {list: 'dl-software', cls: 'grow'}) +
+    fleetInput('servers', i, 'claude', 'Claude', s.claude, {check: true}) +
+    fleetInput('servers', i, 'nginx', 'Nginx', s.nginx, {check: true}) +
+    fleetInput('servers', i, 'supabase', 'Supabase', s.supabase, {check: true}) +
+    fleetInput('servers', i, 'sqlite', 'SQL Lite', s.sqlite, {check: true}) +
     fleetInput('servers', i, 'git', 'Git / deploy notes', s.git, {textarea: true}) +
     fleetInput('servers', i, 'provisioned', 'Provisioned', s.provisioned, {check: true}) +
     fleetInput('servers', i, 'dev_host', 'Dev host (shows Projects list)', s.dev_host, {check: true})
@@ -2030,7 +2146,7 @@ function fleetSync() {
 
 function fleetAdd(kind) {
   fleetSync();
-  if (kind === 'servers') ecoData.servers.push({name: '', tag: '', address: '', os: '', ram: '', disk: '', software: '', git: '', provisioned: true, dev_host: false});
+  if (kind === 'servers') ecoData.servers.push({name: '', tag: '', address: '', host: '', os: '', ram: '', disk: '', software: '', claude: false, nginx: false, supabase: false, sqlite: false, git: '', provisioned: true, dev_host: false});
   else if (kind === 'apps') ecoData.apps.push({name: '', server: '', tag: '', web_address: '', db: '', planned: false});
   else if (kind === 'projects') ecoData.projects.push({name: '', exists: true, agents: []});
   renderFleetEditor();
@@ -2047,6 +2163,7 @@ async function loadEcosystem() {
     const res = await fetch('/api/ecosystem');
     const data = await res.json();
     ecoData = data.ecosystem;
+    ecoSource = data.source || null;
     ecoOptions = data.options || {};
     renderEcoView();
     renderFleetEditor();
@@ -2069,6 +2186,7 @@ async function saveEcosystem() {
     const data = await res.json();
     if (data.ok) {
       ecoData = data.ecosystem;
+      ecoSource = data.source || ecoSource;
       renderEcoView();
       renderFleetEditor();
       st.className = 'ok';

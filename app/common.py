@@ -152,6 +152,7 @@ ECOSYSTEM_FILE = STATE_DIR / "ecosystem.json"
 # free text is still allowed -- existing values often carry a parenthetical
 # note like "none (JSON state files)" that no fixed list would cover).
 ECOSYSTEM_FIELD_OPTIONS = {
+    "host": ["VM", "Physical", "Raspberry Pi"],
     "os": ["Ubuntu Server", "Raspberry Pi OS", "Raspberry Pi", "RPI OS Lite"],
     "ram": ["2GB", "4GB", "8GB", "16GB"],
     "disk": ["64GB SD Card", "128GB SD Card", "256GB SSD", "512GB SSD", "1TB SSD"],
@@ -173,9 +174,10 @@ ECOSYSTEM_FIELD_OPTIONS = {
 DEFAULT_ECOSYSTEM = {
     "servers": [
         {
-            "name": "BdRSrvDev", "tag": "this host, local", "address": "192.168.100.10",
-            "os": "Ubuntu Server", "ram": "8GB", "disk": "512GB SSD",
+            "name": "BdRVSrvDev", "tag": "this host, local", "address": "192.168.100.10",
+            "host": "VM", "os": "Ubuntu Server", "ram": "8GB", "disk": "512GB SSD",
             "software": "Claude Code · Nginx · Scheduler",
+            "claude": True, "nginx": True, "supabase": False, "sqlite": False,
             "provisioned": True, "dev_host": True,
             "git": (
                 "GitHub\n"
@@ -185,22 +187,25 @@ DEFAULT_ECOSYSTEM = {
         },
         {
             "name": "BdRPiAMI", "tag": "Raspberry Pi 8GB, 10.10.10.20", "address": "10.10.10.20",
-            "os": "Raspberry Pi", "ram": "8GB", "disk": "",
+            "host": "Raspberry Pi", "os": "Raspberry Pi", "ram": "8GB", "disk": "",
             "software": "Claude Code · Nginx · Supabase",
+            "claude": True, "nginx": True, "supabase": True, "sqlite": False,
             "provisioned": True, "dev_host": False,
             "git": "GitHub\nPull from bDotRad/: BdRAMAssist, PlanBdRad, BdRIS",
         },
         {
             "name": "BdRSrvDungeon", "tag": "not provisioned yet", "address": "",
-            "os": "Ubuntu Server", "ram": "4GB", "disk": "256GB SSD",
+            "host": "VM", "os": "Ubuntu Server", "ram": "4GB", "disk": "256GB SSD",
             "software": "Claude Code · Nginx · Supabase",
+            "claude": True, "nginx": True, "supabase": True, "sqlite": False,
             "provisioned": False, "dev_host": False,
             "git": "GitHub\nPull from bDotRad/: BdRDungeon",
         },
         {
             "name": "BdRBirdDetector", "tag": "physical Pi, 192.168.1.187", "address": "192.168.1.187",
-            "os": "RPI OS Lite", "ram": "4GB", "disk": "64GB SD Card",
+            "host": "Raspberry Pi", "os": "RPI OS Lite", "ram": "4GB", "disk": "64GB SD Card",
             "software": "Nginx · SQL Lite",
+            "claude": False, "nginx": True, "supabase": False, "sqlite": True,
             "provisioned": True, "dev_host": False,
             "git": "GitHub\nPull from bDotRad/: BdRBirdDetector\nFirebase\nPush",
         },
@@ -219,7 +224,7 @@ DEFAULT_ECOSYSTEM = {
          "agents": ["Project Manager", "Web Dev Expert", "Supabase SQL Expert", "ESP32 Expert", "Doc Updater"]},
     ],
     "apps": [
-        {"name": "BdRDev dashboard + scheduler", "server": "BdRSrvDev", "tag": "",
+        {"name": "BdRDev dashboard + scheduler", "server": "BdRVSrvDev", "tag": "",
          "web_address": "http://192.168.100.10:8420", "db": "none (JSON state files)", "planned": False},
         {"name": "PlanBdRad", "server": "BdRPiAMI", "tag": "today: runs on PlanBdRadServer",
          "web_address": "10.10.10.20", "db": "Supabase (Postgres)", "planned": False},
@@ -237,8 +242,10 @@ DEFAULT_ECOSYSTEM = {
         "BdRPiAMI (formerly the PlanBdRadServer VM; now a physical Raspberry Pi 8GB "
         "at 10.10.10.20) is real and reachable — it currently runs PlanBdRad, with "
         "BdRAMAssist's repo cloned there too (not yet confirmed running as a deployed "
-        "service). This host (BdRSrvDev, 192.168.100.10) is real; its machine hostname "
-        "is still BdRDev, not yet renamed to BdRSrvDev (planned per SSH.md). BdRIS "
+        "service). This host (BdRVSrvDev, 192.168.100.10) is real; its machine hostname "
+        "is still BdRDev — the rename to the BdRVSrv… / BdRPiSrv… convention (VM vs "
+        "Raspberry Pi) is display-only in this data so far, not yet applied to the "
+        "actual hostname / SSH key names / systemd units. BdRIS "
         "doesn't exist as a project yet. BdRDev, BdRAMAssist, and BdRDungeon now have "
         "all the agents shown above for real, under .claude/agents/ (BdRDev's set is "
         "written generically so it doubles as the copyable template for other projects "
@@ -269,14 +276,28 @@ def _normalize_ecosystem(data):
     for s in data.get("servers") or []:
         if not isinstance(s, dict):
             continue
+        software = _eco_str(s.get("software"))
+        # The Ecosystem-2 table shows one Y/N column per package. When a server
+        # predates those keys, infer the flag from the free-text software string
+        # so old ecosystem.json files upgrade cleanly on first load.
+        def _flag(key, *needles):
+            if key in s:
+                return bool(s.get(key))
+            low = software.lower()
+            return any(n in low for n in needles)
         servers.append({
             "name": _eco_str(s.get("name")),
             "tag": _eco_str(s.get("tag")),
             "address": _eco_str(s.get("address")),
+            "host": _eco_str(s.get("host")),
             "os": _eco_str(s.get("os")),
             "ram": _eco_str(s.get("ram")),
             "disk": _eco_str(s.get("disk")),
-            "software": _eco_str(s.get("software")),
+            "software": software,
+            "claude": _flag("claude", "claude"),
+            "nginx": _flag("nginx", "nginx"),
+            "supabase": _flag("supabase", "supabase"),
+            "sqlite": _flag("sqlite", "sqlite", "sql lite"),
             "git": _eco_str(s.get("git")),
             "provisioned": bool(s.get("provisioned", True)),
             "dev_host": bool(s.get("dev_host", False)),

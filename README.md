@@ -61,15 +61,29 @@ what counts as "pending".
   auto-increments per project. Meant as the first step toward dropping
   requests in remotely (e.g. over Tailscale) without opening a terminal.
 - **Ecosystem / fleet data**: the Ecosystem tab (fleet diagram + the
-  servers→projects tree) is rendered from `state/ecosystem.json`, not
-  hand-written HTML. The **Fleet** tab edits that file with
-  dropdown/text fields — servers (OS, RAM, disk, software, git notes),
-  the apps running on each (web address, DB, planned flag), projects and
-  their agents, plus a free-text notes block. `common.load_ecosystem()`
-  seeds the file from `common.DEFAULT_ECOSYSTEM` on first use; after that
-  the file is the source of truth. Dashboard-only — the scheduler never
-  reads it. `state/` is gitignored, so the checked-in seed lives in
-  `common.py`.
+  servers→projects tree) is rendered from the fleet data, not
+  hand-written HTML. The **Fleet** tab edits it with dropdown/text
+  fields — servers (OS, RAM, disk, software, git notes), the apps
+  running on each (web address, DB, planned flag), projects and their
+  agents, plus a free-text notes block. Dashboard-only — the scheduler
+  never reads it.
+  - **Source of truth**: a self-hosted Supabase (Postgres) on BdRPiAMI —
+    schema in `supabase/migrations/`, read back through the
+    `public.fleet_ecosystem_json` view, written via PostgREST with the
+    service key. `app/fleet_db.py` is the client (plain `requests`, no
+    `supabase`/`psycopg2`). Configured by env vars on the dashboard
+    service: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (or `SUPABASE_KEY`),
+    optional `SUPABASE_VERIFY_SSL=0` / `SUPABASE_CA_BUNDLE` for the Pi's
+    self-signed cert (see `systemd/bdrdev-dashboard.service`).
+  - **Fallback**: `state/ecosystem.json` is a warm cache. When the
+    Supabase env vars are unset or the Pi is unreachable, the dashboard
+    reads/writes that file instead and never errors. Every successful DB
+    read/write also rewrites the JSON file. `common.load_ecosystem()`
+    seeds it from `common.DEFAULT_ECOSYSTEM` on first use; `state/` is
+    gitignored, so the checked-in seed lives in `common.py`. The
+    `/api/ecosystem` GET response carries `"source": "supabase" |
+    "json-fallback"` and the Fleet / Ecosystem 2 tabs show which one
+    served the data.
 
 ## Setup
 
@@ -77,7 +91,7 @@ what counts as "pending".
 cd ~/projects/BdRDev
 python3 -m venv venv
 source venv/bin/activate
-pip install -r app/requirements.txt
+pip install -r requirements.txt
 ```
 
 Try it manually first, in two terminals:

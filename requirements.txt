@@ -1,0 +1,7 @@
+# BdRDev runtime dependencies (install into ./venv).
+#   Flask     -- app/dashboard.py web UI
+#   requests  -- app/fleet_db.py, the Supabase PostgREST client for the
+#                fleet/ecosystem data (state/ecosystem.json is the fallback)
+# Everything else the two processes use is Python standard library.
+Flask>=3.0
+requests>=2.31
