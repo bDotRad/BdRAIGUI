@@ -309,6 +309,120 @@
   #fleet-status.ok { color: var(--processing); }
   #fleet-status.error { color: #f87171; }
 
+  /* Workspace tab -- sidebar of projects + full-width per-project pane */
+  #workspace-layout {
+    display: flex; border: 1px solid var(--card-border); border-radius: 10px;
+    overflow: hidden; min-height: calc(100vh - 240px);
+  }
+  #workspace-sidebar {
+    list-style: none; margin: 0; padding: 8px; flex: 0 0 220px;
+    background: var(--card); border-right: 1px solid var(--card-border);
+    overflow-y: auto; max-height: calc(100vh - 240px);
+  }
+  #workspace-sidebar li {
+    font-size: 13px; padding: 8px 10px; border-radius: 6px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden;
+  }
+  #workspace-sidebar li:hover { background: rgba(255,255,255,0.04); }
+  #workspace-sidebar li.active { background: rgba(79,140,255,0.16); color: var(--accent); }
+  #workspace-sidebar .ws-side-name { overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; }
+  #workspace-sidebar .ws-side-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--idle); }
+  #workspace-sidebar .ws-side-badge {
+    font-size: 10px; background: var(--accent); color: #fff; border-radius: 8px; padding: 0 6px; flex-shrink: 0;
+  }
+  #workspace-sidebar .ws-side-inactive-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim);
+    padding: 12px 10px 4px; cursor: default;
+  }
+  #workspace-sidebar .ws-side-inactive-label:hover { background: transparent; }
+  #workspace-content { flex: 1; min-width: 0; padding: 16px 18px; display: flex; flex-direction: column; }
+  #workspace-placeholder { color: var(--text-dim); font-size: 14px; margin: auto; }
+  #workspace-project { flex: 1; min-height: 0; flex-direction: column; }
+  #workspace-project-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+  #workspace-project-head h2 {
+    margin: 0; font-size: 18px; color: var(--text); text-transform: none; letter-spacing: 0;
+  }
+  #workspace-project-head a { font-size: 12px; color: var(--text-dim); text-decoration: none; }
+  #workspace-project-head a:hover { color: var(--accent); }
+  #workspace-subtabs { display: flex; gap: 16px; border-bottom: 1px solid var(--card-border); margin-bottom: 14px; }
+  .ws-subtab-btn {
+    background: transparent; border: none; color: var(--text-dim);
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 8px 2px; cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .ws-subtab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+  .ws-subpanel { display: none; flex: 1; min-height: 0; flex-direction: column; }
+  .ws-subpanel.active { display: flex; }
+  .ws-subpanel-scroll { flex: 1; overflow-y: auto; }
+
+  #ws-console-pane {
+    flex: 1; min-height: 320px; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.4; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  #ws-console-reply { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  #ws-console-reply input {
+    flex: 1 1 240px; background: #0b0d11; color: var(--text); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 8px 10px; font-size: 13px;
+  }
+  #ws-console-status { font-size: 12px; color: var(--text-dim); margin-top: 6px; min-height: 16px; }
+  #ws-console-status.error { color: #f87171; }
+
+  #ws-archive-crumbs { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+  #ws-archive-crumbs a { color: var(--accent); cursor: pointer; }
+  #ws-archive-body { display: flex; flex: 1; gap: 14px; min-height: 0; }
+  #ws-archive-list {
+    list-style: none; margin: 0; padding: 0; overflow-y: auto;
+    flex: 0 0 360px; border-right: 1px solid var(--card-border);
+  }
+  #ws-archive-list li {
+    display: flex; justify-content: space-between; gap: 10px; font-size: 13px;
+    padding: 8px 4px; border-bottom: 1px solid var(--card-border); cursor: pointer;
+  }
+  #ws-archive-list li:hover { background: rgba(255,255,255,0.03); }
+  #ws-archive-list .entry-name.dir::before { content: "\1F4C1 "; }
+  #ws-archive-list .entry-name.file::before { content: "\1F4C4 "; }
+  #ws-archive-list .entry-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #ws-archive-list .entry-time { color: var(--text-dim); font-size: 12px; flex-shrink: 0; }
+  #ws-archive-view { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #ws-archive-text {
+    flex: 1; background: #0b0d11; color: var(--text); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; resize: none; width: 100%;
+  }
+  #ws-archive-image { max-width: 100%; max-height: 100%; object-fit: contain; border: 1px solid var(--card-border); border-radius: 6px; }
+
+  #ws-new-form { display: flex; flex-direction: column; gap: 10px; max-width: 720px; }
+  #ws-new-form input[type="text"], #ws-new-form textarea {
+    width: 100%; background: #0b0d11; color: var(--text); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px;
+  }
+  #ws-new-form textarea { min-height: 200px; resize: vertical; }
+  #ws-new-status { font-size: 12px; color: var(--text-dim); min-height: 16px; margin-left: 8px; }
+  #ws-new-status.error { color: #f87171; }
+  #ws-new-status.ok { color: var(--processing); }
+
+  .ws-req-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ws-req-table th {
+    text-align: left; color: var(--text-dim); font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 8px 8px 0;
+  }
+  .ws-req-table td { padding: 8px 8px 8px 0; border-top: 1px solid var(--card-border); vertical-align: top; }
+  .ws-req-table td.ws-req-name { cursor: pointer; }
+  .ws-req-table td.ws-req-name:hover { color: var(--accent); text-decoration: underline; }
+  #ws-req-editor { display: none; margin-top: 12px; flex-direction: column; gap: 8px; }
+  #ws-req-editor.open { display: flex; }
+  #ws-req-editor textarea {
+    width: 100%; min-height: 220px; background: #0b0d11; color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; resize: vertical;
+  }
+  #ws-req-editor-status { font-size: 12px; color: var(--text-dim); align-self: center; }
+  #ws-req-editor-status.error { color: #f87171; }
+  #ws-req-editor-status.ok { color: var(--processing); }
+
   #log-panel {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -567,6 +681,7 @@
 
   <div id="tabs">
     <button class="tab-btn active" id="tab-btn-projects" onclick="switchTab('projects')">Projects</button>
+    <button class="tab-btn" id="tab-btn-workspace" onclick="switchTab('workspace')">Workspace</button>
     <button class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">Activity Log</button>
     <button class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Admin</button>
     <button class="tab-btn" id="tab-btn-ecosystem" onclick="switchTab('ecosystem')">Ecosystem</button>
@@ -579,6 +694,84 @@
   <div id="tab-panel-projects" class="tab-panel active">
     <div id="grid"><div class="empty-state">Loading&hellip;</div></div>
     <div id="inactive-section"><div class="inactive-label">Inactive</div><div id="inactive-row"></div></div>
+  </div>
+
+  <div id="tab-panel-workspace" class="tab-panel">
+    <div id="workspace-layout">
+      <ul id="workspace-sidebar"><li class="ws-side-inactive-label">Loading&hellip;</li></ul>
+      <div id="workspace-content">
+        <div id="workspace-placeholder">Select a project from the list on the left.</div>
+        <div id="workspace-project" style="display:none;">
+          <div id="workspace-project-head">
+            <h2 id="workspace-project-name"></h2>
+            <a id="workspace-project-link" href="#" title="The standalone project page (Description, agent files, GitHub tab)">detail page &#8599;</a>
+          </div>
+          <div id="workspace-subtabs">
+            <button class="ws-subtab-btn active" data-sub="requests" onclick="switchWorkspaceSub('requests')">Requests</button>
+            <button class="ws-subtab-btn" data-sub="console" onclick="switchWorkspaceSub('console')">Console</button>
+            <button class="ws-subtab-btn" data-sub="archive" onclick="switchWorkspaceSub('archive')">Archive</button>
+            <button class="ws-subtab-btn" data-sub="new" onclick="switchWorkspaceSub('new')">+ New Request</button>
+          </div>
+
+          <div id="ws-sub-requests" class="ws-subpanel active">
+            <div class="ws-subpanel-scroll">
+              <div id="ws-requests-panel"><div class="empty-state">Loading&hellip;</div></div>
+              <div id="ws-req-editor">
+                <textarea id="ws-req-editor-content"></textarea>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <button class="btn" onclick="wsSaveRequestEdit()">Save</button>
+                  <button class="btn secondary" onclick="wsCloseRequestEdit()">Cancel</button>
+                  <span id="ws-req-editor-status"></span>
+                </div>
+              </div>
+              <h2 style="margin-top:24px;">Shelved</h2>
+              <div id="ws-shelved-panel"><div class="empty-state">Loading&hellip;</div></div>
+            </div>
+          </div>
+
+          <div id="ws-sub-console" class="ws-subpanel">
+            <div id="ws-console-pane">Loading&hellip;</div>
+            <div id="ws-console-reply">
+              <input type="text" id="ws-console-input" placeholder="Reply into the session (e.g. answer a question it asked)&hellip;">
+              <button class="btn" onclick="wsSendConsole()">Send</button>
+              <button class="btn secondary" onclick="wsExpandConsole()" title="Toggle Claude Code's collapsed background-agent status line (ctrl+o)">Expand agent</button>
+              <button class="btn secondary" onclick="wsRefreshConsole()">Refresh</button>
+            </div>
+            <div id="ws-console-status"></div>
+          </div>
+
+          <div id="ws-sub-archive" class="ws-subpanel">
+            <div id="ws-archive-crumbs"></div>
+            <div id="ws-archive-body">
+              <ul id="ws-archive-list"></ul>
+              <div id="ws-archive-view">
+                <div id="ws-archive-view-placeholder" class="empty-state">Select a file to view its contents.</div>
+                <textarea id="ws-archive-text" readonly style="display:none;"></textarea>
+                <img id="ws-archive-image" alt="" style="display:none;">
+              </div>
+            </div>
+          </div>
+
+          <div id="ws-sub-new" class="ws-subpanel">
+            <div class="ws-subpanel-scroll">
+              <form id="ws-new-form" onsubmit="return false;">
+                <input type="text" id="ws-new-title" autocomplete="off" placeholder="Title (becomes the file name, e.g. &quot;Logo resize&quot;)">
+                <textarea id="ws-new-content" placeholder="What do you want done? (Issue / When / Solution is a good default for bug reports.)"></textarea>
+                <label class="toggle-row"><input type="checkbox" id="ws-new-ready" checked> Mark READY now (scheduler will pick it up next pass)</label>
+                <div>Paste a screenshot (Ctrl+V) anywhere in this form, or <label for="ws-new-files" class="link-like" style="color:var(--accent);cursor:pointer;text-decoration:underline;">browse files</label>.</div>
+                <input type="file" id="ws-new-files" multiple style="display:none;">
+                <div id="ws-new-attachments" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+                <div>
+                  <button class="btn" onclick="wsSubmitNewRequest()">Create request</button>
+                  <span id="ws-new-status"></span>
+                </div>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="tab-panel-log" class="tab-panel">
@@ -845,7 +1038,7 @@ let consolePollTimer = null;
 let ecoData = null;
 let ecoOptions = {};
 
-const TAB_NAMES = ['projects', 'log', 'admin', 'ecosystem', 'fleet'];
+const TAB_NAMES = ['projects', 'workspace', 'log', 'admin', 'ecosystem', 'fleet'];
 
 function switchTab(name) {
   if (!TAB_NAMES.includes(name)) name = 'projects';
@@ -855,6 +1048,8 @@ function switchTab(name) {
   }
   try { localStorage.setItem('bdrdev-tab', name); } catch (e) { /* ignore */ }
   if ((name === 'ecosystem' || name === 'fleet') && ecoData === null) loadEcosystem();
+  if (name === 'workspace') enterWorkspace();
+  else stopWsConsolePoll();
 }
 
 function switchAdminSubtab(name) {
@@ -872,6 +1067,12 @@ async function loadStatus() {
   const data = await res.json();
   renderBanner(data);
   renderGrid(data.projects);
+  renderWorkspaceSidebar(data.projects);
+  if (wsProject && data.projects.some(p => p.name === wsProject)
+      && document.getElementById('tab-panel-workspace').classList.contains('active')
+      && document.getElementById('workspace-project').style.display === 'none') {
+    selectWorkspaceProject(wsProject);
+  }
 }
 
 async function loadLog() {
@@ -904,7 +1105,7 @@ function cardHtml(p) {
   return `
     <div class="${activeClass}">
       <div class="card-head">
-        <a class="name" href="/project/${encodeURIComponent(p.name)}">${escapeHtml(p.name)}</a>
+        <a class="name" href="/project/${encodeURIComponent(p.name)}" onclick="return wsOpenFromTile('${jsStr(p.name)}')">${escapeHtml(p.name)}</a>
         <div class="head-right">
           ${sqlBadge}
           <label class="active-toggle ${p.in_rotation ? 'is-active' : ''}">
@@ -1882,6 +2083,450 @@ async function saveEcosystem() {
     st.textContent = 'Save failed';
   }
 }
+
+// ---- Workspace tab ------------------------------------------------------
+
+let wsProject = null;
+let wsSubtab = 'requests';
+let wsProjects = [];
+let wsConsoleTimer = null;
+let wsArchivePath = '';
+let wsEditName = null;
+let wsAttachments = [];
+
+try { wsProject = localStorage.getItem('bdrdev-ws-project') || null; } catch (e) { /* ignore */ }
+try { wsSubtab = localStorage.getItem('bdrdev-ws-subtab') || 'requests'; } catch (e) { /* ignore */ }
+
+function stopWsConsolePoll() {
+  if (wsConsoleTimer) { clearInterval(wsConsoleTimer); wsConsoleTimer = null; }
+}
+
+function enterWorkspace() {
+  renderWorkspaceSidebar(wsProjects);
+  if (wsProject) selectWorkspaceProject(wsProject);
+}
+
+function wsOpenFromTile(name) {
+  switchTab('workspace');
+  selectWorkspaceProject(name);
+  return false;
+}
+
+function renderWorkspaceSidebar(projects) {
+  wsProjects = projects || wsProjects;
+  const el = document.getElementById('workspace-sidebar');
+  if (!el) return;
+  if (!wsProjects.length) {
+    el.innerHTML = '<li class="ws-side-inactive-label">No projects found.</li>';
+    return;
+  }
+  const row = p => {
+    const waiting = !!(p.requests && p.requests.some(r => r.status === 'Waiting Response'));
+    const ready = (p.requests || []).filter(r => r.status === 'Ready' || r.status === 'Processing').length;
+    const dot = p.is_active ? 'var(--processing)' : (waiting ? 'var(--waiting)' : 'var(--idle)');
+    return `<li class="${p.name === wsProject ? 'active' : ''}" onclick="selectWorkspaceProject('${jsStr(p.name)}')">
+      <span class="ws-side-dot" style="background:${dot}"></span>
+      <span class="ws-side-name">${escapeHtml(p.name)}</span>
+      ${ready ? `<span class="ws-side-badge">${ready}</span>` : ''}
+    </li>`;
+  };
+  const active = wsProjects.filter(p => p.in_rotation);
+  const inactive = wsProjects.filter(p => !p.in_rotation);
+  let html = active.map(row).join('');
+  if (inactive.length) html += '<li class="ws-side-inactive-label">Inactive</li>' + inactive.map(row).join('');
+  el.innerHTML = html;
+}
+
+function selectWorkspaceProject(name) {
+  wsProject = name;
+  try { localStorage.setItem('bdrdev-ws-project', name); } catch (e) { /* ignore */ }
+  renderWorkspaceSidebar(wsProjects);
+  document.getElementById('workspace-placeholder').style.display = 'none';
+  document.getElementById('workspace-project').style.display = 'flex';
+  document.getElementById('workspace-project-name').textContent = name;
+  document.getElementById('workspace-project-link').href = '/project/' + encodeURIComponent(name);
+  wsCloseRequestEdit();
+  switchWorkspaceSub(wsSubtab, true);
+}
+
+function switchWorkspaceSub(name, force) {
+  if (!['requests', 'console', 'archive', 'new'].includes(name)) name = 'requests';
+  wsSubtab = name;
+  try { localStorage.setItem('bdrdev-ws-subtab', name); } catch (e) { /* ignore */ }
+  for (const s of ['requests', 'console', 'archive', 'new']) {
+    document.getElementById('ws-sub-' + s).classList.toggle('active', s === name);
+  }
+  document.querySelectorAll('.ws-subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.sub === name));
+  stopWsConsolePoll();
+  if (!wsProject) return;
+  if (name === 'requests') {
+    wsLoadRequests();
+  } else if (name === 'console') {
+    wsRefreshConsole();
+    wsConsoleTimer = setInterval(wsRefreshConsole, 3000);
+  } else if (name === 'archive') {
+    wsLoadArchive('');
+  }
+  void force;
+}
+
+// -- Requests sub-tab --
+
+async function wsLoadRequests() {
+  if (!wsProject) return;
+  const panel = document.getElementById('ws-requests-panel');
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(wsProject)}/list`);
+    const data = await res.json();
+    wsRenderRequests(data.requests);
+  } catch (e) {
+    panel.innerHTML = '<div class="empty-state">Failed to load requests.</div>';
+  }
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(wsProject)}/shelved/list`);
+    const data = await res.json();
+    wsRenderShelved(data.shelved);
+  } catch (e) { /* ignore */ }
+}
+
+function wsRenderRequests(items) {
+  const panel = document.getElementById('ws-requests-panel');
+  if (!items || !items.length) {
+    panel.innerHTML = '<div class="empty-state">No outstanding requests.</div>';
+    return;
+  }
+  const rows = items.map(r => `
+    <tr class="${r.status === 'Waiting Response' ? 'waiting-row' : ''}">
+      <td class="ws-req-name" onclick="wsOpenRequestEdit('${jsStr(r.name)}')">${escapeHtml(r.title)}</td>
+      <td><span class="req-mini-status ${REQUEST_STATUS_CLASS[r.status] || 'not-ready'}">${escapeHtml(r.status)}</span></td>
+      <td class="req-mini-actions">
+        ${r.status === 'Not Ready' ? `<button class="btn tiny" onclick="wsMarkReady(this, '${jsStr(r.name)}')">Mark Ready</button>` : ''}
+        ${(r.status === 'Ready' || r.status === 'Processing') ? `<button class="btn tiny" onclick="wsMarkNotReady(this, '${jsStr(r.name)}')">Mark Not Ready</button>` : ''}
+        <button class="btn secondary tiny" onclick="wsShelveRequest('${jsStr(r.name)}')">Shelve</button>
+      </td>
+    </tr>
+    ${r.question ? `<tr><td colspan="3" class="req-mini-question">${escapeHtml(r.question)}</td></tr>` : ''}
+  `).join('');
+  panel.innerHTML = `<table class="ws-req-table"><thead><tr><th>Title</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function wsRenderShelved(items) {
+  const panel = document.getElementById('ws-shelved-panel');
+  if (!items || !items.length) {
+    panel.innerHTML = '<div class="empty-state">Nothing shelved.</div>';
+    return;
+  }
+  panel.innerHTML = `<ul class="req-mini-list" style="border-top:none; padding-top:0;">${items.map(s => `
+    <li><div class="req-mini-row">
+      <span>${escapeHtml(s.title)}</span>
+      <span class="req-mini-actions">
+        <button class="btn secondary tiny" onclick="wsUnshelve('${jsStr(s.name)}')">Unshelve</button>
+        <button class="btn danger tiny" onclick="wsDeleteShelved('${jsStr(s.name)}')">Delete</button>
+      </span>
+    </div></li>`).join('')}</ul>`;
+}
+
+async function wsMarkReady(btn, name) {
+  await markRequestReady(btn, wsProject, name);
+  wsLoadRequests();
+}
+
+async function wsMarkNotReady(btn, name) {
+  await markRequestNotReady(btn, wsProject, name);
+  wsLoadRequests();
+}
+
+async function wsShelveRequest(name) {
+  await fetch(`/api/requests/${encodeURIComponent(wsProject)}/shelve`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+  });
+  wsCloseRequestEdit();
+  wsLoadRequests();
+  loadStatus();
+}
+
+async function wsUnshelve(name) {
+  await fetch(`/api/requests/${encodeURIComponent(wsProject)}/shelved/unshelve`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+  });
+  wsLoadRequests();
+  loadStatus();
+}
+
+async function wsDeleteShelved(name) {
+  if (!confirm('Permanently delete this shelved request?')) return;
+  await fetch(`/api/requests/${encodeURIComponent(wsProject)}/shelved/delete`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+  });
+  wsLoadRequests();
+}
+
+async function wsOpenRequestEdit(name) {
+  wsEditName = name;
+  const ed = document.getElementById('ws-req-editor');
+  const ta = document.getElementById('ws-req-editor-content');
+  const st = document.getElementById('ws-req-editor-status');
+  ed.classList.add('open');
+  ta.value = 'Loading…';
+  st.textContent = '';
+  st.className = '';
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(wsProject)}/content?name=${encodeURIComponent(name)}`);
+    const data = await res.json();
+    ta.value = res.ok ? (data.content || '') : '';
+    if (!res.ok) { st.textContent = data.error || 'Failed to load.'; st.className = 'error'; }
+  } catch (e) {
+    ta.value = '';
+    st.textContent = 'Failed to load.';
+    st.className = 'error';
+  }
+}
+
+function wsCloseRequestEdit() {
+  wsEditName = null;
+  const ed = document.getElementById('ws-req-editor');
+  if (ed) ed.classList.remove('open');
+}
+
+async function wsSaveRequestEdit() {
+  if (!wsEditName) return;
+  const ta = document.getElementById('ws-req-editor-content');
+  const st = document.getElementById('ws-req-editor-status');
+  if (!ta.value.trim()) { st.textContent = 'Content is required.'; st.className = 'error'; return; }
+  st.textContent = 'Saving…';
+  st.className = '';
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(wsProject)}/content`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: wsEditName, content: ta.value }),
+    });
+    const data = await res.json();
+    if (!res.ok) { st.textContent = data.error || 'Failed to save.'; st.className = 'error'; return; }
+  } catch (e) {
+    st.textContent = 'Failed to save.';
+    st.className = 'error';
+    return;
+  }
+  st.textContent = 'Saved.';
+  st.className = 'ok';
+  wsLoadRequests();
+  loadStatus();
+}
+
+// -- Console sub-tab --
+
+function wsConsoleStatus(text, kind) {
+  const el = document.getElementById('ws-console-status');
+  el.textContent = text || '';
+  el.className = kind || '';
+}
+
+async function wsRefreshConsole() {
+  if (!wsProject) return;
+  const proj = wsProject;
+  try {
+    const res = await fetch(`/api/console/${encodeURIComponent(proj)}`);
+    const data = await res.json();
+    if (proj !== wsProject || wsSubtab !== 'console') return;
+    const pane = document.getElementById('ws-console-pane');
+    if (!data.alive) {
+      pane.textContent = 'No active session for this project right now (hibernating or not yet woken).';
+      wsConsoleStatus('');
+      return;
+    }
+    const atBottom = pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 20;
+    pane.textContent = data.content || '';
+    if (atBottom) pane.scrollTop = pane.scrollHeight;
+    wsConsoleStatus('');
+  } catch (e) {
+    wsConsoleStatus('Failed to load console output.', 'error');
+  }
+}
+
+async function wsSendConsole() {
+  if (!wsProject) return;
+  const inp = document.getElementById('ws-console-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  wsConsoleStatus('Sending…');
+  try {
+    const res = await fetch(`/api/console/${encodeURIComponent(wsProject)}/send`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) { wsConsoleStatus(data.error || 'Failed to send.', 'error'); return; }
+    inp.value = '';
+    wsConsoleStatus('');
+    setTimeout(wsRefreshConsole, 500);
+  } catch (e) {
+    wsConsoleStatus('Network error sending reply.', 'error');
+  }
+}
+
+async function wsExpandConsole() {
+  if (!wsProject) return;
+  wsConsoleStatus('Sending ctrl+o…');
+  try {
+    const res = await fetch(`/api/console/${encodeURIComponent(wsProject)}/key`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'C-o' }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) { wsConsoleStatus(data.error || 'Failed to send.', 'error'); return; }
+    wsConsoleStatus('');
+    setTimeout(wsRefreshConsole, 300);
+  } catch (e) {
+    wsConsoleStatus('Failed to send.', 'error');
+  }
+}
+
+// -- Archive sub-tab --
+
+function wsShowArchivePlaceholder() {
+  document.getElementById('ws-archive-view-placeholder').style.display = '';
+  document.getElementById('ws-archive-text').style.display = 'none';
+  document.getElementById('ws-archive-image').style.display = 'none';
+}
+
+function wsRenderArchiveCrumbs() {
+  const el = document.getElementById('ws-archive-crumbs');
+  const parts = wsArchivePath ? wsArchivePath.split('/') : [];
+  let html = `<a onclick="wsLoadArchive('')">Archive</a>`;
+  let acc = '';
+  for (const part of parts) {
+    acc = acc ? `${acc}/${part}` : part;
+    html += ` / <a onclick="wsLoadArchive('${jsStr(acc)}')">${escapeHtml(part)}</a>`;
+  }
+  el.innerHTML = html;
+}
+
+async function wsLoadArchive(subpath) {
+  if (!wsProject) return;
+  wsArchivePath = subpath;
+  wsRenderArchiveCrumbs();
+  wsShowArchivePlaceholder();
+  const list = document.getElementById('ws-archive-list');
+  list.innerHTML = '<li>Loading…</li>';
+  try {
+    const res = await fetch(`/api/archive/${encodeURIComponent(wsProject)}?path=${encodeURIComponent(subpath)}`);
+    const data = await res.json();
+    if (!data.found || !data.entries || !data.entries.length) {
+      list.innerHTML = '<li>No archived items.</li>';
+      return;
+    }
+    list.innerHTML = data.entries.map(e => {
+      const childPath = subpath ? `${subpath}/${e.name}` : e.name;
+      const cls = e.is_dir ? 'dir' : 'file';
+      const action = e.is_dir ? `wsLoadArchive('${jsStr(childPath)}')` : `wsViewArchiveFile('${jsStr(childPath)}')`;
+      return `<li onclick="${action}"><span class="entry-name ${cls}">${escapeHtml(e.name)}</span><span class="entry-time">${e.mtime_relative || ''}</span></li>`;
+    }).join('');
+  } catch (e) {
+    list.innerHTML = '<li>Failed to load.</li>';
+  }
+}
+
+async function wsViewArchiveFile(path) {
+  const ta = document.getElementById('ws-archive-text');
+  const img = document.getElementById('ws-archive-image');
+  document.getElementById('ws-archive-view-placeholder').style.display = 'none';
+  img.style.display = 'none';
+  img.src = '';
+  ta.style.display = '';
+  ta.value = 'Loading…';
+  try {
+    const res = await fetch(`/api/archive/${encodeURIComponent(wsProject)}/file?path=${encodeURIComponent(path)}`);
+    if (!res.ok) { ta.value = 'Failed to load file.'; return; }
+    const data = await res.json();
+    if (data.image) {
+      ta.style.display = 'none';
+      img.src = `/api/archive/${encodeURIComponent(wsProject)}/raw?path=${encodeURIComponent(path)}`;
+      img.style.display = '';
+      return;
+    }
+    ta.value = data.text ? data.content : '(binary file — not previewable here)';
+  } catch (e) {
+    ta.value = 'Failed to load file.';
+  }
+}
+
+// -- New Request sub-tab --
+
+function wsRenderNewAttachments() {
+  const box = document.getElementById('ws-new-attachments');
+  box.innerHTML = wsAttachments.map((f, i) => `
+    <span class="attachment-chip">
+      ${escapeHtml(f.name)} <span class="chip-size">${Math.max(1, Math.round(f.size / 1024))}KB</span>
+      <button type="button" onclick="wsRemoveAttachment(${i})" title="Remove">&times;</button>
+    </span>`).join('');
+}
+
+function wsRemoveAttachment(i) {
+  wsAttachments.splice(i, 1);
+  wsRenderNewAttachments();
+}
+
+function wsAddAttachment(file) {
+  let f = file;
+  if (!f.name || wsAttachments.some(a => a.name === f.name)) {
+    const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
+    f = new File([f], `screenshot-${ts}-${wsAttachments.length + 1}.${extFromMime(f.type)}`, { type: f.type });
+  }
+  wsAttachments.push(f);
+  wsRenderNewAttachments();
+}
+
+async function wsSubmitNewRequest() {
+  if (!wsProject) return;
+  const title = document.getElementById('ws-new-title').value.trim();
+  const content = document.getElementById('ws-new-content').value.trim();
+  const st = document.getElementById('ws-new-status');
+  if (!title) { st.textContent = 'Title is required.'; st.className = 'error'; return; }
+  if (!content) { st.textContent = 'Content is required.'; st.className = 'error'; return; }
+  const form = new FormData();
+  form.append('title', title);
+  form.append('content', content);
+  form.append('ready', document.getElementById('ws-new-ready').checked ? '1' : '0');
+  for (const f of wsAttachments) form.append('attachments', f);
+  st.textContent = 'Creating…';
+  st.className = '';
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(wsProject)}`, { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok || !data.ok) { st.textContent = data.error || 'Failed to create request.'; st.className = 'error'; return; }
+    st.textContent = `Created ${data.created}.`;
+    st.className = 'ok';
+    document.getElementById('ws-new-title').value = '';
+    document.getElementById('ws-new-content').value = '';
+    document.getElementById('ws-new-ready').checked = true;
+    wsAttachments = [];
+    wsRenderNewAttachments();
+    loadStatus();
+    loadLog();
+    setTimeout(() => switchWorkspaceSub('requests'), 800);
+  } catch (e) {
+    st.textContent = 'Network error creating request.';
+    st.className = 'error';
+  }
+}
+
+document.getElementById('ws-console-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') wsSendConsole();
+});
+document.getElementById('ws-new-files').addEventListener('change', (e) => {
+  for (const f of e.target.files) wsAddAttachment(f);
+  e.target.value = '';
+});
+document.getElementById('ws-new-form').addEventListener('paste', (e) => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  let handled = false;
+  for (const item of items) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      const f = item.getAsFile();
+      if (f) { wsAddAttachment(f); handled = true; }
+    }
+  }
+  if (handled) e.preventDefault();
+});
 
 document.getElementById('sql-close').addEventListener('click', closeSql);
 document.getElementById('sql-copy').addEventListener('click', copySql);
