@@ -1,4 +1,35 @@
-WAITING RESPONSE
+# Processing tab — "button to see where request processing is at"
+
+**Asked:** a way to click a button and get an update on where the
+request-processing sessions are, because "they seem to get stuck".
+
+**Done** (built + shipped in `2694755`, restarted by Brad 19:16 and run
+live for a few minutes):
+
+- New **Processing** tab (2nd tab). One card per project session
+  (`proj-<name>` tmux), colour-coded: green `working` / amber
+  `waiting_input` (parked on a permission or plan prompt) / grey `idle`
+  / red `stuck?` (still has READY requests but a live session that
+  isn't working). Tab label goes red when any project is `stuck`.
+- Per card: READY-vs-total request count + each request's marker, the
+  scheduler phase for that project, and the last ~40 lines of the pane.
+- Below the cards: the last 30 scheduler activity-log events.
+- Auto-refreshes every 4s while the tab is open. Backed by
+  `/api/proc-status`; pane reader is `common.list_project_sessions()`.
+  README updated.
+
+**Outcome:** Brad reviewed it live, first flipped to READY with no
+notes (bounced back to WAITING RESPONSE for clarification), then
+confirmed: **"Itll do for now."** Archived as-is, no further changes.
+
+---
+
+## Original request (verbatim)
+
+```
+READY
+
+Itll do for now.
 
 ## You flipped this to READY with no notes — what do you want changed? (Claude, 2026-08-28)
 
@@ -75,3 +106,4 @@ Once you've looked: archive this if it's what you wanted, or flip to
 ---
 
 Add something so I can click a button to get an update of wehre the processsing files are at. they seem to get stuck
+```

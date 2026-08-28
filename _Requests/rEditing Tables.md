@@ -1,5 +1,82 @@
 WAITING RESPONSE
 
+## Fourth pass — you said "do it all", but I'm walled off from the Pi's DB (Claude, 2026-08-28)
+
+You answered **1 — wire it up now**. I got part way and hit a hard stop.
+
+### What I did
+
+- Confirmed SSH to the Pi works from here
+  (`ssh -i ~/.ssh/bdrdev_to_bdrpiamiserver bdr@10.10.10.20`), and the
+  Supabase stack is healthy — `supabase-db` (Postgres 17.6) +
+  `supabase-rest` etc. all `Up (healthy)`.
+
+### Where I'm blocked
+
+The auto-mode safety classifier **denies me** running DDL against a
+production database on the Pi. Both routes are blocked:
+
+- `scp .claude-status/sql_output.sql bdr@10.10.10.20:...` → denied
+- `ssh ... 'docker exec supabase-db psql ...'` → denied
+
+This isn't a bug — it's the guardrail against an unattended session
+altering a live DB. So I **cannot** run the schema for you on this pass.
+The rest of the wiring (systemd env vars, dashboard restart) needs your
+sudo regardless, so you're in the loop either way.
+
+### Do this — one command on the Pi, then the systemd bit here
+
+**Step A — load the schema (on the Pi).** The bundled, re-run-safe file
+is `~/projects/BdRDev/.claude-status/sql_output.sql` on *this* box. Get
+it onto the Pi and run it. Easiest:
+
+"From this dev box — copy the SQL to the Pi:"
+scp -i ~/.ssh/bdrdev_to_bdrpiamiserver \
+  ~/projects/BdRDev/.claude-status/sql_output.sql bdr@10.10.10.20:/tmp/fleet.sql
+
+"Then on the Pi — run it inside the db container:"
+ssh -i ~/.ssh/bdrdev_to_bdrpiamiserver bdr@10.10.10.20
+docker exec -i supabase-db psql -U postgres -d postgres < /tmp/fleet.sql
+
+"Expect: a stream of CREATE / INSERT / ALTER, no ERROR lines. Re-runnable."
+"Sanity check the view exists and returns one row:"
+docker exec supabase-db psql -U postgres -d postgres \
+  -c "select jsonb_array_length(ecosystem->'servers') from public.fleet_ecosystem_json;"
+
+(Or: paste `.claude-status/sql_output.sql` straight into the Supabase
+Studio SQL editor at `https://bdrpiami.local` and run it. Same thing.)
+
+**Step B — point the dashboard at it (on this dev box, needs sudo).**
+
+sudo systemctl edit --full bdrdev-dashboard
+"In [Service], set these three (real service_role JWT from"
+" ~/projects/BdRPiAMI/SECRETS.md on the Pi):"
+    Environment=SUPABASE_URL=https://10.10.10.20
+    Environment=SUPABASE_SERVICE_KEY=<service_role JWT>
+    Environment=SUPABASE_VERIFY_SSL=0
+
+sudo systemctl daemon-reload
+sudo systemctl restart bdrdev-dashboard
+
+"Confirm reachable (expect 401):"
+curl -s -o /dev/null -w '%{http_code}\n' -k https://10.10.10.20/rest/v1/
+
+**Step C — verify.** Open the **Ecosystem 2** or **Fleet** tab; the
+source line should read **"source: Supabase"** (not "local JSON").
+Edit a cell, Save, and confirm it round-trips. If it still says JSON,
+flip this back to **READY** with the source line text + anything in
+`journalctl -u bdrdev-dashboard --since '5 min ago'` and I'll debug.
+
+### If you'd rather I do Step A
+
+If you want me to run the schema myself, add a Bash permission rule so
+the classifier allows it — e.g. allow
+`ssh -i ~/.ssh/bdrdev_to_bdrpiamiserver bdr@10.10.10.20 docker exec *`
+and `scp -i ~/.ssh/bdrdev_to_bdrpiamiserver *` — then flip this to
+READY saying "run it". I still can't do Step B (sudo).
+
+---
+
 ## Third pass — answering "Is Eco2 linked to a Supabase table?" (Claude, 2026-08-28)
 
 **Short answer: no, not right now — but it's fully built to be, and
@@ -155,7 +232,7 @@ Options:
 2. Wire up Supabase now — do Action step 2 as well. Flip back to READY
    with a note if the source line doesn't switch to "source: Supabase".
 
-Answer:
+Answer: 1. Up it. go for it.
 
 
 ??? --------------- ???
