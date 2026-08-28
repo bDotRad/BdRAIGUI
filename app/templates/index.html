@@ -212,9 +212,9 @@
     animation: flash-waiting 1.1s ease-in-out infinite;
   }
 
-  #ecosystem-panel {
+  #ecosystem-panel, #ecosystem2-panel {
     background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
-    padding: 18px 20px; max-width: 1120px;
+    padding: 18px 20px; max-width: none;
   }
   .ecosystem-row {
     display: flex; gap: 24px; flex-wrap: wrap; margin-top: 24px;
@@ -244,7 +244,7 @@
   }
 
   .eco2-scroll { overflow-x: auto; margin-top: 14px; }
-  .eco2-table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+  .eco2-table { border-collapse: collapse; font-size: 13px; width: 100%; }
   .eco2-table th, .eco2-table td {
     border: 1px solid var(--card-border); padding: 6px 10px; text-align: left; white-space: nowrap;
   }
@@ -261,6 +261,23 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
     background: #0b0d11; border: 1px solid var(--card-border); border-radius: 4px; padding: 1px 5px;
   }
+  .eco2-table td.eco2-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
+  }
+  .eco2-table td.eco2-edit { cursor: text; }
+  .eco2-table td.eco2-edit:hover { background: rgba(255,255,255,0.04); }
+  .eco2-table td.eco2-edit:focus {
+    outline: 2px solid var(--accent); outline-offset: -2px;
+    background: rgba(255,255,255,0.06); white-space: normal; min-width: 90px;
+  }
+  .eco2-table td.eco2-yn.eco2-edit { cursor: pointer; }
+  .eco2-table td.eco2-ro { color: var(--text-dim); }
+  #eco2-edit-hint { font-size: 12px; color: var(--text-dim); margin-top: 12px; }
+  #eco2-actions { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+  #eco2-status { font-size: 13px; color: var(--text-dim); }
+  #eco2-status.ok { color: var(--processing); }
+  #eco2-status.error { color: #f87171; }
+  #eco2-status.dirty { color: var(--waiting); }
 
   .eco-diagram { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; }
   .eco-server-card {
@@ -291,7 +308,7 @@
   .eco-app-name .eco-tag-planned, .eco-project-name .eco-tag-planned { color: var(--waiting); }
 
   /* Fleet editor */
-  #fleet-panel { max-width: 1120px; }
+  #fleet-panel { max-width: none; }
   #fleet-panel h2 { font-size: 15px; margin-bottom: 10px; }
   .fleet-row {
     border: 1px solid var(--card-border); border-radius: 8px; padding: 12px 14px;
@@ -882,18 +899,31 @@
   </div>
 
   <div id="tab-panel-ecosystem2" class="tab-panel">
-    <div id="ecosystem-panel">
+    <div id="ecosystem2-panel">
       <h2 style="margin-top:0;">Fleet — server grid</h2>
       <div class="sql-meta">
         One row per server, one Y/N column per package, so you can scan
-        down what runs where. Editable on the <b>Fleet</b> tab; stored in
-        <code>state/ecosystem.json</code>. (This is "Ecosystem 2" — a
-        spreadsheet-style alternative to the diagram on the
-        <b>Ecosystem</b> tab, kept side by side for now.)
+        down what runs where. Edit cells directly here and hit Save, or
+        use the fuller form on the <b>Fleet</b> tab. Saved to Supabase
+        when reachable, otherwise to <code>state/ecosystem.json</code>.
+        (This is "Ecosystem 2" — a spreadsheet-style alternative to the
+        diagram on the <b>Ecosystem</b> tab, kept side by side for now.)
       </div>
       <div class="sql-meta" id="eco2-source" style="margin-top:6px;"></div>
       <div class="eco2-scroll">
         <table class="eco2-table" id="eco2-table"></table>
+      </div>
+      <div id="eco2-edit-hint">
+        Click any cell to edit it; click a Y/N cell to toggle. The
+        <b>Other</b> and <b>Apps</b> columns are derived (from the
+        free-text Software field and the App rows on the <b>Fleet</b> tab)
+        and aren't editable here. Renaming a server here won't move its
+        apps across — do that on the Fleet tab.
+      </div>
+      <div id="eco2-actions">
+        <button class="btn" type="button" onclick="saveEco2()">Save changes</button>
+        <button class="btn secondary" type="button" onclick="loadEcosystem()">Revert</button>
+        <span id="eco2-status"></span>
       </div>
       <div class="sql-meta" style="margin-top:10px;" id="eco2-notes"></div>
     </div>
@@ -1984,10 +2014,29 @@ function renderEcoSource() {
   });
 }
 
-function eco2Yn(v) {
-  return v
-    ? '<td class="eco2-yn eco2-y">Y</td>'
-    : '<td class="eco2-yn eco2-n">N</td>';
+function eco2EditCell(i, field, value, extraClass) {
+  const cls = 'eco2-edit' + (extraClass ? ' ' + extraClass : '');
+  return `<td class="${cls}" contenteditable="true" data-si="${i}" data-field="${field}">${escapeHtml(value || '')}</td>`;
+}
+
+function eco2YnCell(i, field, v) {
+  return `<td class="eco2-yn eco2-edit ${v ? 'eco2-y' : 'eco2-n'}" data-si="${i}" data-field="${field}" data-yn="1" onclick="eco2ToggleYn(this)">${v ? 'Y' : 'N'}</td>`;
+}
+
+function eco2ToggleYn(td) {
+  const on = !td.classList.contains('eco2-y');
+  td.classList.toggle('eco2-y', on);
+  td.classList.toggle('eco2-n', !on);
+  td.textContent = on ? 'Y' : 'N';
+  eco2Dirty();
+}
+
+function eco2Dirty() {
+  const st = document.getElementById('eco2-status');
+  if (st && !st.classList.contains('saving')) {
+    st.className = 'dirty';
+    st.textContent = 'Unsaved changes';
+  }
 }
 
 function renderEco2() {
@@ -1998,6 +2047,7 @@ function renderEco2() {
     <tr>
       <th rowspan="2">Name</th>
       <th rowspan="2">Address</th>
+      <th rowspan="2">Prov</th>
       <th class="eco2-group" colspan="4">Hardware</th>
       <th class="eco2-group" colspan="5">Software</th>
       <th rowspan="2">Apps</th>
@@ -2007,7 +2057,7 @@ function renderEco2() {
       <th>Claude</th><th>Nginx</th><th>Supabase</th><th>SQL Lite</th><th>Other</th>
     </tr>
   </thead>`;
-  const rows = ecoData.servers.map(s => {
+  const rows = ecoData.servers.map((s, i) => {
     const apps = ecoData.apps.filter(a => a.server === s.name).map(a => a.name).join(', ');
     const known = ['claude', 'nginx', 'supabase', 'sql lite', 'sqlite'];
     const other = (s.software || '').split('·').map(x => x.trim())
@@ -2015,18 +2065,26 @@ function renderEco2() {
                      && !known.some(k => x.toLowerCase().includes(k)))
       .join(', ');
     return `<tr class="${s.provisioned ? '' : 'eco2-unprov'}">
-      <td><code>${escapeHtml(s.name)}</code>${s.provisioned ? '' : ' <span class="eco-tag eco-tag-planned">not provisioned</span>'}</td>
-      <td>${s.address ? '<code>' + escapeHtml(s.address) + '</code>' : '—'}</td>
-      <td>${escapeHtml(s.host || '—')}</td>
-      <td>${escapeHtml(s.ram || '—')}</td>
-      <td>${escapeHtml(s.disk || '—')}</td>
-      <td>${escapeHtml(s.os || '—')}</td>
-      ${eco2Yn(s.claude)}${eco2Yn(s.nginx)}${eco2Yn(s.supabase)}${eco2Yn(s.sqlite)}
-      <td>${escapeHtml(other || '—')}</td>
-      <td>${escapeHtml(apps || '—')}</td>
+      ${eco2EditCell(i, 'name', s.name, 'eco2-mono')}
+      ${eco2EditCell(i, 'address', s.address, 'eco2-mono')}
+      ${eco2YnCell(i, 'provisioned', s.provisioned)}
+      ${eco2EditCell(i, 'host', s.host)}
+      ${eco2EditCell(i, 'ram', s.ram)}
+      ${eco2EditCell(i, 'disk', s.disk)}
+      ${eco2EditCell(i, 'os', s.os)}
+      ${eco2YnCell(i, 'claude', s.claude)}${eco2YnCell(i, 'nginx', s.nginx)}${eco2YnCell(i, 'supabase', s.supabase)}${eco2YnCell(i, 'sqlite', s.sqlite)}
+      <td class="eco2-ro" title="Derived from the free-text Software field on the Fleet tab">${escapeHtml(other || '—')}</td>
+      <td class="eco2-ro">${escapeHtml(apps || '—')}</td>
     </tr>`;
   }).join('');
   table.innerHTML = head + '<tbody>' + rows + '</tbody>';
+  table.oninput = (e) => { if (e.target.classList.contains('eco2-edit')) eco2Dirty(); };
+  table.onkeydown = (e) => {
+    if (e.key === 'Enter' && e.target.classList.contains('eco2-edit') && e.target.isContentEditable) {
+      e.preventDefault();
+      e.target.blur();
+    }
+  };
 
   const n = document.getElementById('eco2-notes');
   if (n) {
@@ -2192,6 +2250,49 @@ async function saveEcosystem() {
       st.className = 'ok';
       st.textContent = 'Saved — Ecosystem tab updated';
       setTimeout(() => { st.textContent = ''; st.className = ''; }, 2500);
+    } else {
+      st.className = 'error';
+      st.textContent = data.error || 'Save failed';
+    }
+  } catch (e) {
+    st.className = 'error';
+    st.textContent = 'Save failed';
+  }
+}
+
+function eco2Sync() {
+  if (!ecoData) return;
+  document.querySelectorAll('#eco2-table td.eco2-edit').forEach(td => {
+    const s = ecoData.servers[+td.dataset.si];
+    if (!s) return;
+    const f = td.dataset.field;
+    if (td.dataset.yn) s[f] = td.classList.contains('eco2-y');
+    else s[f] = td.textContent.trim();
+  });
+}
+
+async function saveEco2() {
+  eco2Sync();
+  const st = document.getElementById('eco2-status');
+  st.className = 'saving';
+  st.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/ecosystem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ecosystem: ecoData }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      ecoData = data.ecosystem;
+      ecoSource = data.source || ecoSource;
+      renderEcoView();
+      renderFleetEditor();
+      st.className = 'ok';
+      st.textContent = data.source === 'supabase'
+        ? 'Saved to Supabase'
+        : 'Saved to local JSON (Supabase unreachable)';
+      setTimeout(() => { st.textContent = ''; st.className = ''; }, 3000);
     } else {
       st.className = 'error';
       st.textContent = data.error || 'Save failed';
