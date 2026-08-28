@@ -93,8 +93,8 @@
     padding: 10px 2px; cursor: pointer; border-bottom: 2px solid transparent;
   }
   .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
-  .tab-btn.needs-restart { color: var(--restart-alert); }
-  .tab-btn.needs-restart.active { border-bottom-color: var(--restart-alert); }
+  .tab-btn.needs-restart, .tab-btn.alert { color: var(--restart-alert); }
+  .tab-btn.needs-restart.active, .tab-btn.alert.active { border-bottom-color: var(--restart-alert); }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
@@ -321,7 +321,7 @@
   .fleet-field label {
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-dim);
   }
-  .fleet-field input[type="text"], .fleet-field textarea {
+  .fleet-field input[type="text"], .fleet-field textarea, .fleet-field select {
     background: var(--card); color: var(--text); border: 1px solid var(--card-border);
     border-radius: 5px; padding: 6px 8px; font-size: 13px; font-family: inherit; min-width: 140px;
   }
@@ -699,6 +699,42 @@
   #waiting-edit-status { font-size: 12px; color: var(--text-dim); margin-top: 8px; min-height: 16px; }
   #waiting-edit-status.error { color: #f87171; }
   #waiting-edit-status.ok { color: var(--processing); }
+
+  /* Processing tab */
+  .proc-meta { font-size: 13px; color: var(--text-dim); margin-bottom: 14px; }
+  #proc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .proc-card {
+    background: var(--card-bg, #14171f); border: 1px solid var(--card-border, #262a35);
+    border-left: 4px solid var(--text-dim); border-radius: 8px; padding: 14px 16px;
+  }
+  .proc-card.state-working { border-left-color: var(--processing); }
+  .proc-card.state-waiting_input { border-left-color: var(--waiting); }
+  .proc-card.state-idle { border-left-color: var(--text-dim); }
+  .proc-card.is-stuck { border-left-color: var(--restart-alert); box-shadow: 0 0 0 1px var(--restart-alert); }
+  .proc-card h3 { margin: 0 0 6px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .proc-badge {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700;
+    padding: 2px 7px; border-radius: 4px; color: #fff;
+  }
+  .proc-badge.state-working { background: var(--processing); }
+  .proc-badge.state-waiting_input { background: var(--waiting); color: #1a1a1a; }
+  .proc-badge.state-idle { background: #555b6b; }
+  .proc-badge.state-none { background: #3a3f4c; }
+  .proc-badge.stuck { background: var(--restart-alert); }
+  .proc-line { font-size: 12px; color: var(--text-dim); margin: 3px 0; }
+  .proc-line b { color: var(--text); font-weight: 600; }
+  .proc-tail {
+    margin-top: 8px; background: #0b0d11; border: 1px solid var(--card-border, #262a35);
+    border-radius: 6px; padding: 8px; font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px; line-height: 1.4; color: #aab2c0; white-space: pre-wrap;
+    max-height: 160px; overflow-y: auto;
+  }
+  .proc-reqs { margin: 6px 0 2px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .proc-req { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--text-dim); }
+  .proc-req.waiting { color: var(--waiting); background: rgba(234,179,8,0.14); }
+  .proc-req.processing { color: var(--processing); background: rgba(34,197,94,0.14); }
+  .proc-log { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: var(--text-dim); line-height: 1.6; }
+  .proc-log .ev-proj { color: var(--text); }
 </style>
 </head>
 <body>
@@ -717,6 +753,7 @@
 
   <div id="tabs">
     <button class="tab-btn active" id="tab-btn-projects" onclick="switchTab('projects')">Projects</button>
+    <button class="tab-btn" id="tab-btn-processing" onclick="switchTab('processing')">Processing</button>
     <button class="tab-btn" id="tab-btn-workspace" onclick="switchTab('workspace')">Workspace</button>
     <button class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">Activity Log</button>
     <button class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Admin</button>
@@ -731,6 +768,14 @@
   <div id="tab-panel-projects" class="tab-panel active">
     <div id="grid"><div class="empty-state">Loading&hellip;</div></div>
     <div id="inactive-section"><div class="inactive-label">Inactive</div><div id="inactive-row"></div></div>
+  </div>
+
+  <div id="tab-panel-processing" class="tab-panel">
+    <h2>Request processing — where each project session is at</h2>
+    <div class="proc-meta" id="proc-meta">Loading&hellip;</div>
+    <div id="proc-grid"><div class="empty-state">Loading&hellip;</div></div>
+    <h2 style="margin-top:26px;">Recent scheduler activity</h2>
+    <div id="proc-log" class="proc-log"></div>
   </div>
 
   <div id="tab-panel-workspace" class="tab-panel">
@@ -921,6 +966,7 @@
         free-text Software field and the App rows on the <b>Fleet</b> tab)
         and aren't editable here. Renaming a server here won't move its
         apps across — do that on the Fleet tab.
+        <a href="#" onclick="switchTab('fleet');return false;">Manage which apps run on each server →</a>
       </div>
       <div id="eco2-actions">
         <button class="btn" type="button" id="eco2-edit-btn" onclick="eco2EnterEdit()">Edit</button>
@@ -1110,9 +1156,12 @@ let currentConsoleProject = null;
 let consolePollTimer = null;
 let ecoData = null;
 let ecoSource = null;
+let ecoConfigured = false;
 let ecoOptions = {};
 
-const TAB_NAMES = ['projects', 'workspace', 'log', 'admin', 'ecosystem', 'ecosystem2', 'fleet'];
+const TAB_NAMES = ['projects', 'processing', 'workspace', 'log', 'admin', 'ecosystem', 'ecosystem2', 'fleet'];
+
+let procPollTimer = null;
 
 function switchTab(name) {
   if (!TAB_NAMES.includes(name)) name = 'projects';
@@ -1125,6 +1174,58 @@ function switchTab(name) {
   if (name === 'ecosystem2' && ecoData) renderEco2();
   if (name === 'workspace') enterWorkspace();
   else stopWsConsolePoll();
+  if (name === 'processing') {
+    loadProcStatus();
+    if (!procPollTimer) procPollTimer = setInterval(loadProcStatus, 4000);
+  } else if (procPollTimer) {
+    clearInterval(procPollTimer); procPollTimer = null;
+  }
+}
+
+async function loadProcStatus() {
+  let data;
+  try {
+    data = await (await fetch('/api/proc-status')).json();
+  } catch (e) { return; }
+  renderProcStatus(data);
+}
+
+function renderProcStatus(data) {
+  const stuck = data.projects.filter(p => p.stuck).length;
+  document.getElementById('tab-btn-processing').classList.toggle('alert', stuck > 0);
+  const meta = document.getElementById('proc-meta');
+  meta.innerHTML = `Scheduler last tick <b>${escapeHtml(data.scheduler_last_update_relative || '—')}</b>`
+    + ` &nbsp;·&nbsp; rotation: ${data.rotation_pool.map(escapeHtml).join(', ') || '—'}`
+    + (stuck ? ` &nbsp;·&nbsp; <span style="color:var(--restart-alert);font-weight:700;">${stuck} looks stuck</span>` : '');
+
+  const badge = (state, stuckFlag) => {
+    if (stuckFlag) return '<span class="proc-badge stuck">stuck?</span>';
+    const label = { working: 'working', waiting_input: 'waiting input', idle: 'idle' }[state] || 'no session';
+    return `<span class="proc-badge state-${state || 'none'}">${label}</span>`;
+  };
+
+  const cards = data.projects.map(p => {
+    const cls = p.stuck ? 'is-stuck' : ('state-' + (p.session_state || 'idle'));
+    const reqs = (p.requests || []).map(r => {
+      const k = r.status === 'Waiting Response' ? 'waiting' : (r.status === 'Processing' ? 'processing' : '');
+      return `<span class="proc-req ${k}">${escapeHtml(r.title)} · ${escapeHtml(r.status)}</span>`;
+    }).join('');
+    return `<div class="proc-card ${cls}">
+      <h3>${escapeHtml(p.name)} ${badge(p.session_state, p.stuck)}</h3>
+      <div class="proc-line"><b>${p.pending_requests}</b> ready / ${p.total_requests} open request(s)${p.in_rotation ? '' : ' · <i>not in rotation</i>'}</div>
+      <div class="proc-line">session: <b>${p.session_alive ? 'alive' : 'none'}</b>${p.session_alive ? ` · pane ${p.session_moved ? 'moving' : 'static'}` : ''}${p.phase ? ` · scheduler phase: ${escapeHtml(p.phase)}` : ''}</div>
+      ${reqs ? `<div class="proc-reqs">${reqs}</div>` : ''}
+      ${p.stuck ? '<div class="proc-line" style="color:var(--restart-alert);">Has ready work but the pane isn\'t working and hasn\'t moved — likely parked on a prompt without setting WAITING RESPONSE.</div>' : ''}
+      ${p.tail ? `<div class="proc-tail">${escapeHtml(p.tail)}</div>` : ''}
+    </div>`;
+  }).join('');
+  document.getElementById('proc-grid').innerHTML = cards || '<div class="empty-state">No active project sessions.</div>';
+
+  document.getElementById('proc-log').innerHTML = (data.activity_log || []).map(e => {
+    const t = (e.time || '').replace('T', ' ').slice(0, 19);
+    const d = e.detail && typeof e.detail === 'object' ? JSON.stringify(e.detail) : (e.detail || '');
+    return `${escapeHtml(t)} &nbsp; <span class="ev-proj">${escapeHtml(e.project || '')}</span> &nbsp; ${escapeHtml(e.event || '')} ${escapeHtml(String(d))}`;
+  }).join('<br>') || '<span class="empty-state">No recent events.</span>';
 }
 
 function switchAdminSubtab(name) {
@@ -2008,9 +2109,12 @@ function renderEcoView() {
 }
 
 function renderEcoSource() {
+  const fallbackWhy = ecoConfigured
+    ? 'Supabase configured but unreachable — check the Pi'
+    : 'Supabase not configured on this box — see rEditing Tables';
   const txt = ecoSource === 'supabase'
     ? 'source: Supabase'
-    : (ecoSource ? 'source: local JSON (Supabase unreachable)' : '');
+    : (ecoSource ? `source: local JSON (${fallbackWhy})` : '');
   ['eco2-source', 'fleet-source'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.textContent = txt; el.style.display = txt ? '' : 'none'; }
@@ -2159,6 +2263,15 @@ function fleetInput(kind, idx, field, label, value, o) {
   if (o.textarea) {
     return `<div class="fleet-field wide"><label for="${id}">${label}</label><textarea id="${id}" data-field="${field}">${escapeHtml(value || '')}</textarea></div>`;
   }
+  if (Array.isArray(o.select)) {
+    const cur = value || '';
+    const choices = o.select.slice();
+    if (cur && !choices.includes(cur)) choices.unshift(cur);  // keep a legacy free-text value
+    const opts = ['<option value=""></option>'].concat(
+      choices.map(v => `<option value="${escAttr(v)}"${v === cur ? ' selected' : ''}>${escapeHtml(v)}</option>`)
+    ).join('');
+    return `<div class="fleet-field${o.cls ? ' ' + o.cls : ''}"><label for="${id}">${label}</label><select id="${id}" data-field="${field}">${opts}</select></div>`;
+  }
   const cls = o.cls ? ' ' + o.cls : '';
   const list = o.list ? ` list="${o.list}"` : '';
   return `<div class="fleet-field${cls}"><label for="${id}">${label}</label><input type="text" id="${id}" data-field="${field}" value="${escAttr(value || '')}"${list}></div>`;
@@ -2204,7 +2317,7 @@ function renderFleetEditor() {
   document.getElementById('fleet-apps').innerHTML = ecoData.apps.map((a, i) => fleetRowShell(
     'apps', i, a.name || `App ${i + 1}`,
     fleetInput('apps', i, 'name', 'Name', a.name, {cls: 'grow'}) +
-    fleetInput('apps', i, 'server', 'Runs on server', a.server, {list: 'dl-servers'}) +
+    fleetInput('apps', i, 'server', 'Runs on server', a.server, {select: ecoData.servers.map(s => s.name).filter(Boolean)}) +
     fleetInput('apps', i, 'tag', 'Tag / label', a.tag, {cls: 'grow'}) +
     fleetInput('apps', i, 'web_address', 'Web address', a.web_address, {cls: 'grow'}) +
     fleetInput('apps', i, 'db', 'DB', a.db, {list: 'dl-db', cls: 'grow'}) +
@@ -2259,6 +2372,7 @@ async function loadEcosystem() {
     const data = await res.json();
     ecoData = data.ecosystem;
     ecoSource = data.source || null;
+    ecoConfigured = !!data.supabase_configured;
     ecoOptions = data.options || {};
     renderEcoView();
     renderFleetEditor();
@@ -2282,6 +2396,7 @@ async function saveEcosystem() {
     if (data.ok) {
       ecoData = data.ecosystem;
       ecoSource = data.source || ecoSource;
+      if ('supabase_configured' in data) ecoConfigured = !!data.supabase_configured;
       renderEcoView();
       renderFleetEditor();
       st.className = 'ok';
@@ -2323,13 +2438,16 @@ async function saveEco2() {
     if (data.ok) {
       ecoData = data.ecosystem;
       ecoSource = data.source || ecoSource;
+      if ('supabase_configured' in data) ecoConfigured = !!data.supabase_configured;
       eco2Editing = false;
       renderEcoView();
       renderFleetEditor();
       st.className = 'ok';
       st.textContent = data.source === 'supabase'
         ? 'Saved to Supabase'
-        : 'Saved to local JSON (Supabase unreachable)';
+        : (ecoConfigured
+            ? 'Saved to local JSON (Supabase configured but unreachable)'
+            : 'Saved to local JSON (Supabase not configured on this box)');
       setTimeout(() => { st.textContent = ''; st.className = ''; }, 3000);
     } else {
       st.className = 'error';

@@ -82,8 +82,24 @@ what counts as "pending".
     seeds it from `common.DEFAULT_ECOSYSTEM` on first use; `state/` is
     gitignored, so the checked-in seed lives in `common.py`. The
     `/api/ecosystem` GET response carries `"source": "supabase" |
-    "json-fallback"` and the Fleet / Ecosystem 2 tabs show which one
-    served the data.
+    "json-fallback"` plus `"supabase_configured"`, and the Fleet /
+    Ecosystem 2 tabs show which one served the data (and, on a fallback,
+    whether it's because Supabase isn't configured on this box or is
+    configured but unreachable).
+  - On the **Fleet** tab, an app's "Runs on server" is a dropdown of the
+    defined servers (not free text), so the Ecosystem 2 "Apps" column —
+    derived by matching `app.server` to a server name — stays in sync.
+- **Processing tab**: a live view of where request processing is right
+  now, backed by `/api/proc-status`. One card per project session
+  (`proj-<name>` tmux) showing whether the session is alive, what the
+  pane is doing — `working` (Claude Code's "esc to interrupt" indicator
+  is up, or the pane produced output between two captures 1.5s apart),
+  `waiting_input` (parked on a permission / plan prompt), or `idle` — how
+  many requests are still READY, and the last ~40 transcript lines. A
+  project with READY work and a live session that isn't `working` is
+  flagged **stuck** (red), which usually means a session hit an
+  interactive prompt without setting its request to `WAITING RESPONSE`.
+  Also shows the last 30 scheduler activity-log events.
 
 ## Setup
 

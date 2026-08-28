@@ -1116,6 +1116,90 @@ def tmux_send_key(project, key):
         return False
 
 
+# ---- Processing-status peek (why is a project session "stuck"?) --------------
+
+# Fragments in Claude Code's bottom chrome. "esc to interrupt" is only drawn
+# while a turn is actively running; a permission dialog / plan prompt draws a
+# numbered "1. Yes" option list and a "Do you want" / "Would you like" line.
+_CLI_WORKING_RE = re.compile(r"esc to interrupt|\besc\b to|↓ [\d.]+k tokens", re.I)
+_CLI_PROMPT_RE = re.compile(
+    r"Do you want|Would you like|❯\s*1\.|>\s*1\.\s|\(y/n\)|Press enter to|"
+    r"1\.\s*Yes\b|Choose an option",
+    re.I,
+)
+
+
+def _pane_state(raw):
+    """Classify what a captured tmux pane is doing right now:
+    'working' (a turn is running), 'waiting_input' (sitting on a prompt /
+    dialog), or 'idle' (empty input box, nothing happening)."""
+    if not raw:
+        return "idle"
+    recent = raw[-2000:]
+    if _CLI_WORKING_RE.search(recent):
+        return "working"
+    if _CLI_PROMPT_RE.search(recent):
+        return "waiting_input"
+    return "idle"
+
+
+def _tmux_capture_raw(session, lines=200):
+    try:
+        cap = subprocess.run(
+            ["tmux", "capture-pane", "-t", session, "-p", "-S", f"-{lines}"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return cap.stdout if cap.returncode == 0 else ""
+    except (subprocess.TimeoutExpired, OSError):
+        return ""
+
+
+def list_project_sessions(settle_delay=1.5):
+    """Every live `proj-*` tmux session with a short read of its pane.
+
+    Each pane is captured twice, `settle_delay` seconds apart, so we can
+    tell a session that's actively producing output from one that's parked.
+    Returns dicts: session, project, state (working / waiting_input /
+    idle), moved (pane changed between the two captures), and `tail` (last
+    ~40 transcript lines, chrome stripped) for display.
+
+    tmux's own `session_activity` is not usable here -- these sessions are
+    never attached to a client, so it never advances past session-create
+    time -- hence the two-sample approach.
+    """
+    try:
+        out = subprocess.run(
+            ["tmux", "list-sessions", "-F", "#{session_name}"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if out.returncode != 0:
+            return []
+    except (subprocess.TimeoutExpired, OSError):
+        return []
+
+    names = [n for n in out.stdout.splitlines() if n.startswith(TMUX_SESSION_PREFIX)]
+    first = {n: _tmux_capture_raw(n) for n in names}
+    if names:
+        time.sleep(settle_delay)
+    sessions = []
+    for name in names:
+        raw = _tmux_capture_raw(name)
+        moved = raw != first.get(name, "")
+        transcript = _strip_cli_chrome(raw)
+        tail = "\n".join(transcript.splitlines()[-40:])
+        state = _pane_state(raw)
+        if state != "working" and moved:
+            state = "working"  # output still flowing even if the chrome hint isn't drawn this frame
+        sessions.append({
+            "session": name,
+            "project": name[len(TMUX_SESSION_PREFIX):],
+            "state": state,
+            "moved": moved,
+            "tail": tail,
+        })
+    return sessions
+
+
 # ---- Status / commit / sql-output readback -----------------------------------
 
 def read_status(project):

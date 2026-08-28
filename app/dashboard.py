@@ -433,6 +433,52 @@ def api_log():
     return jsonify({"entries": common.read_log(limit=limit, project=project)})
 
 
+@app.route("/api/proc-status")
+def api_proc_status():
+    """One-glance view of where request processing is right now: which
+    project sessions are alive, what each pane is doing, what's still
+    pending, and which look stuck. Backs the Processing tab.
+
+    "stuck" = the project still has READY requests and a live session, but
+    the pane isn't producing output and isn't showing Claude Code's
+    "working" indicator -- i.e. it's most likely parked on an interactive
+    prompt without having set the request to WAITING RESPONSE.
+    """
+    scheduler = common.load_scheduler_state()
+    active = {a["project"]: a for a in (scheduler.get("active_projects") or [])}
+    sessions = {s["project"]: s for s in common.list_project_sessions()}
+    selected = set(common.load_selected())
+
+    names = set(sessions) | set(active) | selected
+    projects = []
+    for name in sorted(names):
+        ready, total = common.scan_requests(name)
+        sess = sessions.get(name)
+        phase = active[name].get("phase") if name in active else None
+        stuck = bool(ready > 0 and sess is not None and sess["state"] != "working")
+        projects.append({
+            "name": name,
+            "in_rotation": name in selected,
+            "phase": phase,
+            "session_alive": sess is not None,
+            "session_state": sess["state"] if sess else None,
+            "session_moved": sess["moved"] if sess else None,
+            "pending_requests": ready,
+            "total_requests": total,
+            "requests": common.list_requests(name, phase == "processing"),
+            "tail": sess["tail"] if sess else None,
+            "stuck": stuck,
+        })
+
+    return jsonify({
+        "scheduler_last_update": scheduler.get("last_update"),
+        "scheduler_last_update_relative": common.relative_time(scheduler.get("last_update")),
+        "rotation_pool": scheduler.get("rotation_pool", []),
+        "activity_log": common.read_log(limit=30),
+        "projects": projects,
+    })
+
+
 @app.route("/api/sql/<project>")
 def api_sql_get(project):
     if project not in common.list_projects():
@@ -504,6 +550,7 @@ def api_ecosystem():
         "ecosystem": eco,
         "options": common.ECOSYSTEM_FIELD_OPTIONS,
         "source": source,
+        "supabase_configured": fleet_db.is_configured(),
     })
 
 
@@ -518,7 +565,10 @@ def api_ecosystem_save():
     source = "supabase" if fleet_db.push_ecosystem(eco) else "json-fallback"
     saved = common.save_ecosystem(eco)
     common.log_event("BdRDev", "ecosystem_updated")
-    return jsonify({"ok": True, "ecosystem": saved, "source": source})
+    return jsonify({
+        "ok": True, "ecosystem": saved, "source": source,
+        "supabase_configured": fleet_db.is_configured(),
+    })
 
 
 @app.route("/api/admin/status")
