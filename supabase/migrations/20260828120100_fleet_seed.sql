@@ -28,28 +28,28 @@ on conflict (name) do update set description = excluded.description;
 -- servers
 -- ---------------------------------------------------------------------------
 insert into public.servers
-  (name, tag, address, host, os, ram, disk, software_freetext, git_notes, provisioned, dev_host, sort_order)
+  (name, tag, address, tailscale_ip, web_url, host, os, ram, disk, software_freetext, git_notes, provisioned, dev_host, sort_order)
 values
-  ('BdRVSrvDev', 'this host, local', '192.168.100.10', 'VM', 'Ubuntu Server', '8GB', '512GB SSD',
+  ('BdRVSrvDev', 'this host, local', '192.168.100.10', '100.107.138.38', 'https://bdrdev.local', 'VM', 'Ubuntu Server', '8GB', '512GB SSD',
    'Claude Code · Nginx · Scheduler',
    $g$GitHub
 Push to bDotRad/: BdRDev, BdRAMAssist, PlanBdRad, BdRIS, BdRBirdDetector, BdRDungeon
 Pull from bDotRad/: BdRDev$g$,
    true, true, 1),
 
-  ('BdRPiAMI', 'Raspberry Pi 8GB, 10.10.10.20', '10.10.10.20', 'Raspberry Pi', 'Raspberry Pi', '8GB', '',
+  ('BdRPiAMI', 'Raspberry Pi 8GB, 10.10.10.20', '10.10.10.20', '100.86.25.88', 'https://bdrpiami.local', 'Raspberry Pi', 'Raspberry Pi', '8GB', '',
    'Claude Code · Nginx · Supabase',
    $g$GitHub
 Pull from bDotRad/: BdRAMAssist, PlanBdRad, BdRIS$g$,
    true, false, 2),
 
-  ('BdRSrvDungeon', 'not provisioned yet', '', 'VM', 'Ubuntu Server', '4GB', '256GB SSD',
+  ('BdRSrvDungeon', 'not provisioned yet', '', '', '', 'VM', 'Ubuntu Server', '4GB', '256GB SSD',
    'Claude Code · Nginx · Supabase',
    $g$GitHub
 Pull from bDotRad/: BdRDungeon$g$,
    false, false, 3),
 
-  ('BdRBirdDetector', 'physical Pi, 192.168.1.187', '192.168.1.187', 'Raspberry Pi', 'RPI OS Lite', '4GB', '64GB SD Card',
+  ('BdRBirdDetector', 'physical Pi, 192.168.1.187', '192.168.1.187', '', '', 'Raspberry Pi', 'RPI OS Lite', '4GB', '64GB SD Card',
    'Nginx · SQL Lite',
    $g$GitHub
 Pull from bDotRad/: BdRBirdDetector
@@ -59,6 +59,8 @@ Push$g$,
 on conflict (name) do update set
   tag               = excluded.tag,
   address           = excluded.address,
+  tailscale_ip      = excluded.tailscale_ip,
+  web_url           = excluded.web_url,
   host              = excluded.host,
   os                = excluded.os,
   ram               = excluded.ram,

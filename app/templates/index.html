@@ -264,6 +264,10 @@
   .eco2-table td.eco2-mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
   }
+  .eco2-table a { color: var(--accent); text-decoration: none; }
+  .eco2-table a:hover { text-decoration: underline; }
+  .eco-chip-address a { color: inherit; text-decoration: none; }
+  .eco-chip-address a:hover { text-decoration: underline; }
   .eco2-table td.eco2-edit { cursor: text; }
   .eco2-table td.eco2-edit:hover { background: rgba(255,255,255,0.04); }
   .eco2-table td.eco2-edit:focus {
@@ -961,11 +965,12 @@
         <table class="eco2-table" id="eco2-table"></table>
       </div>
       <div id="eco2-edit-hint" style="display:none;">
-        Click any cell to edit it; click a Y/N cell to toggle. The
-        <b>Other</b> and <b>Apps</b> columns are derived (from the
-        free-text Software field and the App rows on the <b>Fleet</b> tab)
-        and aren't editable here. Renaming a server here won't move its
-        apps across — do that on the Fleet tab.
+        Click any cell to edit it; click a Y/N cell to toggle. Type a URL
+        in the <b>Web</b> cell (e.g. <code>https://bdrpiami.local</code>) —
+        it renders as a link when you save. The <b>Apps</b> column is
+        derived (from the App rows on the <b>Fleet</b> tab) and isn't
+        editable here. Renaming a server here won't move its apps across —
+        do that on the Fleet tab.
         <a href="#" onclick="switchTab('fleet');return false;">Manage which apps run on each server →</a>
       </div>
       <div id="eco2-actions">
@@ -2019,6 +2024,10 @@ function buildDiagram(eco) {
     if (s.tag) html += ` <span class="eco-tag${planned ? ' eco-tag-planned' : ''}">${escapeHtml(s.tag)}</span>`;
     html += `</div>`;
     if (specs) html += `<div class="eco-specs-pill">${escapeHtml(specs)}</div>`;
+    const sMeta = [];
+    if (s.tailscale) sMeta.push(`<span class="eco-chip">TS: ${escapeHtml(s.tailscale)}</span>`);
+    if (s.web_url) sMeta.push(`<span class="eco-chip eco-chip-address">🌐 ${webLinkHtml(s.web_url)}</span>`);
+    if (sMeta.length) html += `<div class="eco-meta-row">${sMeta.join('')}</div>`;
 
     if (s.dev_host && eco.projects.length) {
       html += `<div class="eco-section-label">Projects</div><div class="eco-projects">`;
@@ -2042,7 +2051,12 @@ function buildDiagram(eco) {
         if (a.tag) ac += ` <span class="eco-tag${a.planned ? ' eco-tag-planned' : ''}">${escapeHtml(a.tag)}</span>`;
         ac += `</div>`;
         const chips = [];
-        if (a.web_address) chips.push(`<span class="eco-chip eco-chip-address">🌐 ${escapeHtml(a.web_address)}</span>`);
+        if (a.web_address) {
+          const w = a.web_address.trim();
+          const linkish = /^https?:\/\//i.test(w) || /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}([\/:].*)?$/i.test(w);
+          const inner = linkish ? webLinkHtml(w) : escapeHtml(w);
+          chips.push(`<span class="eco-chip eco-chip-address">🌐 ${inner}</span>`);
+        }
         if (a.db) chips.push(`<span class="eco-chip">DB: ${escapeHtml(a.db)}</span>`);
         if (chips.length) ac += `<div class="eco-meta-row">${chips.join('')}</div>`;
         return ac + `</div>`;
@@ -2063,6 +2077,8 @@ function buildTree(eco) {
     const sections = [];
     const specs = ecoSpecs(s);
     if (specs) sections.push(['Specs:        ' + specs]);
+    if (s.tailscale) sections.push(['Tailscale:    ' + s.tailscale]);
+    if (s.web_url) sections.push(['Web:          ' + s.web_url]);
     if (s.software) sections.push(['Software:     ' + s.software]);
     const apps = eco.apps.filter(a => a.server === s.name);
     if (apps.length) sections.push(['Applications: ' + apps.map(a => a.name).join(', ')]);
@@ -2132,6 +2148,25 @@ function eco2EditCell(i, field, value, extraClass) {
   return `<td class="${cls.trim()}"${ce} data-si="${i}" data-field="${field}">${escapeHtml(value || '')}</td>`;
 }
 
+// Render a URL as a real hyperlink (link text = host + path, scheme stripped).
+// Bare host like "bdrpiami.local" is assumed https. Non-URL / empty -> em dash.
+function webLinkHtml(url) {
+  const u = (url || '').trim();
+  if (!u) return '—';
+  const href = /^https?:\/\//i.test(u) ? u : ('https://' + u);
+  const label = u.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+  return `<a href="${escAttr(href)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`;
+}
+
+// Web-link cell: raw URL text while editing (so eco2Sync picks it up via
+// data-field), a clickable link in read-only mode.
+function eco2WebCell(i, url) {
+  if (eco2Editing) {
+    return `<td class="eco2-mono eco2-edit" contenteditable="true" data-si="${i}" data-field="web_url">${escapeHtml(url || '')}</td>`;
+  }
+  return `<td class="eco2-mono">${webLinkHtml(url)}</td>`;
+}
+
 function eco2YnCell(i, field, v) {
   const editable = eco2Editing ? ' eco2-edit' : '';
   const click = eco2Editing ? ' onclick="eco2ToggleYn(this)"' : '';
@@ -2187,33 +2222,31 @@ function renderEco2() {
     <tr>
       <th rowspan="2">Name</th>
       <th rowspan="2">Address</th>
+      <th rowspan="2">Tailscale IP</th>
+      <th rowspan="2">Web</th>
       <th rowspan="2">Prov</th>
       <th class="eco2-group" colspan="4">Hardware</th>
-      <th class="eco2-group" colspan="5">Software</th>
+      <th class="eco2-group" colspan="4">Software</th>
       <th rowspan="2">Apps</th>
     </tr>
     <tr>
       <th>Host</th><th>RAM</th><th>Disk</th><th>OS</th>
-      <th>Claude</th><th>Nginx</th><th>Supabase</th><th>SQL Lite</th><th>Other</th>
+      <th>Claude</th><th>Nginx</th><th>Supabase</th><th>SQL Lite</th>
     </tr>
   </thead>`;
   const rows = ecoData.servers.map((s, i) => {
     const apps = ecoData.apps.filter(a => a.server === s.name).map(a => a.name).join(', ');
-    const known = ['claude', 'nginx', 'supabase', 'sql lite', 'sqlite'];
-    const other = (s.software || '').split('·').map(x => x.trim())
-      .filter(x => x && !known.includes(x.toLowerCase())
-                     && !known.some(k => x.toLowerCase().includes(k)))
-      .join(', ');
     return `<tr class="${s.provisioned ? '' : 'eco2-unprov'}">
       ${eco2EditCell(i, 'name', s.name, 'eco2-mono')}
       ${eco2EditCell(i, 'address', s.address, 'eco2-mono')}
+      ${eco2EditCell(i, 'tailscale', s.tailscale, 'eco2-mono')}
+      ${eco2WebCell(i, s.web_url)}
       ${eco2YnCell(i, 'provisioned', s.provisioned)}
       ${eco2EditCell(i, 'host', s.host)}
       ${eco2EditCell(i, 'ram', s.ram)}
       ${eco2EditCell(i, 'disk', s.disk)}
       ${eco2EditCell(i, 'os', s.os)}
       ${eco2YnCell(i, 'claude', s.claude)}${eco2YnCell(i, 'nginx', s.nginx)}${eco2YnCell(i, 'supabase', s.supabase)}${eco2YnCell(i, 'sqlite', s.sqlite)}
-      <td class="eco2-ro" title="Derived from the free-text Software field on the Fleet tab">${escapeHtml(other || '—')}</td>
       <td class="eco2-ro">${escapeHtml(apps || '—')}</td>
     </tr>`;
   }).join('');
@@ -2300,11 +2333,13 @@ function renderFleetEditor() {
     fleetInput('servers', i, 'name', 'Name', s.name) +
     fleetInput('servers', i, 'tag', 'Tag / label', s.tag, {cls: 'grow'}) +
     fleetInput('servers', i, 'address', 'Address', s.address) +
+    fleetInput('servers', i, 'tailscale', 'Tailscale IP', s.tailscale) +
+    fleetInput('servers', i, 'web_url', 'Web URL (rendered as a link)', s.web_url, {cls: 'grow'}) +
     fleetInput('servers', i, 'host', 'Host', s.host, {list: 'dl-host'}) +
     fleetInput('servers', i, 'os', 'OS', s.os, {list: 'dl-os'}) +
     fleetInput('servers', i, 'ram', 'RAM', s.ram, {list: 'dl-ram'}) +
     fleetInput('servers', i, 'disk', 'Disk', s.disk, {list: 'dl-disk'}) +
-    fleetInput('servers', i, 'software', 'Software (free text — "Other" column on Ecosystem 2)', s.software, {list: 'dl-software', cls: 'grow'}) +
+    fleetInput('servers', i, 'software', 'Software (free text — shown on the Ecosystem tree)', s.software, {list: 'dl-software', cls: 'grow'}) +
     fleetInput('servers', i, 'claude', 'Claude', s.claude, {check: true}) +
     fleetInput('servers', i, 'nginx', 'Nginx', s.nginx, {check: true}) +
     fleetInput('servers', i, 'supabase', 'Supabase', s.supabase, {check: true}) +
@@ -2354,7 +2389,7 @@ function fleetSync() {
 
 function fleetAdd(kind) {
   fleetSync();
-  if (kind === 'servers') ecoData.servers.push({name: '', tag: '', address: '', host: '', os: '', ram: '', disk: '', software: '', claude: false, nginx: false, supabase: false, sqlite: false, git: '', provisioned: true, dev_host: false});
+  if (kind === 'servers') ecoData.servers.push({name: '', tag: '', address: '', tailscale: '', web_url: '', host: '', os: '', ram: '', disk: '', software: '', claude: false, nginx: false, supabase: false, sqlite: false, git: '', provisioned: true, dev_host: false});
   else if (kind === 'apps') ecoData.apps.push({name: '', server: '', tag: '', web_address: '', db: '', planned: false});
   else if (kind === 'projects') ecoData.projects.push({name: '', exists: true, agents: []});
   renderFleetEditor();

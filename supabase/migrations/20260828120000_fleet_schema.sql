@@ -46,6 +46,8 @@ create table if not exists public.servers (
   name              text        not null unique,
   tag               text        not null default '',   -- short parenthetical shown next to the name
   address           text        not null default '',   -- primary IP / hostname
+  tailscale_ip      text        not null default '',   -- Tailscale tailnet IP, e.g. 100.x.y.z
+  web_url           text        not null default '',   -- primary web UI URL (rendered as a link)
   host              text        not null default '',    -- "VM" | "Raspberry Pi" | "Physical"
   os                text        not null default '',
   ram               text        not null default '',
@@ -62,6 +64,11 @@ create table if not exists public.servers (
 comment on table  public.servers is 'One row per fleet machine (dev box, Pis, VMs).';
 comment on column public.servers.software_freetext is 'Free-text software list for the diagram / "Other" column. The tracked per-package booleans in fleet_ecosystem_json are derived from server_software, not from this string.';
 comment on column public.servers.dev_host is 'True for the one machine that is the dev box / single source of truth. At most one row may be true.';
+
+-- Columns added after first release; ALTER for installs created before them
+-- (the create-table above already has them for fresh installs). Idempotent.
+alter table public.servers add column if not exists tailscale_ip text not null default '';
+alter table public.servers add column if not exists web_url      text not null default '';
 
 -- at most one dev host
 create unique index if not exists servers_single_dev_host_idx
@@ -257,6 +264,8 @@ select jsonb_build_object(
           'name',        sv.name,
           'tag',         sv.tag,
           'address',     sv.address,
+          'tailscale',   sv.tailscale_ip,
+          'web_url',      sv.web_url,
           'host',        sv.host,
           'os',          sv.os,
           'ram',         sv.ram,
@@ -318,6 +327,6 @@ select jsonb_build_object(
 ) as ecosystem;
 
 comment on view public.fleet_ecosystem_json is
-  'Single-row view. Column "ecosystem" (jsonb) matches common.load_ecosystem(): {servers:[{name,tag,address,host,os,ram,disk,software,claude,nginx,supabase,sqlite,git,provisioned,dev_host}], projects:[{name,exists,agents:[]}], apps:[{name,server,tag,web_address,db,planned}], notes:""}. The dashboard reads this; state/ecosystem.json stays as a fallback cache.';
+  'Single-row view. Column "ecosystem" (jsonb) matches common.load_ecosystem(): {servers:[{name,tag,address,tailscale,web_url,host,os,ram,disk,software,claude,nginx,supabase,sqlite,git,provisioned,dev_host}], projects:[{name,exists,agents:[]}], apps:[{name,server,tag,web_address,db,planned}], notes:""}. The dashboard reads this; state/ecosystem.json stays as a fallback cache.';
 
 grant select on public.fleet_ecosystem_json to anon, authenticated, service_role;

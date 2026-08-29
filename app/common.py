@@ -175,6 +175,7 @@ DEFAULT_ECOSYSTEM = {
     "servers": [
         {
             "name": "BdRVSrvDev", "tag": "this host, local", "address": "192.168.100.10",
+            "tailscale": "100.107.138.38", "web_url": "https://bdrdev.local",
             "host": "VM", "os": "Ubuntu Server", "ram": "8GB", "disk": "512GB SSD",
             "software": "Claude Code · Nginx · Scheduler",
             "claude": True, "nginx": True, "supabase": False, "sqlite": False,
@@ -187,6 +188,7 @@ DEFAULT_ECOSYSTEM = {
         },
         {
             "name": "BdRPiAMI", "tag": "Raspberry Pi 8GB, 10.10.10.20", "address": "10.10.10.20",
+            "tailscale": "100.86.25.88", "web_url": "https://bdrpiami.local",
             "host": "Raspberry Pi", "os": "Raspberry Pi", "ram": "8GB", "disk": "",
             "software": "Claude Code · Nginx · Supabase",
             "claude": True, "nginx": True, "supabase": True, "sqlite": False,
@@ -195,6 +197,7 @@ DEFAULT_ECOSYSTEM = {
         },
         {
             "name": "BdRSrvDungeon", "tag": "not provisioned yet", "address": "",
+            "tailscale": "", "web_url": "",
             "host": "VM", "os": "Ubuntu Server", "ram": "4GB", "disk": "256GB SSD",
             "software": "Claude Code · Nginx · Supabase",
             "claude": True, "nginx": True, "supabase": True, "sqlite": False,
@@ -203,6 +206,7 @@ DEFAULT_ECOSYSTEM = {
         },
         {
             "name": "BdRBirdDetector", "tag": "physical Pi, 192.168.1.187", "address": "192.168.1.187",
+            "tailscale": "", "web_url": "",
             "host": "Raspberry Pi", "os": "RPI OS Lite", "ram": "4GB", "disk": "64GB SD Card",
             "software": "Nginx · SQL Lite",
             "claude": False, "nginx": True, "supabase": False, "sqlite": True,
@@ -289,6 +293,8 @@ def _normalize_ecosystem(data):
             "name": _eco_str(s.get("name")),
             "tag": _eco_str(s.get("tag")),
             "address": _eco_str(s.get("address")),
+            "tailscale": _eco_str(s.get("tailscale")),
+            "web_url": _eco_str(s.get("web_url")),
             "host": _eco_str(s.get("host")),
             "os": _eco_str(s.get("os")),
             "ram": _eco_str(s.get("ram")),

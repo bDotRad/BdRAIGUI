@@ -209,6 +209,8 @@ def _write_all(data):
         "name": s["name"],
         "tag": s["tag"],
         "address": s["address"],
+        "tailscale_ip": s.get("tailscale", ""),
+        "web_url": s.get("web_url", ""),
         "host": s["host"],
         "os": s["os"],
         "ram": s["ram"],

@@ -1,5 +1,93 @@
 WAITING RESPONSE
 
+Put in Actions or questions for me 
+
+## Fifth pass — clean Action + Question blocks, as you asked (Claude, 2026-08-29)
+
+You flipped this to READY with "Put in Actions or questions for me". Here
+they are. **No code changed since the Fourth pass** — this is the same
+Step A / B / C, just rewritten in the canonical block format so you can
+follow it top to bottom.
+
+Recap: "activate Supabase" = **(A)** run the bundled fleet schema on the
+Pi's Postgres, **(B)** give the dashboard service the `SUPABASE_*` env
+vars + restart it, **(C)** confirm the tab flips to "source: Supabase".
+I can't do **A** (auto-mode blocks DDL against a remote production DB) or
+**B** (no sudo here) — both are yours.
+
+Bonus: the schema bundle now also carries the new **Tailscale IP** and
+**Web** server columns from `rEcossystem 2`, and the restart in step 2
+also deploys that tab's UI — so this one pass lands both requests.
+
+@@@ --- Action --- @@@
+
+1. Load the fleet schema into the Pi's Supabase Postgres (idempotent — safe to re-run).
+
+"From this dev box — copy the bundled SQL to the Pi:"
+scp -i ~/.ssh/bdrdev_to_bdrpiamiserver ~/projects/BdRDev/.claude-status/sql_output.sql bdr@10.10.10.20:/tmp/fleet.sql
+
+"Run it inside the Pi's Postgres container (expect a stream of CREATE / ALTER / INSERT, no ERROR lines):"
+ssh -i ~/.ssh/bdrdev_to_bdrpiamiserver bdr@10.10.10.20 'docker exec -i supabase-db psql -U postgres -d postgres < /tmp/fleet.sql'
+
+"Sanity-check the read view exists and returns a server count (expect a small integer, e.g. 4):"
+ssh -i ~/.ssh/bdrdev_to_bdrpiamiserver bdr@10.10.10.20 "docker exec supabase-db psql -U postgres -d postgres -c \"select jsonb_array_length(ecosystem->'servers') from public.fleet_ecosystem_json;\""
+
+2. Point the dashboard at the Pi's Supabase and restart it (on this dev box, needs sudo).
+
+"Grab the service_role JWT from the Pi (look for the service_role / SERVICE_KEY value):"
+ssh -i ~/.ssh/bdrdev_to_bdrpiamiserver bdr@10.10.10.20 'cat ~/projects/BdRPiAMI/SECRETS.md'
+
+"Edit the installed dashboard unit:"
+sudo systemctl edit --full bdrdev-dashboard
+
+"In the [Service] section, add these three lines (paste the real JWT for the key):"
+    Environment=SUPABASE_URL=https://10.10.10.20
+    Environment=SUPABASE_SERVICE_KEY=<service_role JWT from the Pi>
+    Environment=SUPABASE_VERIFY_SSL=0
+
+"Reload systemd and restart the dashboard:"
+sudo systemctl daemon-reload
+sudo systemctl restart bdrdev-dashboard
+
+3. Verify.
+
+"From this dev box — PostgREST answers (expect 401, meaning reachable):"
+curl -s -o /dev/null -w '%{http_code}\n' -k https://10.10.10.20/rest/v1/
+
+"Then open the Ecosystem 2 (or Fleet) tab: the source line should read
+ 'source: Supabase' (not 'local JSON' / 'not configured'). Edit a cell,
+ Save, reload the page — the change persists. Also check Ecosystem 2 now
+ has Tailscale IP + Web columns and no Other column."
+
+@@@ ------------- @@@
+
+??? --- Question --- ???
+
+Step A (running the schema on the Pi) — how do you want it handled?
+
+Options:
+1. You run it (recommended) — the scp + ssh commands in Action step 1.
+   One-time, ~30 seconds. Nothing recurring needs this access.
+2. Add a Bash permission rule so a future unattended session runs it —
+   allow `scp -i ~/.ssh/bdrdev_to_bdrpiamiserver *` and
+   `ssh -i ~/.ssh/bdrdev_to_bdrpiamiserver bdr@10.10.10.20 *` in
+   `.claude/settings.json`, then flip this to READY with "run Step A".
+   (Step B still needs your sudo either way, so you're in the loop
+   regardless — option 1 is simpler.)
+
+Answer:
+
+
+??? --------------- ???
+
+If Supabase activation is more than you want to deal with right now,
+answering "leave it on JSON" is fine too — the editor, dropdown and
+Edit/Save/Cancel all work against the JSON store today. In that case just
+do Action step 2's `systemctl restart` (skip the env vars) to deploy the
+`rEcossystem 2` UI, and archive both.
+
+---
+
 ## Fourth pass — you said "do it all", but I'm walled off from the Pi's DB (Claude, 2026-08-28)
 
 You answered **1 — wire it up now**. I got part way and hit a hard stop.
