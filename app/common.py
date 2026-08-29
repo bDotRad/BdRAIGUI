@@ -187,9 +187,9 @@ DEFAULT_ECOSYSTEM = {
             ),
         },
         {
-            "name": "BdRPiAMI", "tag": "Raspberry Pi 8GB, 10.10.10.20", "address": "10.10.10.20",
-            "tailscale": "100.86.25.88", "web_url": "https://bdrpiami.local",
-            "host": "Raspberry Pi", "os": "Raspberry Pi", "ram": "8GB", "disk": "",
+            "name": "BdRPiSrvAMI", "tag": "Raspberry Pi 8GB, 10.10.10.20 (on-box hostname still BdRPiAMI)", "address": "10.10.10.20",
+            "tailscale": "100.86.25.88", "web_url": "https://bdrpisrvami.local",
+            "host": "Raspberry Pi", "os": "Ubuntu Server", "ram": "8GB", "disk": "512GB SSD",
             "software": "Claude Code · Nginx · Supabase",
             "claude": True, "nginx": True, "supabase": True, "sqlite": False,
             "provisioned": True, "dev_host": False,
@@ -230,11 +230,11 @@ DEFAULT_ECOSYSTEM = {
     "apps": [
         {"name": "BdRDev dashboard + scheduler", "server": "BdRVSrvDev", "tag": "",
          "web_address": "http://192.168.100.10:8420", "db": "none (JSON state files)", "planned": False},
-        {"name": "PlanBdRad", "server": "BdRPiAMI", "tag": "today: runs on PlanBdRadServer",
-         "web_address": "10.10.10.20", "db": "Supabase (Postgres)", "planned": False},
-        {"name": "BdRAMAssist", "server": "BdRPiAMI", "tag": "",
-         "web_address": "not deployed yet", "db": "none — feeds PlanBdRad's DB", "planned": False},
-        {"name": "BdRIS", "server": "BdRPiAMI", "tag": "project doesn't exist yet",
+        {"name": "PlanBdRad", "server": "BdRPiSrvAMI", "tag": "pending Pi deploy (docs done 2026-08-29)",
+         "web_address": "https://planbdrad.local", "db": "Supabase (Postgres) — schema not applied to Pi yet", "planned": False},
+        {"name": "BdRAMAssist", "server": "BdRPiSrvAMI", "tag": "pending Pi deploy (docs done 2026-08-29)",
+         "web_address": "https://bdramassist.local", "db": "Supabase staging schema (shares PlanBdRad's) — not applied yet", "planned": False},
+        {"name": "BdRIS", "server": "BdRPiSrvAMI", "tag": "project doesn't exist yet",
          "web_address": "", "db": "", "planned": True},
         {"name": "BdRDungeon", "server": "BdRSrvDungeon", "tag": "",
          "web_address": "not deployed yet", "db": "Supabase (planned)", "planned": False},
@@ -243,10 +243,16 @@ DEFAULT_ECOSYSTEM = {
     ],
     "notes": (
         "Not yet real, per current state: BdRSrvDungeon isn't provisioned yet. "
-        "BdRPiAMI (formerly the PlanBdRadServer VM; now a physical Raspberry Pi 8GB "
-        "at 10.10.10.20) is real and reachable — it currently runs PlanBdRad, with "
-        "BdRAMAssist's repo cloned there too (not yet confirmed running as a deployed "
-        "service). This host (BdRVSrvDev, 192.168.100.10) is real; its machine hostname "
+        "BdRPiSrvAMI (formerly the PlanBdRadServer VM; now a physical Raspberry Pi 8GB "
+        "at 10.10.10.20, on-box hostname / Tailscale node still 'bdrpiami') is real and "
+        "reachable. Its self-hosted Supabase stack is healthy, but as of 2026-08-29 "
+        "neither PlanBdRad nor BdRAMAssist is deployed there yet — repos are cloned, "
+        "but no build, no per-app nginx vhost, and no app schema in Postgres. The "
+        "deploy docs in both repos were rewritten to target the Pi on 2026-08-29 "
+        "(web layout: per-app *.local names, planbdrad.local / bdramassist.local); "
+        "remaining steps are Brad's (node install, TLS cert regen, nginx sudo, schema "
+        "apply) — see each repo's SERVER_SETUP.md / SQL_RUN.md. "
+        "This host (BdRVSrvDev, 192.168.100.10) is real; its machine hostname "
         "is still BdRDev — the rename to the BdRVSrv… / BdRPiSrv… convention (VM vs "
         "Raspberry Pi) is display-only in this data so far, not yet applied to the "
         "actual hostname / SSH key names / systemd units. BdRIS "
