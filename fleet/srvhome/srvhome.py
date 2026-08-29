@@ -51,6 +51,14 @@ CLAUDE_BIN = (
 HOME = os.path.expanduser("~")
 PROJECTS_DIR = os.path.join(HOME, "projects")
 
+# The manual "pull + apply new migrations + rebuild" script that the
+# dashboard "Update" button drives per app (BdRDev/fleet/update.sh,
+# deployed here as ~/projects/update.sh). Reused rather than
+# reimplemented so the two paths never diverge.
+UPDATE_SCRIPT = os.path.join(PROJECTS_DIR, "update.sh")
+CHECK_INTERVAL_S = 300      # background "is GitHub ahead?" poll
+UPDATE_TIMEOUT_S = 1200     # hard cap on one git pull + npm build
+
 
 # --------------------------------------------------------------------------
 # config
@@ -326,6 +334,161 @@ def server_info() -> dict:
 
 
 # --------------------------------------------------------------------------
+# version check + one-click update
+# --------------------------------------------------------------------------
+#
+# A background thread runs `git fetch` for each app every 5 min and holds
+# {behind, remote_sha, last_checked, error} in memory. "Check" forces one
+# now; "Update" shells out to ~/projects/update.sh <app> under a per-app
+# lock and keeps the captured output. State is deliberately in-memory —
+# a restart just re-checks within a few seconds.
+
+_check_state: dict[str, dict] = {}
+_check_state_lock = threading.Lock()
+_update_locks: dict[str, threading.Lock] = {}
+_update_results: dict[str, dict] = {}
+_updating: set[str] = set()
+_update_meta_lock = threading.Lock()
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _update_lock_for(name: str) -> threading.Lock:
+    with _update_meta_lock:
+        return _update_locks.setdefault(name, threading.Lock())
+
+
+def check_one(app: dict) -> dict:
+    """`git fetch` one app and compare HEAD to its upstream."""
+    path = os.path.expanduser(app["path"])
+    name = app["name"]
+    res: dict = {"last_checked": _now_iso(), "behind": None,
+                 "remote_sha": "", "error": ""}
+    if not os.path.isdir(os.path.join(path, ".git")):
+        res["error"] = "not a git repo on this box"
+    else:
+        fetched = subprocess.run(
+            ["git", "-C", path, "fetch", "--quiet"],
+            capture_output=True, text=True, timeout=120,
+        )
+        if fetched.returncode != 0:
+            res["error"] = (fetched.stderr or "git fetch failed").strip()[-240:]
+        else:
+            upstream = _git(path, "rev-parse", "@{u}")
+            if not upstream:
+                res["error"] = "no upstream branch configured"
+            else:
+                behind = _git(path, "rev-list", "--count", "HEAD..@{u}")
+                res["behind"] = int(behind) if behind.isdigit() else 0
+                res["remote_sha"] = upstream[:7]
+    with _check_state_lock:
+        _check_state[name] = res
+    return res
+
+
+def check_all() -> None:
+    for app in load_apps():
+        try:
+            check_one(app)
+        except (OSError, subprocess.SubprocessError) as exc:
+            with _check_state_lock:
+                _check_state[app["name"]] = {
+                    "last_checked": _now_iso(), "behind": None,
+                    "remote_sha": "", "error": str(exc)[-240:],
+                }
+
+
+def _checker_loop() -> None:
+    while True:
+        check_all()
+        time.sleep(CHECK_INTERVAL_S)
+
+
+def start_checker() -> None:
+    threading.Thread(target=_checker_loop, name="srvhome-checker",
+                     daemon=True).start()
+
+
+def run_update(name: str) -> dict:
+    """Pull + rebuild one app via ~/projects/update.sh, capturing output."""
+    apps = {a["name"]: a for a in load_apps()}
+    app = apps.get(name)
+    if not app:
+        return {"error": f"unknown app {name!r}"}
+    path = os.path.expanduser(app["path"])
+
+    lock = _update_lock_for(name)
+    if not lock.acquire(blocking=False):
+        return {"error": "an update is already running for this app",
+                "_busy": True}
+    with _update_meta_lock:
+        _updating.add(name)
+    started = _now_iso()
+    sha_before = _git(path, "rev-parse", "--short=7", "HEAD")
+    try:
+        env = os.environ.copy()
+        env["HOME"] = HOME
+        env["PATH"] = os.path.expanduser("~/.local/bin") + ":" + \
+            env.get("PATH", "/usr/local/bin:/usr/bin:/bin")
+        if os.path.exists(UPDATE_SCRIPT):
+            proc = subprocess.run(
+                ["bash", UPDATE_SCRIPT, name],
+                cwd=PROJECTS_DIR, capture_output=True, text=True,
+                timeout=UPDATE_TIMEOUT_S, env=env,
+            )
+            output = ((proc.stdout or "") + (proc.stderr or "")).strip()
+            ok = proc.returncode == 0
+        else:
+            output = f"update.sh not found at {UPDATE_SCRIPT}"
+            ok = False
+    except subprocess.TimeoutExpired:
+        output = f"update timed out after {UPDATE_TIMEOUT_S}s"
+        ok = False
+    except (OSError, subprocess.SubprocessError) as exc:
+        output = f"update failed to start: {exc}"
+        ok = False
+    finally:
+        with _update_meta_lock:
+            _updating.discard(name)
+        lock.release()
+
+    sha_after = _git(path, "rev-parse", "--short=7", "HEAD")
+    result = {
+        "ok": ok,
+        "started_at": started,
+        "finished_at": _now_iso(),
+        "sha_before": sha_before,
+        "sha_after": sha_after,
+        "changed": sha_before != sha_after,
+        "output_tail": output[-6000:],
+    }
+    with _update_meta_lock:
+        _update_results[name] = result
+    # the pull moved HEAD (or not) — refresh the "behind" read either way
+    try:
+        check_one(app)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return result
+
+
+def app_check_view(name: str) -> dict:
+    with _check_state_lock:
+        chk = dict(_check_state.get(name, {}))
+    with _update_meta_lock:
+        return {
+            "behind": chk.get("behind"),
+            "remote_sha": chk.get("remote_sha", ""),
+            "last_checked": chk.get("last_checked", ""),
+            "check_error": chk.get("error", ""),
+            "updating": name in _updating,
+            "last_update_result": _update_results.get(name),
+        }
+
+
+# --------------------------------------------------------------------------
 # apps
 # --------------------------------------------------------------------------
 
@@ -361,6 +524,7 @@ def app_state(app: dict, history_limit: int) -> dict:
         "deployed_at": (latest or {}).get("recorded_at", ""),
         "running": None,   # live status still deferred
         "history": rows,
+        **app_check_view(name),
     }
 
 
@@ -499,7 +663,10 @@ h2.sec{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#8b96a1
       border-radius:10px;padding:18px 20px;margin-bottom:22px}
 .tile.is-running{border-left-color:#3fb950}
 .tile.is-unknown{border-left-color:#d29922}
+.tile.is-stopped{border-left-color:#f85149}
 .tile.is-absent {border-left-color:#3a4550}
+.linkbtn{background:none;border:0;color:#6cb6ff;font:inherit;font-size:11px;
+         text-transform:none;letter-spacing:0;cursor:pointer;padding:0 0 0 8px}
 .tile h3{margin:0 0 4px;font-size:16px}
 .tile .desc{color:#c2cbd4;font-size:13.5px;margin:2px 0 10px;max-width:70ch}
 .row{display:flex;flex-wrap:wrap;gap:14px;align-items:baseline;margin:6px 0 12px}
@@ -522,6 +689,22 @@ tr.backfilled td.v{color:#8b96a1}
 .empty{color:#8b96a1;font-style:italic;padding:6px 0}
 details.hist{margin-top:8px}
 details.hist summary{cursor:pointer;color:#8b96a1;font-size:12.5px}
+/* version check / update */
+.badge.ok{color:#7fd18c;border-color:#2f5136;background:#132018}
+.badge.behind{color:#e3b341;border-color:#5c4813;background:#211c0f}
+.badge.busy{color:#6cb6ff;border-color:#1f4b7a;background:#0f1b28}
+.badge.fail{color:#e08a8a;border-color:#5a2f2f;background:#201313}
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:2px 0 10px}
+.acts button{background:#20262d;border:1px solid #333d47;color:#cdd6df;border-radius:7px;
+             padding:4px 12px;font:inherit;font-size:12.5px;cursor:pointer}
+.acts button.primary{background:#1f6feb;border-color:#1f6feb;color:#fff}
+.acts button:disabled{opacity:.45;cursor:default}
+.acts .checked{color:#6b7580;font-size:11.5px}
+details.out{margin:4px 0 10px}
+details.out summary{cursor:pointer;color:#8b96a1;font-size:12px}
+details.out pre{background:#0c0f13;border:1px solid #202730;border-radius:8px;
+                padding:10px 12px;font-size:12px;line-height:1.45;overflow:auto;
+                max-height:320px;white-space:pre-wrap;color:#c2cbd4}
 footer{max-width:1100px;margin:0 auto;padding:8px 28px 40px;color:#6b7580;font-size:12px}
 /* chat */
 #chat{background:#141a20;border:1px solid #232a31;border-radius:10px;padding:16px}
@@ -708,69 +891,217 @@ def render_chat_panel() -> str:
 """
 
 
+def _rel_age(iso: str) -> str:
+    if not iso:
+        return "never"
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        return iso
+    secs = (datetime.now(timezone.utc) - dt).total_seconds()
+    if secs < 90:
+        return "just now"
+    if secs < 3600:
+        return f"{int(secs // 60)}m ago"
+    if secs < 86400:
+        return f"{int(secs // 3600)}h ago"
+    return f"{int(secs // 86400)}d ago"
+
+
+def status_badge(app: dict) -> tuple[str, str, str]:
+    """(tile-class, badge-class, badge-text) for an app's update status."""
+    if not app["present"]:
+        return "is-absent", "", "repo not on this box"
+    if not app["has_commits"]:
+        return "is-unknown", "", "repo empty"
+    if app.get("updating"):
+        return "is-unknown", "busy", "updating…"
+    res = app.get("last_update_result")
+    if res and not res.get("ok"):
+        return "is-stopped", "fail", "last update failed"
+    if app.get("check_error"):
+        return "is-unknown", "", "check failed"
+    behind = app.get("behind")
+    if behind is None:
+        return "is-unknown", "", "not checked yet"
+    if behind > 0:
+        return "is-unknown", "behind", f"{behind} behind — update available"
+    return "is-running", "ok", "up to date"
+
+
+def render_history_rows(app: dict) -> str:
+    rows = app["history"]
+    if not rows:
+        return "<div class=empty data-role=hist>No deploy history recorded yet.</div>"
+    out = [f"<details class=hist data-role=hist><summary>deploy history "
+           f"({len(rows)})</summary>",
+           "<table><thead><tr><th>Committed</th><th>Pulled</th>"
+           "<th>Version</th><th>Commit</th></tr></thead><tbody>"]
+    for r in rows:
+        is_live = bool(r["sha"]) and r["sha"] == app["deployed_sha"]
+        cls = " ".join(x for x in (
+            "live" if is_live else "",
+            "backfilled" if r.get("backfilled") else "") if x)
+        tr = f" class='{cls}'" if cls else ""
+        tag = " <span class=muted>(backfilled)</span>" if r.get("backfilled") else ""
+        live_tag = " <span class=live-tag>live here</span>" if is_live else ""
+        body = (r.get("body") or "").strip()
+        title = html.escape(r["subject"] or "")
+        if body:
+            title += (f"<span class=muted title='{html.escape(body)}'> "
+                      f"— {html.escape(body.splitlines()[0][:120])}</span>")
+        out.append(
+            f"<tr{tr}>"
+            f"<td class=t>{html.escape(_fmt_ts(r.get('committed_at') or ''))}</td>"
+            f"<td class=t>{html.escape(_fmt_ts(r['recorded_at']))}{tag}</td>"
+            f"<td class='v{' live' if is_live else ''}'>"
+            f"{html.escape(r['sha'])}{live_tag}</td>"
+            f"<td>{title}</td></tr>")
+    out.append("</tbody></table></details>")
+    return "".join(out)
+
+
 def render_apps(apps: list[dict]) -> str:
-    out = ["<h2 class=sec>Apps hosted here</h2>"]
+    out = ["<h2 class=sec>Apps hosted here "
+           "<button id=checkall class=linkbtn>check all now</button></h2>"]
     if not apps:
         out.append("<p class=empty>No apps configured (see apps.json).</p>")
     for app in apps:
-        if not app["present"]:
-            tile_cls, badge = "is-absent", \
-                "<span class=badge>repo not on this box</span>"
-        elif not app["has_commits"]:
-            tile_cls, badge = "is-unknown", \
-                "<span class=badge>repo empty</span>"
-        else:
-            tile_cls, badge = "is-unknown", \
-                "<span class=badge title='live status not tracked yet'>status not tracked</span>"
+        name = app["name"]
+        tile_cls, bcls, btext = status_badge(app)
+        behind = app.get("behind") or 0
+        res = app.get("last_update_result")
 
-        out.append(f"<div class='tile {tile_cls}'>")
-        out.append(f"<h3>{html.escape(app['name'])}</h3>")
+        out.append(f"<div class='tile {tile_cls}' data-app='{html.escape(name)}'>")
+        out.append(f"<h3>{html.escape(name)}</h3>")
         if app["description"]:
             out.append(f"<div class=desc>{html.escape(app['description'])}</div>")
 
         out.append("<div class=row>")
-        out.append(badge)
+        out.append(f"<span class='badge {bcls}' data-role=status>{html.escape(btext)}</span>")
         if app["has_commits"]:
-            out.append(f"<span>version <span class='sha live'>"
+            out.append(f"<span>version <span class='sha live' data-role=sha>"
                        f"{html.escape(app['deployed_sha'] or '?')}</span></span>")
             if app["branch"]:
                 out.append(f"<span class=muted>branch {html.escape(app['branch'])}</span>")
-            if app["head_subject"]:
-                out.append(f"<span class=muted>&ldquo;"
-                           f"{html.escape(app['head_subject'])}&rdquo;</span>")
         if app["url"]:
             label = app["url_label"] or app["url"]
             out.append(f"<span>· <a href='{html.escape(app['url'])}' "
                        f"target=_blank rel=noopener>{html.escape(label)}</a></span>")
-        else:
-            out.append("<span class=muted>· no web route yet</span>")
         out.append("</div>")
 
-        rows = app["history"]
-        if rows:
-            out.append("<details class=hist><summary>deploy history "
-                       f"({len(rows)})</summary>")
-            out.append("<table><thead><tr><th>Version</th><th>Deployed</th>"
-                       "<th>Title</th><th>Description</th></tr></thead><tbody>")
-            for r in rows:
-                is_live = bool(r["sha"]) and r["sha"] == app["deployed_sha"]
-                cls = " ".join(x for x in (
-                    "live" if is_live else "",
-                    "backfilled" if r.get("backfilled") else "") if x)
-                tr = f" class='{cls}'" if cls else ""
-                tag = " <span class=muted>(backfilled)</span>" if r.get("backfilled") else ""
-                live_tag = " <span class=live-tag>live here</span>" if is_live else ""
-                out.append(
-                    f"<tr{tr}><td class='v{' live' if is_live else ''}'>"
-                    f"{html.escape(r['sha'])}{live_tag}</td>"
-                    f"<td class=t>{html.escape(_fmt_ts(r['recorded_at']))}{tag}</td>"
-                    f"<td>{html.escape(r['subject'] or '')}</td>"
-                    f"<td class=desc>{html.escape((r['body'] or '').strip())}</td></tr>")
-            out.append("</tbody></table></details>")
-        else:
-            out.append("<div class=empty>No deploy history recorded yet.</div>")
+        if app["has_commits"]:
+            out.append("<div class=acts>")
+            out.append("<button data-act=check>Check</button>")
+            out.append(f"<button data-act=update class=primary "
+                       f"{'' if behind > 0 else 'hidden'}>"
+                       f"Update{f' ({behind})' if behind > 0 else ''}</button>")
+            out.append(f"<span class=checked data-role=checked>checked "
+                       f"{html.escape(_rel_age(app.get('last_checked', '')))}</span>")
+            out.append("</div>")
+
+            open_out = bool(res and not res.get("ok"))
+            tail = (res or {}).get("output_tail", "")
+            out.append(f"<details class=out data-role=out {'open' if open_out else ''} "
+                       f"{'' if res else 'hidden'}>"
+                       f"<summary>last update output</summary>"
+                       f"<pre data-role=outpre>{html.escape(tail)}</pre></details>")
+
+        out.append(render_history_rows(app))
         out.append("</div>")
     return "".join(out)
+
+
+APPS_SCRIPT = r"""
+<script>
+(function(){
+  var POLL_MS = 15000;
+  function post(url, body){
+    return fetch(url, {method:'POST', headers:{'Content-Type':'application/json'},
+                       body:JSON.stringify(body||{})})
+           .then(function(r){ return r.json().then(function(j){return {ok:r.ok,j:j};}); });
+  }
+  function rel(iso){
+    if(!iso) return 'never';
+    var s=(Date.now()-new Date(iso).getTime())/1000;
+    if(s<90) return 'just now';
+    if(s<3600) return Math.floor(s/60)+'m ago';
+    if(s<86400) return Math.floor(s/3600)+'h ago';
+    return Math.floor(s/86400)+'d ago';
+  }
+  function badge(app){
+    if(app.updating) return ['busy','updating…'];
+    if(app.last_update_result && !app.last_update_result.ok) return ['fail','last update failed'];
+    if(app.check_error) return ['','check failed'];
+    if(app.behind===null||app.behind===undefined) return ['','not checked yet'];
+    if(app.behind>0) return ['behind', app.behind+' behind — update available'];
+    return ['ok','up to date'];
+  }
+  function apply(state){
+    (state.apps||[]).forEach(function(app){
+      var tile=document.querySelector('.tile[data-app="'+app.name+'"]');
+      if(!tile) return;
+      var b=badge(app), st=tile.querySelector('[data-role=status]');
+      if(st){ st.className='badge '+b[0]; st.textContent=b[1]; }
+      var sha=tile.querySelector('[data-role=sha]');
+      if(sha && app.deployed_sha) sha.textContent=app.deployed_sha;
+      var ck=tile.querySelector('[data-role=checked]');
+      if(ck) ck.textContent='checked '+rel(app.last_checked);
+      var upd=tile.querySelector('[data-act=update]');
+      if(upd && !upd.dataset.busy){
+        if(app.behind>0){ upd.hidden=false; upd.textContent='Update ('+app.behind+')'; }
+        else { upd.hidden=true; }
+      }
+    });
+  }
+  function refresh(){
+    return fetch('api/state').then(function(r){return r.json();}).then(apply).catch(function(){});
+  }
+  document.addEventListener('click', function(ev){
+    var btn=ev.target.closest('button'); if(!btn) return;
+
+    if(btn.id==='checkall'){
+      btn.disabled=true; btn.textContent='checking…';
+      post('api/check').then(function(){ return refresh(); })
+        .finally(function(){ btn.disabled=false; btn.textContent='check all now'; });
+      return;
+    }
+    var tile=btn.closest('.tile[data-app]'); if(!tile) return;
+    var app=tile.dataset.app;
+
+    if(btn.dataset.act==='check'){
+      btn.disabled=true;
+      post('api/check',{app:app}).then(function(){ return refresh(); })
+        .finally(function(){ btn.disabled=false; });
+    }
+    else if(btn.dataset.act==='update'){
+      if(!confirm('Pull and rebuild '+app+' on this server now?')) return;
+      btn.dataset.busy='1'; btn.disabled=true; btn.textContent='updating…';
+      var st=tile.querySelector('[data-role=status]');
+      if(st){ st.className='badge busy'; st.textContent='updating…'; }
+      var out=tile.querySelector('[data-role=out]'),
+          pre=tile.querySelector('[data-role=outpre]');
+      post('api/update',{app:app}).then(function(res){
+        var j=res.j||{};
+        if(out){ out.hidden=false; out.open=true; }
+        if(pre) pre.textContent=j.output_tail||j.error||'(no output)';
+        if(j.ok){
+          if(st){ st.className='badge ok'; st.textContent='updated — reloading'; }
+          setTimeout(function(){ location.reload(); }, 1800);
+        } else {
+          if(st){ st.className='badge fail'; st.textContent='update failed'; }
+          delete btn.dataset.busy; btn.disabled=false; btn.textContent='Retry update';
+        }
+      }).catch(function(e){
+        if(pre){ if(out) out.hidden=false; pre.textContent=String(e); }
+        delete btn.dataset.busy; btn.disabled=false; btn.textContent='Retry update';
+      });
+    }
+  });
+  setInterval(refresh, POLL_MS);
+})();
+</script>
+"""
 
 
 def render_html(state: dict) -> str:
@@ -787,14 +1118,15 @@ def render_html(state: dict) -> str:
         "</header><main>",
         render_server_panel(state["info"]),
         render_apps(state["apps"]),
+        APPS_SCRIPT,
     ]
     if state.get("chat_enabled"):
         out.append(render_chat_panel())
     out.append("</main>")
     out.append(
         "<footer>srvhome &middot; canonical source: BdRDev/fleet/srvhome "
-        "&middot; server facts refresh every ~15s; history written by each "
-        "repo's git post-merge hook</footer></body></html>")
+        "&middot; GitHub checked every ~5&nbsp;min; tiles refresh every ~15s; "
+        "history written by each repo's git post-merge hook</footer></body></html>")
     return "".join(out)
 
 
@@ -835,23 +1167,55 @@ class Handler(BaseHTTPRequestHandler):
 
     do_HEAD = do_GET
 
-    def do_POST(self) -> None:  # noqa: N802
-        path = self._route()
-        if path != "/api/chat":
-            self._send(404, b"not found\n", "text/plain")
-            return
+    def _read_json_body(self) -> dict | None:
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = 0
         if length > 32768:
-            self._send(413, b'{"error":"payload too large"}',
-                       "application/json")
-            return
+            self._send(413, b'{"error":"payload too large"}', "application/json")
+            return None
         try:
-            body = json.loads(self.rfile.read(length) or b"{}")
+            return json.loads(self.rfile.read(length) or b"{}")
         except ValueError:
             self._send(400, b'{"error":"invalid json"}', "application/json")
+            return None
+
+    def do_POST(self) -> None:  # noqa: N802
+        path = self._route()
+        if path in ("/api/check", "/api/update"):
+            body = self._read_json_body()
+            if body is None:
+                return
+            if path == "/api/check":
+                app = body.get("app")
+                if app:
+                    apps = {a["name"]: a for a in load_apps()}
+                    if app not in apps:
+                        self._send(404, b'{"error":"unknown app"}', "application/json")
+                        return
+                    check_one(apps[app])
+                else:
+                    check_all()
+                self._send(200, json.dumps(full_state(), indent=2).encode(),
+                           "application/json")
+                return
+            # /api/update
+            app = (body.get("app") or "").strip()
+            if not app:
+                self._send(400, b'{"error":"app required"}', "application/json")
+                return
+            result = run_update(app)
+            code = 429 if result.get("_busy") else (
+                400 if result.get("error") and not result.get("output_tail") else 200)
+            result.pop("_busy", None)
+            self._send(code, json.dumps(result).encode(), "application/json")
+            return
+        if path != "/api/chat":
+            self._send(404, b"not found\n", "text/plain")
+            return
+        body = self._read_json_body()
+        if body is None:
             return
 
         message = (body.get("message") or "").strip()
@@ -884,6 +1248,7 @@ def main() -> None:
     host = conf.get("bind_host", "127.0.0.1")
     port = int(conf.get("bind_port", 8610))
     connect(DB_PATH).close()
+    start_checker()
     httpd = ThreadingHTTPServer((host, port), Handler)
     print(f"srvhome listening on http://{host}:{port}  (db: {DB_PATH})",
           flush=True)
