@@ -1,22 +1,27 @@
 #!/usr/bin/env python3
-"""srvhome - per-server "what's running here" home page.
+"""srvhome - the per-server home page for this box.
 
 Runs on a fleet server (first: BdRPiSrvAMI / the Pi), binds to
-127.0.0.1:8610, and is exposed by that box's Nginx under /status/.
-It shows one tile per app the server hosts:
+127.0.0.1:8610, and is exposed by that box's Nginx (under /status/ and,
+with the updated route, at / on the bdrpisrvami name).
 
-  * the version deployed here right now (7-char commit SHA) + its
-    commit title,
-  * a running/not-tracked badge (live status is deliberately deferred -
-    see the request; the badge is neutral until that is wired up),
-  * a history of updates - every version this box has pulled, with the
-    deploy timestamp, commit title and description.
+The page has four parts:
 
-History comes from a small SQLite DB (srvhome.db) that a git
-`post-merge` hook writes to on every `git pull`. On first install the DB
-is back-filled from `git log` so history is not empty.
+  1. a **server panel** - hardware, OS, uptime/load/temp, disk, the
+     software stack (Docker/nginx/Python + Supabase container health),
+     pending apt updates, network interfaces and Tailscale;
+  2. **app tiles** - one per app this box hosts (name, description, a
+     link if it has a web route yet), plus the version deployed here now
+     (7-char commit SHA) and branch;
+  3. a **deploy history** per app - every version this box has pulled,
+     from the SQLite DB the git post-merge hook writes to;
+  4. a **Claude box** - a small chat panel that shells out to the
+     `claude` CLI already authenticated on this box (`claude -p`, JSON
+     output). In print mode read/search tools work; edits and bash are
+     auto-denied, so it answers questions but does not act.
 
-Pure Python 3 standard library - no Flask, no pip. Config: apps.json.
+Pure Python 3 standard library - no Flask, no pip. Config: apps.json,
+srvhome.conf.json.
 """
 
 from __future__ import annotations
@@ -24,7 +29,10 @@ from __future__ import annotations
 import html
 import json
 import os
+import shutil
 import subprocess
+import threading
+import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -32,13 +40,27 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(HERE, "srvhome.db")
 APPS_JSON = os.path.join(HERE, "apps.json")
 CONF_JSON = os.path.join(HERE, "srvhome.conf.json")
+CHAT_SESSION_FILE = os.path.join(HERE, ".chat_session")
 
 from store import connect, history_for, latest_for  # noqa: E402
 
+CLAUDE_BIN = (
+    shutil.which("claude")
+    or os.path.expanduser("~/.local/bin/claude")
+)
+HOME = os.path.expanduser("~")
+PROJECTS_DIR = os.path.join(HOME, "projects")
+
+
+# --------------------------------------------------------------------------
+# config
+# --------------------------------------------------------------------------
 
 def load_conf() -> dict:
     conf = {"server": os.uname().nodename, "bind_host": "127.0.0.1",
-            "bind_port": 8610, "history_limit": 40}
+            "bind_port": 8610, "history_limit": 40,
+            "chat_enabled": True, "chat_extra_args": [],
+            "chat_timeout_s": 180, "chat_max_prompt": 4000}
     try:
         with open(CONF_JSON) as fh:
             conf.update(json.load(fh))
@@ -55,19 +77,259 @@ def load_apps() -> list[dict]:
         return []
 
 
+# --------------------------------------------------------------------------
+# small shell / file helpers
+# --------------------------------------------------------------------------
+
+def _sh(cmd: list[str], timeout: float = 5.0, want_stderr: bool = False) -> str:
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True,
+                             timeout=timeout)
+        if out.returncode != 0 and not want_stderr:
+            return ""
+        text = (out.stdout or "")
+        if want_stderr:
+            text = (text + out.stderr) if text else (out.stderr or "")
+        return text.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def _read(path: str) -> str:
+    try:
+        with open(path) as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
 def _git(path: str, *args: str) -> str:
     try:
-        out = subprocess.run(
-            ["git", "-C", path, *args],
-            capture_output=True, text=True, timeout=10,
-        )
+        out = subprocess.run(["git", "-C", path, *args],
+                             capture_output=True, text=True, timeout=10)
         return out.stdout.strip() if out.returncode == 0 else ""
     except (OSError, subprocess.SubprocessError):
         return ""
 
 
+def _human_secs(s: float) -> str:
+    s = int(s)
+    d, s = divmod(s, 86400)
+    h, s = divmod(s, 3600)
+    m, _ = divmod(s, 60)
+    parts = []
+    if d:
+        parts.append(f"{d}d")
+    if h:
+        parts.append(f"{h}h")
+    if m or not parts:
+        parts.append(f"{m}m")
+    return " ".join(parts)
+
+
+def _human_bytes(n: float) -> str:
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if abs(n) < 1024:
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} PiB"
+
+
+# --------------------------------------------------------------------------
+# server info
+# --------------------------------------------------------------------------
+
+_info_cache: dict = {"at": 0.0, "data": None}
+_INFO_TTL = 15.0
+
+
+def _meminfo() -> dict:
+    info = {}
+    for line in _read("/proc/meminfo").splitlines():
+        k, _, rest = line.partition(":")
+        try:
+            info[k.strip()] = int(rest.strip().split()[0]) * 1024  # kB -> B
+        except (ValueError, IndexError):
+            pass
+    total = info.get("MemTotal", 0)
+    avail = info.get("MemAvailable", 0)
+    return {"total": total, "available": avail, "used": max(total - avail, 0),
+            "pct": round((total - avail) / total * 100) if total else 0}
+
+
+def _disk(path: str) -> dict | None:
+    try:
+        st = os.statvfs(path)
+    except OSError:
+        return None
+    total = st.f_blocks * st.f_frsize
+    free = st.f_bfree * st.f_frsize
+    avail = st.f_bavail * st.f_frsize
+    used = total - free
+    return {"mount": path, "total": total, "used": used, "avail": avail,
+            "pct": round(used / total * 100) if total else 0}
+
+
+def _cpu_temp() -> float | None:
+    raw = _read("/sys/class/thermal/thermal_zone0/temp")
+    try:
+        return round(int(raw) / 1000, 1)
+    except ValueError:
+        return None
+
+
+def _docker() -> dict:
+    ver = _sh(["docker", "--version"], 6)
+    ver = ver.replace("Docker version ", "").split(",")[0] if ver else ""
+    lines = [ln for ln in _sh(
+        ["docker", "ps", "-a", "--format", "{{.Names}}\t{{.Status}}"], 8
+    ).splitlines() if ln.strip()]
+    running = healthy = total = 0
+    supa = {"total": 0, "healthy": 0, "running": 0}
+    for ln in lines:
+        name, _, status = ln.partition("\t")
+        total += 1
+        is_run = status.startswith("Up")
+        is_ok = "(healthy)" in status
+        running += is_run
+        healthy += is_ok
+        if name.startswith(("supabase-", "realtime-dev.")):
+            supa["total"] += 1
+            supa["running"] += is_run
+            supa["healthy"] += is_ok
+    return {"version": ver, "containers_total": total,
+            "containers_running": running, "containers_healthy": healthy,
+            "supabase": supa}
+
+
+def _net() -> dict:
+    ifaces = []
+    for ln in _sh(["ip", "-o", "-4", "addr", "show"], 5).splitlines():
+        f = ln.split()
+        if len(f) < 4:
+            continue
+        name, addr = f[1], f[3]
+        if name == "lo" or name.startswith(("docker", "br-", "veth")):
+            continue
+        ifaces.append({"name": name, "addr": addr})
+    # primary LAN IP: the src of the default route (skip tailscale)
+    lan_ip = ""
+    route = _sh(["ip", "-4", "route", "get", "1.1.1.1"], 5)
+    for tok in route.split():
+        if tok == "src":
+            idx = route.split().index("src")
+            lan_ip = route.split()[idx + 1]
+            break
+    if not lan_ip and ifaces:
+        lan_ip = ifaces[0]["addr"].split("/")[0]
+    return {"lan_ip": lan_ip, "ifaces": ifaces,
+            "hostname": os.uname().nodename,
+            "fqdn": _sh(["hostname", "-f"], 3)}
+
+
+def _tailscale() -> dict:
+    raw = _sh(["tailscale", "status", "--json"], 8)
+    if not raw:
+        return {"up": False}
+    try:
+        d = json.loads(raw)
+    except json.JSONDecodeError:
+        return {"up": False}
+    self_ = d.get("Self", {}) or {}
+    peers = d.get("Peer", {}) or {}
+    online = sum(1 for p in peers.values() if p.get("Online"))
+    return {
+        "up": d.get("BackendState") == "Running",
+        "ips": self_.get("TailscaleIPs", []),
+        "dnsname": (self_.get("DNSName") or "").rstrip("."),
+        "magicdns": d.get("MagicDNSSuffix", ""),
+        "tailnet": (d.get("CurrentTailnet", {}) or {}).get("Name", ""),
+        "peers_total": len(peers),
+        "peers_online": online,
+        "peer_names": sorted(
+            (p.get("DNSName", "").split(".")[0] or p.get("HostName", ""))
+            for p in peers.values()
+        ),
+    }
+
+
+def server_info() -> dict:
+    now = time.time()
+    if _info_cache["data"] is not None and now - _info_cache["at"] < _INFO_TTL:
+        return _info_cache["data"]
+
+    os_release = {}
+    for line in _read("/etc/os-release").splitlines():
+        k, _, v = line.partition("=")
+        os_release[k] = v.strip().strip('"')
+
+    uname = os.uname()
+    try:
+        up_secs = float(_read("/proc/uptime").split()[0])
+    except (ValueError, IndexError):
+        up_secs = 0.0
+    try:
+        load = os.getloadavg()
+    except OSError:
+        load = (0.0, 0.0, 0.0)
+
+    lscpu = _sh(["lscpu"], 5)
+    cpu_model = ""
+    for ln in lscpu.splitlines():
+        if ln.startswith("Model name:"):
+            cpu_model = ln.split(":", 1)[1].strip()
+            break
+
+    reboot_required = os.path.exists("/var/run/reboot-required")
+    apt_up = _sh(["apt", "list", "--upgradable"], 15)
+    apt_count = max(sum(1 for ln in apt_up.splitlines()
+                        if "/" in ln and "Listing" not in ln), 0)
+
+    nginx_v = (_sh(["nginx", "-v"], 4, want_stderr=True)
+               or _sh(["/usr/sbin/nginx", "-v"], 4, want_stderr=True))
+    nginx_v = nginx_v.replace("nginx version: ", "").strip()
+
+    data = {
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "host": {
+            "hostname": uname.nodename,
+            "model": _read("/proc/device-tree/model").replace("\x00", "").strip(),
+            "os": os_release.get("PRETTY_NAME", ""),
+            "kernel": f"{uname.sysname} {uname.release}",
+            "arch": uname.machine,
+            "uptime": _human_secs(up_secs),
+            "booted_at": datetime.fromtimestamp(
+                time.time() - up_secs, timezone.utc
+            ).isoformat(timespec="seconds"),
+        },
+        "cpu": {
+            "model": cpu_model,
+            "count": os.cpu_count() or 0,
+            "load": [round(x, 2) for x in load],
+            "temp_c": _cpu_temp(),
+        },
+        "mem": _meminfo(),
+        "disks": [d for d in (_disk("/"), _disk("/boot/firmware")) if d],
+        "software": {
+            "docker": _docker(),
+            "nginx": nginx_v,
+            "python": f"{uname.sysname} python "
+                      f"{'.'.join(map(str, __import__('sys').version_info[:3]))}",
+        },
+        "updates": {"apt_upgradable": apt_count,
+                    "reboot_required": reboot_required},
+        "net": _net(),
+        "tailscale": _tailscale(),
+    }
+    _info_cache.update(at=now, data=data)
+    return data
+
+
+# --------------------------------------------------------------------------
+# apps
+# --------------------------------------------------------------------------
+
 def app_state(app: dict, history_limit: int) -> dict:
-    """Assemble the display state for one app."""
     path = os.path.expanduser(app["path"])
     name = app["name"]
     present = os.path.isdir(os.path.join(path, ".git"))
@@ -75,6 +337,7 @@ def app_state(app: dict, history_limit: int) -> dict:
     head_sha = _git(path, "rev-parse", "--short=7", "HEAD") if present else ""
     head_subject = _git(path, "log", "-1", "--format=%s") if present else ""
     branch = _git(path, "rev-parse", "--abbrev-ref", "HEAD") if present else ""
+    has_commits = bool(head_sha)
 
     con = connect(DB_PATH)
     try:
@@ -86,14 +349,17 @@ def app_state(app: dict, history_limit: int) -> dict:
     return {
         "name": name,
         "path": path,
+        "description": app.get("description", ""),
+        "url": app.get("url", ""),
+        "url_label": app.get("url_label", ""),
         "present": present,
+        "has_commits": has_commits,
         "branch": branch,
         "head_sha": head_sha,
         "head_subject": head_subject,
-        # deployed = what the DB last recorded a pull to; falls back to HEAD
         "deployed_sha": (latest or {}).get("sha", "") or head_sha,
         "deployed_at": (latest or {}).get("recorded_at", ""),
-        "running": None,   # deferred - see request answer #2
+        "running": None,   # live status still deferred
         "history": rows,
     }
 
@@ -105,8 +371,97 @@ def full_state() -> dict:
     return {
         "server": conf.get("server") or os.uname().nodename,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "chat_enabled": bool(conf.get("chat_enabled", True))
+        and bool(CLAUDE_BIN and os.path.exists(CLAUDE_BIN)),
+        "info": server_info(),
         "apps": [app_state(a, limit) for a in apps],
     }
+
+
+# --------------------------------------------------------------------------
+# claude chat
+# --------------------------------------------------------------------------
+
+_chat_lock = threading.Lock()
+
+CHAT_SYSTEM = (
+    "You are the assistant embedded in the srvhome dashboard on the "
+    "server '{server}'. Answer questions about this box and the apps it "
+    "hosts concisely. You are in a read-only web context: you may read "
+    "and search files under ~/projects but cannot make changes."
+)
+
+
+def run_claude(message: str, reset: bool) -> dict:
+    conf = load_conf()
+    max_prompt = int(conf.get("chat_max_prompt", 4000))
+    if len(message) > max_prompt:
+        return {"error": f"message too long (max {max_prompt} chars)"}
+    if not (CLAUDE_BIN and os.path.exists(CLAUDE_BIN)):
+        return {"error": "claude CLI not found on this server"}
+
+    if not _chat_lock.acquire(blocking=False):
+        return {"error": "busy", "_busy": True}
+    try:
+        args = [CLAUDE_BIN, "-p", message, "--output-format", "json"]
+        args += list(conf.get("chat_extra_args", []))
+        sid = "" if reset else _read(CHAT_SESSION_FILE)
+        if sid:
+            args += ["--resume", sid]
+        else:
+            args += ["--append-system-prompt",
+                     CHAT_SYSTEM.format(server=conf.get("server", ""))]
+
+        env = os.environ.copy()
+        env["HOME"] = HOME
+        env["PATH"] = (os.path.dirname(CLAUDE_BIN) + ":"
+                       + env.get("PATH", "/usr/bin:/bin"))
+
+        def _invoke(argv):
+            return subprocess.run(
+                argv, cwd=PROJECTS_DIR, capture_output=True, text=True,
+                timeout=float(conf.get("chat_timeout_s", 180)), env=env,
+            )
+
+        try:
+            proc = _invoke(args)
+            if proc.returncode != 0 and sid:
+                # stale/invalid session - retry once, fresh
+                fresh = [CLAUDE_BIN, "-p", message, "--output-format", "json"]
+                fresh += list(conf.get("chat_extra_args", []))
+                fresh += ["--append-system-prompt",
+                          CHAT_SYSTEM.format(server=conf.get("server", ""))]
+                proc = _invoke(fresh)
+        except subprocess.TimeoutExpired:
+            return {"error": "claude timed out"}
+
+        if proc.returncode != 0:
+            tail = (proc.stderr or proc.stdout or "").strip()[-300:]
+            return {"error": f"claude exited {proc.returncode}: {tail}"}
+
+        try:
+            data = json.loads(proc.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            return {"error": "could not parse claude output"}
+
+        new_sid = data.get("session_id")
+        if new_sid:
+            try:
+                with open(CHAT_SESSION_FILE, "w") as fh:
+                    fh.write(new_sid)
+            except OSError:
+                pass
+
+        return {
+            "reply": data.get("result", "") or "(no output)",
+            "is_error": bool(data.get("is_error")),
+            "cost_usd": data.get("total_cost_usd"),
+            "num_turns": data.get("num_turns"),
+            "denials": [d.get("tool_name") for d in
+                       (data.get("permission_denials") or [])],
+        }
+    finally:
+        _chat_lock.release()
 
 
 # --------------------------------------------------------------------------
@@ -118,23 +473,38 @@ PAGE_CSS = """
 *{box-sizing:border-box}
 body{margin:0;background:#0f1216;color:#d7dde3;
      font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+a{color:#6cb6ff}
 header{padding:22px 28px;border-bottom:1px solid #232a31;background:#12171d}
 header h1{margin:0;font-size:19px;letter-spacing:.3px}
 header .sub{color:#8b96a1;font-size:13px;margin-top:4px}
 main{padding:24px 28px;max-width:1100px;margin:0 auto}
+h2.sec{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#8b96a1;
+       margin:34px 0 12px;border-bottom:1px solid #202730;padding-bottom:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.card{background:#141a20;border:1px solid #232a31;border-radius:10px;padding:14px 16px}
+.card h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.4px;
+         color:#8b96a1}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-size:13.5px}
+.kv .k{color:#8b96a1}
+.kv .v{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#dbe3ea}
+.bar{height:6px;border-radius:4px;background:#232a31;margin-top:6px;overflow:hidden}
+.bar > i{display:block;height:100%;background:#3fb950}
+.bar.warn > i{background:#d29922}
+.bar.hot > i{background:#f85149}
+.pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:20px;
+      border:1px solid #333d47;color:#aab4bf;background:#1a2129;margin:2px 4px 2px 0}
+.pill.ok{color:#7fd18c;border-color:#2f5136;background:#132018}
+.pill.warn{color:#e3b341;border-color:#5c4813;background:#211c0f}
 .tile{background:#141a20;border:1px solid #232a31;border-left:4px solid #3a4550;
       border-radius:10px;padding:18px 20px;margin-bottom:22px}
 .tile.is-running{border-left-color:#3fb950}
-.tile.is-stopped{border-left-color:#f85149}
 .tile.is-unknown{border-left-color:#d29922}
 .tile.is-absent {border-left-color:#3a4550}
-.tile h2{margin:0 0 2px;font-size:16px}
-.row{display:flex;flex-wrap:wrap;gap:14px;align-items:baseline;margin:8px 0 14px}
+.tile h3{margin:0 0 4px;font-size:16px}
+.tile .desc{color:#c2cbd4;font-size:13.5px;margin:2px 0 10px;max-width:70ch}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:baseline;margin:6px 0 12px}
 .badge{font-size:12px;padding:2px 9px;border-radius:20px;border:1px solid #333d47;
        color:#aab4bf;background:#1a2129}
-.badge.ok{color:#7fd18c;border-color:#2f5136;background:#132018}
-.badge.off{color:#e08a8a;border-color:#5a2f2f;background:#201313}
-.badge.unknown{color:#e3b341;border-color:#5c4813;background:#211c0f}
 .sha{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#e2c08d}
 .sha.live{color:#7fd18c}
 .muted{color:#8b96a1}
@@ -150,14 +520,25 @@ tr.backfilled td.v{color:#8b96a1}
 .live-tag{display:inline-block;margin-left:7px;padding:0 6px;font-size:10.5px;
           color:#7fd18c;border:1px solid #2f5136;border-radius:20px}
 .empty{color:#8b96a1;font-style:italic;padding:6px 0}
+details.hist{margin-top:8px}
+details.hist summary{cursor:pointer;color:#8b96a1;font-size:12.5px}
 footer{max-width:1100px;margin:0 auto;padding:8px 28px 40px;color:#6b7580;font-size:12px}
-.legend{display:flex;gap:15px;flex-wrap:wrap;margin-bottom:10px;font-size:11.5px}
-.legend span::before{content:'';display:inline-block;width:9px;height:9px;border-radius:2px;
-                     margin-right:5px;vertical-align:middle;background:currentColor}
-.legend .l-run{color:#3fb950}
-.legend .l-stop{color:#f85149}
-.legend .l-unknown{color:#d29922}
-.legend .l-live{color:#7fd18c}
+/* chat */
+#chat{background:#141a20;border:1px solid #232a31;border-radius:10px;padding:16px}
+#chatlog{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;
+         margin-bottom:12px}
+.msg{padding:9px 12px;border-radius:9px;font-size:14px;white-space:pre-wrap;max-width:88%}
+.msg.u{align-self:flex-end;background:#1d2733;border:1px solid #2b3a4d}
+.msg.a{align-self:flex-start;background:#161d24;border:1px solid #253039}
+.msg.e{align-self:flex-start;background:#201313;border:1px solid #5a2f2f;color:#e08a8a}
+.msg .meta{display:block;margin-top:5px;color:#6b7580;font-size:11px}
+#chatform{display:flex;gap:8px}
+#chatinput{flex:1;background:#0f1419;border:1px solid #2b3a4d;border-radius:8px;
+           color:#e6edf3;padding:9px 11px;font:inherit;resize:vertical;min-height:42px}
+#chat button{background:#1f6feb;border:0;color:#fff;border-radius:8px;padding:0 16px;
+             font:inherit;cursor:pointer}
+#chat button.ghost{background:#20262d;color:#aab4bf}
+#chat button:disabled{opacity:.5;cursor:default}
 """
 
 
@@ -165,10 +546,231 @@ def _fmt_ts(iso: str) -> str:
     if not iso:
         return "—"
     try:
-        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-        return dt.strftime("%Y-%m-%d %H:%M")
+        return datetime.fromisoformat(
+            iso.replace("Z", "+00:00")).strftime("%Y-%m-%d %H:%M")
     except ValueError:
         return iso
+
+
+def _kv(k: str, v: str) -> str:
+    return f"<div class=kv><span class=k>{html.escape(k)}</span>" \
+           f"<span class=v>{html.escape(str(v))}</span></div>"
+
+
+def _meter(k: str, used: float, total: float, extra: str = "") -> str:
+    pct = round(used / total * 100) if total else 0
+    cls = "bar" + (" hot" if pct >= 90 else " warn" if pct >= 75 else "")
+    return (f"<div class=kv><span class=k>{html.escape(k)}</span>"
+            f"<span class=v>{_human_bytes(used)} / {_human_bytes(total)}"
+            f"{(' · ' + extra) if extra else ''} ({pct}%)</span></div>"
+            f"<div class='{cls}'><i style='width:{min(pct,100)}%'></i></div>")
+
+
+def render_server_panel(info: dict) -> str:
+    h, c, m = info["host"], info["cpu"], info["mem"]
+    sw, up, net, ts = info["software"], info["updates"], info["net"], info["tailscale"]
+    dk = sw["docker"]
+    o = ["<h2 class=sec>Server</h2><div class=grid>"]
+
+    o.append("<div class=card><h3>Host</h3>")
+    o.append(_kv("name", h["hostname"]))
+    o.append(_kv("model", h["model"] or "—"))
+    o.append(_kv("os", h["os"] or "—"))
+    o.append(_kv("kernel", f"{h['kernel']} ({h['arch']})"))
+    o.append(_kv("uptime", h["uptime"]))
+    o.append(_kv("booted", _fmt_ts(h["booted_at"]) + " UTC"))
+    o.append("</div>")
+
+    o.append("<div class=card><h3>CPU &amp; memory</h3>")
+    o.append(_kv("cpu", f"{c['model']} ×{c['count']}" if c["model"]
+                 else f"×{c['count']}"))
+    o.append(_kv("load", " / ".join(f"{x:.2f}" for x in c["load"])))
+    if c["temp_c"] is not None:
+        o.append(_kv("temp", f"{c['temp_c']} °C"))
+    o.append(_meter("ram", m["used"], m["total"],
+                    f"{_human_bytes(m['available'])} avail"))
+    o.append("</div>")
+
+    o.append("<div class=card><h3>Disk</h3>")
+    for d in info["disks"]:
+        o.append(_meter(d["mount"], d["used"], d["total"],
+                        f"{_human_bytes(d['avail'])} free"))
+    o.append("</div>")
+
+    o.append("<div class=card><h3>Stack</h3>")
+    o.append(_kv("docker", dk["version"] or "—"))
+    o.append(_kv("containers",
+                 f"{dk['containers_running']}/{dk['containers_total']} up"))
+    sp = dk["supabase"]
+    if sp["total"]:
+        o.append(_kv("supabase",
+                     f"{sp['healthy']}/{sp['total']} healthy"))
+    o.append(_kv("nginx", sw["nginx"] or "—"))
+    o.append(_kv("python", ".".join(map(str,
+                 __import__("sys").version_info[:3]))))
+    o.append("</div>")
+
+    o.append("<div class=card><h3>Updates</h3>")
+    apt = up["apt_upgradable"]
+    o.append(f"<span class='pill {'warn' if apt else 'ok'}'>"
+             f"{apt} apt update{'s' if apt != 1 else ''}</span>")
+    o.append(f"<span class='pill {'warn' if up['reboot_required'] else 'ok'}'>"
+             f"{'reboot required' if up['reboot_required'] else 'no reboot needed'}"
+             f"</span>")
+    o.append("</div>")
+
+    o.append("<div class=card><h3>Network</h3>")
+    o.append(_kv("lan ip", net["lan_ip"] or "—"))
+    for i in net["ifaces"]:
+        o.append(_kv(i["name"], i["addr"]))
+    o.append("</div>")
+
+    o.append("<div class=card><h3>Tailscale</h3>")
+    if ts.get("up"):
+        for ip in ts.get("ips", []):
+            o.append(_kv("ip", ip))
+        if ts.get("dnsname"):
+            o.append(_kv("name", ts["dnsname"]))
+        if ts.get("tailnet"):
+            o.append(_kv("tailnet", ts["tailnet"]))
+        o.append(_kv("peers",
+                     f"{ts.get('peers_online', 0)}/{ts.get('peers_total', 0)} online"))
+        for p in ts.get("peer_names", []):
+            if p:
+                o.append(f"<span class=pill>{html.escape(p)}</span>")
+    else:
+        o.append("<span class='pill warn'>not running</span>")
+    o.append("</div>")
+
+    o.append("</div>")
+    return "".join(o)
+
+
+def render_chat_panel() -> str:
+    return """
+<h2 class=sec>Ask Claude about this server</h2>
+<div id=chat>
+  <div id=chatlog></div>
+  <form id=chatform>
+    <textarea id=chatinput placeholder="e.g. which containers are unhealthy? what changed in PlanBdRad recently?"
+              autocomplete=off></textarea>
+    <button type=submit id=chatsend>Send</button>
+    <button type=button id=chatreset class=ghost title="start a new conversation">New</button>
+  </form>
+  <div class=empty style="font-size:11.5px;margin-top:6px">
+    Runs <code>claude -p</code> on this box (read-only: it can read and search
+    <code>~/projects</code> but not change anything).
+  </div>
+</div>
+<script>
+(function(){
+  var log=document.getElementById('chatlog'),
+      form=document.getElementById('chatform'),
+      input=document.getElementById('chatinput'),
+      send=document.getElementById('chatsend'),
+      reset=document.getElementById('chatreset');
+  function add(cls,text,meta){
+    var d=document.createElement('div'); d.className='msg '+cls; d.textContent=text;
+    if(meta){var s=document.createElement('span'); s.className='meta'; s.textContent=meta; d.appendChild(s);}
+    log.appendChild(d); log.scrollTop=log.scrollHeight; return d;
+  }
+  function ask(msg,doReset){
+    send.disabled=true;
+    var pend=add('a','…');
+    fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:msg,reset:!!doReset})})
+    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+    .then(function(res){
+      var j=res.j;
+      if(!res.ok||j.error){pend.className='msg e';pend.textContent=j.error||('HTTP '+'error');return;}
+      pend.textContent=j.reply;
+      var bits=[];
+      if(typeof j.cost_usd==='number') bits.push('$'+j.cost_usd.toFixed(4));
+      if(j.num_turns) bits.push(j.num_turns+' turn'+(j.num_turns>1?'s':''));
+      if(j.denials&&j.denials.length) bits.push('blocked: '+j.denials.join(', '));
+      if(bits.length){var s=document.createElement('span');s.className='meta';s.textContent=bits.join(' · ');pend.appendChild(s);}
+    })
+    .catch(function(e){pend.className='msg e';pend.textContent=String(e);})
+    .finally(function(){send.disabled=false;input.focus();});
+  }
+  form.addEventListener('submit',function(e){
+    e.preventDefault();
+    var msg=input.value.trim(); if(!msg)return;
+    add('u',msg); input.value=''; ask(msg,false);
+  });
+  reset.addEventListener('click',function(){
+    log.innerHTML=''; add('a','New conversation started.'); input.focus();
+    fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:'',reset:true})}).catch(function(){});
+  });
+})();
+</script>
+"""
+
+
+def render_apps(apps: list[dict]) -> str:
+    out = ["<h2 class=sec>Apps hosted here</h2>"]
+    if not apps:
+        out.append("<p class=empty>No apps configured (see apps.json).</p>")
+    for app in apps:
+        if not app["present"]:
+            tile_cls, badge = "is-absent", \
+                "<span class=badge>repo not on this box</span>"
+        elif not app["has_commits"]:
+            tile_cls, badge = "is-unknown", \
+                "<span class=badge>repo empty</span>"
+        else:
+            tile_cls, badge = "is-unknown", \
+                "<span class=badge title='live status not tracked yet'>status not tracked</span>"
+
+        out.append(f"<div class='tile {tile_cls}'>")
+        out.append(f"<h3>{html.escape(app['name'])}</h3>")
+        if app["description"]:
+            out.append(f"<div class=desc>{html.escape(app['description'])}</div>")
+
+        out.append("<div class=row>")
+        out.append(badge)
+        if app["has_commits"]:
+            out.append(f"<span>version <span class='sha live'>"
+                       f"{html.escape(app['deployed_sha'] or '?')}</span></span>")
+            if app["branch"]:
+                out.append(f"<span class=muted>branch {html.escape(app['branch'])}</span>")
+            if app["head_subject"]:
+                out.append(f"<span class=muted>&ldquo;"
+                           f"{html.escape(app['head_subject'])}&rdquo;</span>")
+        if app["url"]:
+            label = app["url_label"] or app["url"]
+            out.append(f"<span>· <a href='{html.escape(app['url'])}' "
+                       f"target=_blank rel=noopener>{html.escape(label)}</a></span>")
+        else:
+            out.append("<span class=muted>· no web route yet</span>")
+        out.append("</div>")
+
+        rows = app["history"]
+        if rows:
+            out.append("<details class=hist><summary>deploy history "
+                       f"({len(rows)})</summary>")
+            out.append("<table><thead><tr><th>Version</th><th>Deployed</th>"
+                       "<th>Title</th><th>Description</th></tr></thead><tbody>")
+            for r in rows:
+                is_live = bool(r["sha"]) and r["sha"] == app["deployed_sha"]
+                cls = " ".join(x for x in (
+                    "live" if is_live else "",
+                    "backfilled" if r.get("backfilled") else "") if x)
+                tr = f" class='{cls}'" if cls else ""
+                tag = " <span class=muted>(backfilled)</span>" if r.get("backfilled") else ""
+                live_tag = " <span class=live-tag>live here</span>" if is_live else ""
+                out.append(
+                    f"<tr{tr}><td class='v{' live' if is_live else ''}'>"
+                    f"{html.escape(r['sha'])}{live_tag}</td>"
+                    f"<td class=t>{html.escape(_fmt_ts(r['recorded_at']))}{tag}</td>"
+                    f"<td>{html.escape(r['subject'] or '')}</td>"
+                    f"<td class=desc>{html.escape((r['body'] or '').strip())}</td></tr>")
+            out.append("</tbody></table></details>")
+        else:
+            out.append("<div class=empty>No deploy history recorded yet.</div>")
+        out.append("</div>")
+    return "".join(out)
 
 
 def render_html(state: dict) -> str:
@@ -176,88 +778,23 @@ def render_html(state: dict) -> str:
     out = [
         "<!doctype html><html lang=en><head><meta charset=utf-8>",
         "<meta name=viewport content='width=device-width,initial-scale=1'>",
-        f"<title>{e(state['server'])} — running apps</title>",
+        f"<title>{e(state['server'])} — server dashboard</title>",
         f"<style>{PAGE_CSS}</style></head><body>",
         "<header>",
-        f"<h1>{e(state['server'])} — running apps</h1>",
-        f"<div class=sub>Status of the apps this server hosts, and the "
-        f"history of versions it has pulled. "
+        f"<h1>{e(state['server'])} — server dashboard</h1>",
+        f"<div class=sub>Hardware, stack, hosted apps and deploy history. "
         f"Generated {e(_fmt_ts(state['generated_at']))} UTC.</div>",
         "</header><main>",
+        render_server_panel(state["info"]),
+        render_apps(state["apps"]),
     ]
-
-    if not state["apps"]:
-        out.append("<p class=empty>No apps configured (see apps.json).</p>")
-
-    for app in state["apps"]:
-        if app["running"] is True:
-            badge = "<span class='badge ok'>running</span>"
-            tile_cls = "is-running"
-        elif app["running"] is False:
-            badge = "<span class='badge off'>not running</span>"
-            tile_cls = "is-stopped"
-        elif not app["present"]:
-            badge = "<span class='badge unknown' title='live status not tracked yet'>status not tracked</span>"
-            tile_cls = "is-absent"
-        else:
-            badge = "<span class='badge unknown' title='live status not tracked yet'>status not tracked</span>"
-            tile_cls = "is-unknown"
-
-        out.append(f"<div class='tile {tile_cls}'>")
-        out.append(f"<h2>{e(app['name'])}</h2>")
-        out.append("<div class=row>")
-        out.append(badge)
-        if app["present"]:
-            out.append(
-                f"<span>version <span class='sha live'>{e(app['deployed_sha'] or '?')}</span></span>"
-            )
-            if app["branch"]:
-                out.append(f"<span class=muted>branch {e(app['branch'])}</span>")
-            if app["head_subject"]:
-                out.append(f"<span class=muted>&ldquo;{e(app['head_subject'])}&rdquo;</span>")
-        else:
-            out.append("<span class=muted>repo not present on this box</span>")
-        out.append("</div>")
-
-        rows = app["history"]
-        if rows:
-            out.append("<table><thead><tr><th>Version</th><th>Deployed</th>"
-                       "<th>Title</th><th>Description</th></tr></thead><tbody>")
-            for r in rows:
-                is_live = bool(r["sha"]) and r["sha"] == app["deployed_sha"]
-                row_cls = " ".join(c for c in (
-                    "live" if is_live else "",
-                    "backfilled" if r.get("backfilled") else "",
-                ) if c)
-                tr_attr = f" class='{row_cls}'" if row_cls else ""
-                tag = " <span class=muted>(backfilled)</span>" if r.get("backfilled") else ""
-                live_tag = " <span class=live-tag>live here</span>" if is_live else ""
-                out.append(
-                    f"<tr{tr_attr}>"
-                    f"<td class='v{' live' if is_live else ''}'>{e(r['sha'])}{live_tag}</td>"
-                    f"<td class=t>{e(_fmt_ts(r['recorded_at']))}{tag}</td>"
-                    f"<td>{e(r['subject'] or '')}</td>"
-                    f"<td class=desc>{e((r['body'] or '').strip())}</td>"
-                    "</tr>"
-                )
-            out.append("</tbody></table>")
-        else:
-            out.append("<div class=empty>No deploy history recorded yet.</div>")
-        out.append("</div>")
-
+    if state.get("chat_enabled"):
+        out.append(render_chat_panel())
     out.append("</main>")
     out.append(
-        "<footer>"
-        "<div class=legend>"
-        "<span class=l-run>running</span>"
-        "<span class=l-stop>not running</span>"
-        "<span class=l-unknown>status not tracked</span>"
-        "<span class=l-live>version currently deployed on this box</span>"
-        "</div>"
-        "srvhome &middot; canonical source: BdRDev/fleet/srvhome &middot; "
-        "history written by each repo's git post-merge hook</footer>"
-    )
-    out.append("</body></html>")
+        "<footer>srvhome &middot; canonical source: BdRDev/fleet/srvhome "
+        "&middot; server facts refresh every ~15s; history written by each "
+        "repo's git post-merge hook</footer></body></html>")
     return "".join(out)
 
 
@@ -266,7 +803,7 @@ def render_html(state: dict) -> str:
 # --------------------------------------------------------------------------
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "srvhome/1.0"
+    server_version = "srvhome/1.1"
 
     def _send(self, code: int, body: bytes, ctype: str) -> None:
         self.send_response(code)
@@ -277,22 +814,66 @@ class Handler(BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
-    def do_GET(self) -> None:  # noqa: N802
+    def _route(self) -> str:
         path = self.path.split("?", 1)[0].rstrip("/")
-        # tolerate being mounted at / or /status
-        path = path[len("/status"):] if path.startswith("/status") else path
+        if path.startswith("/status"):
+            path = path[len("/status"):]
+        return path
+
+    def do_GET(self) -> None:  # noqa: N802
+        path = self._route()
         if path in ("", "/"):
-            body = render_html(full_state()).encode()
-            self._send(200, body, "text/html; charset=utf-8")
+            self._send(200, render_html(full_state()).encode(),
+                       "text/html; charset=utf-8")
         elif path in ("/api/state", "/api"):
-            body = json.dumps(full_state(), indent=2).encode()
-            self._send(200, body, "application/json")
+            self._send(200, json.dumps(full_state(), indent=2).encode(),
+                       "application/json")
         elif path in ("/healthz", "/health"):
             self._send(200, b"ok\n", "text/plain")
         else:
             self._send(404, b"not found\n", "text/plain")
 
     do_HEAD = do_GET
+
+    def do_POST(self) -> None:  # noqa: N802
+        path = self._route()
+        if path != "/api/chat":
+            self._send(404, b"not found\n", "text/plain")
+            return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if length > 32768:
+            self._send(413, b'{"error":"payload too large"}',
+                       "application/json")
+            return
+        try:
+            body = json.loads(self.rfile.read(length) or b"{}")
+        except ValueError:
+            self._send(400, b'{"error":"invalid json"}', "application/json")
+            return
+
+        message = (body.get("message") or "").strip()
+        reset = bool(body.get("reset"))
+        if not message:
+            # a bare reset ping is fine
+            if reset:
+                try:
+                    os.remove(CHAT_SESSION_FILE)
+                except OSError:
+                    pass
+                self._send(200, b'{"ok":true}', "application/json")
+            else:
+                self._send(400, b'{"error":"empty message"}',
+                           "application/json")
+            return
+
+        result = run_claude(message, reset)
+        code = 429 if result.get("_busy") else (
+            400 if result.get("error") and not result.get("reply") else 200)
+        result.pop("_busy", None)
+        self._send(code, json.dumps(result).encode(), "application/json")
 
     def log_message(self, fmt: str, *args) -> None:  # quieter logs
         pass
@@ -302,10 +883,10 @@ def main() -> None:
     conf = load_conf()
     host = conf.get("bind_host", "127.0.0.1")
     port = int(conf.get("bind_port", 8610))
-    # make sure the schema exists before serving
     connect(DB_PATH).close()
     httpd = ThreadingHTTPServer((host, port), Handler)
-    print(f"srvhome listening on http://{host}:{port}  (db: {DB_PATH})", flush=True)
+    print(f"srvhome listening on http://{host}:{port}  (db: {DB_PATH})",
+          flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
