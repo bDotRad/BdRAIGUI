@@ -1,9 +1,35 @@
-READY
+NOT READY
 
 # Ecosystem page consolidation
 
-Both questions below answered (2026-08-29): **delete the old Ecosystem
-tab**, **drop the notes blob from the page** (stays in the DB).
+**Claimed 2026-08-30 by the Independent Claude session — being
+implemented live with Brad. Do not process this from a scheduled pass.**
+
+Both questions answered (2026-08-29): **delete the old Ecosystem tab**,
+**drop the notes blob from the page** (stays in the DB).
+
+## Brad's final spec (2026-08-30)
+
+a. Remove the **Ecosystem** tab.
+b. Remove the **Fleet** tab.
+c. Rename **Ecosystem 2** → **Ecosystem**.
+d. Remove the text above *and* below the table.
+e. Edit button → top right of the table.
+f. Add a **Projects** table below the **Servers** table:
+
+| Col | Type |
+|---|---|
+| Name | text |
+| PM | Y/N |
+| Web | Y/N |
+| DB | Y/N |
+| Elec Ctrl | Y/N |
+| Elec LV-HV | Y/N |
+| Doco | Y/N |
+| Runs on | dropdown of servers (blank = not deployed) |
+| Web URL | text, rendered as a link in read mode |
+| Database | `none` / `SQLite` / `Supabase` / `shares:<project>` |
+| Status | `planned` / `building` / `deployed` / `live` |
 
 Supersedes **`rFlet update`** and **`rUpdate Fleet - Add Project Table`**
 (both folded in verbatim at the bottom). Does **not** cover
