@@ -1,6 +1,9 @@
-NOT READY
+READY
 
 # Ecosystem page consolidation
+
+Both questions below answered (2026-08-29): **delete the old Ecosystem
+tab**, **drop the notes blob from the page** (stays in the DB).
 
 Supersedes **`rFlet update`** and **`rUpdate Fleet - Add Project Table`**
 (both folded in verbatim at the bottom). Does **not** cover
@@ -107,7 +110,7 @@ Options:
 2. Keep it as a **read-only** view rendered from the two grids (not
    separately editable).
 
-Answer:
+Answer: 1 — delete it.
 
 ??? --------------- ???
 
@@ -121,7 +124,7 @@ Options:
    shown. `rFlet update` says "just the table".
 2. Keep it, **collapsed**, at the bottom of the Ecosystem page.
 
-Answer:
+Answer: 1 — drop it from the page.
 
 ??? --------------- ???
 
