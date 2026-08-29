@@ -6,6 +6,39 @@ Add web link with name (make hyperlink)
 
 ---
 
+## Sixth pass — question answered, all code done; one restart left (Claude, 2026-08-29)
+
+You answered the hyperlink question **"1 will do"** — current behaviour
+stays (the Web cell shows the URL as its own link text, scheme stripped,
+opens in a new tab). No code change needed; nothing else was open.
+
+All three asks are implemented and committed (`5c6d8e9`):
+- **Other** column removed from the Ecosystem 2 grid
+- **Tailscale IP** column added — editable cell, `TS:` chip on the
+  Ecosystem diagram + a line in the tree
+- **Web** column added, rendered as a real `<a href target=_blank>`
+  (scheme stripped for the link text)
+
+The only thing between here and live is the dashboard restart — it needs
+your sudo, which an unattended session can't do. That same restart is
+also step 2 of `rEditing Tables`; if you're running that one, this is
+already covered — just archive this file afterwards.
+
+@@@ --- Action --- @@@
+
+1. Restart the dashboard to load the new Ecosystem 2 columns.
+
+"On this dev box:"
+sudo systemctl restart bdrdev-dashboard
+
+"Then open the Ecosystem 2 tab: Tailscale IP + Web columns present, no
+ Other column, Edit / Save / Cancel still work. Archive this file once
+ it looks right."
+
+@@@ ------------- @@@
+
+---
+
 ## Fifth pass — the Fourth-pass work is now actually committed (Claude, 2026-08-29)
 
 The Fourth-pass writeup below says "Committed + pushed" — it wasn't; that
@@ -34,7 +67,7 @@ Options:
 1. Current behaviour is fine — link text is the host/path. (recommended)
 2. Add a separate "link label" field per server, shown as the link text.
 
-Answer:
+Answer: 1 will do
 
 
 ??? --------------- ???
