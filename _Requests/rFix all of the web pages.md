@@ -1,5 +1,14 @@
-WAITING RESPONSE
+READY
 
+I dont know what you want.
+
+I gave answers
+
+Answer: 1 a, 2 i can, 3 get it to work. 4. Yes. Go for it just get it to a stage of working
+
+Give me actions or close this,.
+
+-----------------
 bdrpisrvami isnt working. i have another claude on that server trying to fix it. work together.
 the bdramassist isnt working.
 planbdr prbobaly isnt.
@@ -93,80 +102,141 @@ Answer: 1 a, 2 i can, 3 get it to work. 4. Yes. Go for it just get it to a stage
 
 ---
 
-## [DEV] D + E done — 2026-08-29 (BdRDev, unattended)
+## [DEV] Everything BdRDev can do is done. Here is the exact action list. — 2026-08-29
 
-Layout locked to **option 1a** (per-app `*.local` names). All source /
-doc / config work that doesn't need sudo or a live DB is committed and
-pushed. Three commits:
+**What "give me actions" means here:** the two apps have never been
+deployed to the Pi. Nothing is corrupt — there is just no build, no
+nginx route, and no schema in Postgres yet. The remaining work is one
+first-time deploy. BdRDev cannot run it: it needs `sudo` on the Pi, and
+this unattended session's safety classifier blocks *all* writes to a
+remote host over SSH (it blocked even `git pull`). So it is written out
+below as a single copy-paste sequence.
 
-- **PlanBdRad** `480b680` — `VM_SETUP.md` → `SERVER_SETUP.md` (Pi
-  runbook); added `nginx/planbdrad.conf`, `systemd/planbdradpydoc.service`,
-  `systemd/avahi-publish-planbdrad.service`; `SQL_RUN.md` corrected
-  (Pi Postgres has **no** PlanBdRad schema — the 2026-08-24 load was on
-  the retired VM); `CLAUDE.md` / `Description.md` / `DESIGN_NOTES.md` /
-  `ISSUES_IDEAS.md` / `build.sh` / `CHANGELOG.md` de-stale'd.
-- **BdRAMAssist** `e5d92e7` — `SERVER_SETUP.md` rewritten (Pi, `staging`
-  schema in the shared Supabase); `nginx/bdramassist.conf` +
-  `systemd/avahi-publish-bdramassist.service` re-pathed to the Pi
-  (`bdramassist.local`, loopback `:8082`); `SQL_RUN.md` +
-  `supabase/README.md` + `CLAUDE.md` / `Description.md` / `DESIGN_NOTES.md`
-  / `build.sh` de-stale'd.
-- **BdRDev** — fleet data (`state/ecosystem.json` live + `DEFAULT_ECOSYSTEM`
-  in `app/common.py`): `BdRPiAMI` → **`BdRPiSrvAMI`**, PlanBdRad /
-  BdRAMAssist web addresses set to `https://planbdrad.local` /
-  `https://bdramassist.local` (tagged "pending Pi deploy"), notes updated.
-  (Dashboard needs a restart for the `common.py` default to matter; the
-  live `ecosystem.json` is already updated.)
+**BdRDev has already done (committed + pushed):**
+- PlanBdRad `480b680`, BdRAMAssist `e5d92e7` — deploy docs + nginx /
+  systemd / avahi configs re-targeted from the dead VM to the Pi, per
+  layout **1a** (`planbdrad.local` / `bdramassist.local`).
+- BdRDev `c3b33aa` — fleet data (`ecosystem.json` + `common.py`):
+  `BdRPiAMI` → `BdRPiSrvAMI`, app URLs set (tagged "pending Pi deploy").
+- `~/projects/FIX STUFF.md` on the Pi — `[DEV]` log entry for the Pi's
+  Claude (its lane: cert regen + uncommenting the per-app nginx blocks
+  in `nginx/bdrpiami.conf`, then `./build.sh` once Node exists).
 
-`~/projects/FIX STUFF.md` on the Pi updated with a `[DEV]` log entry +
-the deploy shape for the Pi Claude.
+**Verified Pi state (2026-08-29, read-only over SSH):** Supabase healthy
+(11 containers). Node **not installed**. `PGRST_DB_SCHEMAS=public,graphql_public`.
+Cert `~/projects/BdRPiAMI/tls/bdrpiami.local.crt` covers `bdrpiami*` /
+`bdrpisrvami*` but **not** `planbdrad.local` / `bdramassist.local`. Both
+repos on the Pi are behind (need `git pull`). No `app/.env` in either.
 
-### What's left — all yours, Brad (none of it is a decision, just execution)
+@@@ --- Action --- @@@
 
-On **BdRPiSrvAMI** (`ssh -i ~/.ssh/bdrdev_to_bdrpiamiserver bdr@10.10.10.20`):
+All steps run on the Pi. Connect first:
 
-1. **Install Node** (not present): `curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs`
-2. **Regenerate the self-signed nginx cert** with SANs
-   `bdrpiami.local bdrpisrvami.local planbdrad.local bdramassist.local 10.10.10.20 127.0.0.1`,
-   install at `/etc/nginx/ssl/fleet.{crt,key}` (coordinate with the Pi
-   Claude's `~/projects/BdRPiAMI/nginx/deploy.sh`).
-3. **Apply schemas** (see each repo's `SQL_RUN.md` for exact commands):
-   - PlanBdRad: `supabase/FRESH_INSTALL.sql` + `population/run_all.sql` + views
-   - BdRAMAssist: `supabase/migrations/001..005`
-   - Append `,t000,t100,t300,staging` to `PGRST_DB_SCHEMAS` in
-     `~/projects/supabase/docker/.env`, then `docker compose restart rest`
-4. **`app/.env`** in each repo: `VITE_SUPABASE_URL=https://bdrpiami.local`,
-   `VITE_SUPABASE_ANON_KEY=<ANON_KEY from ~/projects/supabase/docker/.env>`
-5. **Build + install vhosts** (per `SERVER_SETUP.md` in each repo):
-   `./build.sh`, copy the `nginx/*.conf` + `systemd/*.service`, enable,
-   `sudo nginx -t && sudo systemctl reload nginx`
-6. **pyservice** (PlanBdRad only): venv + `libreoffice` +
-   `planbdradpydoc.service` (needs the `sudo systemctl restart
-   planbdradpydoc` line in `build.sh` to be passwordless, or the deploy
-   poller runs as root)
+"from the dev box"
+ssh -i ~/.ssh/bdrdev_to_bdrpiamiserver bdr@10.10.10.20
 
-Once 1–6 land, this request can be archived and I'll flip the
-ecosystem "pending Pi deploy" tags to live.
+1. Pull the re-targeted configs (both repos are behind)
 
-### [DEV] follow-up — 2026-08-29 (second unattended pass)
+"get the new SERVER_SETUP / nginx / systemd files"
+cd ~/projects/PlanBdRad && git pull --ff-only
+cd ~/projects/BdRAMAssist && git pull --ff-only
 
-The pass above left its BdRDev changes and the sibling-repo commits
-**uncommitted / unpushed** (and never logged to the Pi's `FIX STUFF.md`).
-This pass finished that bookkeeping — no new decisions, no new source:
+2. Install Node 22 (needs sudo — apt's nodejs is v18, too old for Vite)
 
-- **BdRDev** committed + pushed: `app/common.py` `DEFAULT_ECOSYSTEM`
-  (`BdRPiAMI`→`BdRPiSrvAMI`, app URLs, notes) now matches the already-live
-  `state/ecosystem.json`. Dashboard still needs a restart for the default
-  to matter, but the live state file is what the dashboard reads, so no
-  visible drift.
-- **PlanBdRad** `480b680` and **BdRAMAssist** `e5d92e7` **pushed** to
-  GitHub (they were committed locally but not pushed — the Pi couldn't
-  pull them). The Pi can now `git pull` both.
-- **`FIX STUFF.md`** on the Pi: `[DEV]` log entry added, D/E `[DEV]`
-  checkboxes ticked.
+"add the NodeSource repo and install"
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+node -v
 
-Still blocked on Brad for the 6 Pi steps above (node, TLS cert, schema
-apply, `.env`, build+vhosts, pyservice). Nothing more BdRDev can do from
-the dev box without sudo / remote DDL.
+3. Write app/.env for both apps (pulls the anon key from the Supabase stack)
+
+"one env file, same two values, for each app"
+ANON=$(grep '^ANON_KEY=' ~/projects/supabase/docker/.env | cut -d= -f2-)
+printf 'VITE_SUPABASE_URL=https://bdrpiami.local\nVITE_SUPABASE_ANON_KEY=%s\n' "$ANON" > ~/projects/PlanBdRad/app/.env
+printf 'VITE_SUPABASE_URL=https://bdrpiami.local\nVITE_SUPABASE_ANON_KEY=%s\n' "$ANON" > ~/projects/BdRAMAssist/app/.env
+
+4. Load the PlanBdRad schema into Postgres (rootless Docker — no sudo)
+
+"full schema in one transaction, then the t000 lookup seed data, then the view"
+docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 < ~/projects/PlanBdRad/supabase/FRESH_INSTALL.sql
+docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 < ~/projects/PlanBdRad/supabase/population/run_all.sql
+docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 < ~/projects/PlanBdRad/supabase/views/v_pmi_step_items.sql
+
+5. Load the BdRAMAssist schema (migrations 001–005, into the `staging` schema)
+
+"apply each migration in order, stop on first error"
+for f in ~/projects/BdRAMAssist/supabase/migrations/00{1,2,3,4,5}_*.sql; do echo "== $f =="; docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 < "$f"; done
+
+6. Expose the new schemas to the REST API and restart it
+
+"append the four schemas, then restart just the PostgREST container"
+cd ~/projects/supabase/docker
+sed -i 's/^PGRST_DB_SCHEMAS=.*/PGRST_DB_SCHEMAS=public,graphql_public,t000,t100,t300,staging/' .env
+docker compose restart rest
+
+"verify both apps' tables answer (expect 200 twice)"
+ANON=$(grep '^ANON_KEY=' .env | cut -d= -f2-)
+curl -s -o /dev/null -w '%{http_code}\n' -H "apikey: $ANON" 'http://127.0.0.1:8000/rest/v1/t000_frequency?select=*&limit=1'
+curl -s -o /dev/null -w '%{http_code}\n' -H "apikey: $ANON" 'http://127.0.0.1:8000/rest/v1/raw_import_batch?select=*&limit=1'
+
+7. Regenerate the TLS cert with the two app hostnames added (no sudo)
+
+"add planbdrad.local + bdramassist.local to the SAN list, then regenerate"
+sed -i 's/DNS:bdrpisrvami,DNS:localhost/DNS:bdrpisrvami,DNS:planbdrad.local,DNS:bdramassist.local,DNS:localhost/' ~/projects/BdRPiAMI/tls/gen-cert.sh
+bash ~/projects/BdRPiAMI/tls/gen-cert.sh
+
+8. Build both frontends (needs step 2 + step 3 done first)
+
+"first build for PlanBdRad skips the pyservice restart; BdRAMAssist has no backend"
+cd ~/projects/PlanBdRad && ./build.sh -nr
+cd ~/projects/BdRAMAssist && ./build.sh
+
+9. Turn on the two per-app nginx vhosts and reload (needs sudo)
+
+"in ~/projects/BdRPiAMI/nginx/bdrpiami.conf the PlanBdRad and BdRAMAssist"
+"server{} blocks are present but commented out (lines ~73-121, each line"
+"prefixed with '#'). Open the file and remove the leading '#' from the two"
+"'server { ... }' blocks (leave the '# ---- ' banner comments as-is). Then:"
+nano ~/projects/BdRPiAMI/nginx/bdrpiami.conf
+
+"install the consolidated site + reload (this script wants root)"
+sudo bash ~/projects/BdRPiAMI/nginx/deploy.sh
+
+10. Publish the two mDNS names (needs sudo)
+
+"install and start the avahi-publish units shipped in each repo"
+sudo cp ~/projects/PlanBdRad/systemd/avahi-publish-planbdrad.service /etc/systemd/system/
+sudo cp ~/projects/BdRAMAssist/systemd/avahi-publish-bdramassist.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now avahi-publish-planbdrad.service avahi-publish-bdramassist.service
+
+11. PlanBdRad pyservice — the Word/PDF generator behind /api/docx/ (needs sudo)
+
+"venv + headless LibreOffice + systemd unit"
+cd ~/projects/PlanBdRad/pyservice
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+sudo apt install -y libreoffice --no-install-recommends
+sudo cp ~/projects/PlanBdRad/systemd/planbdradpydoc.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now planbdradpydoc
+
+12. Verify
+
+"each should return HTML / 200"
+curl -k -H 'Host: planbdrad.local' https://127.0.0.1/ | head
+curl -k -H 'Host: bdramassist.local' https://127.0.0.1/ | head
+curl -k -H 'Host: planbdrad.local' https://127.0.0.1/api/docx/health
+
+@@@ ------------- @@@
+
+**Step 9's first `sed` is fragile** — it un-comments a line range in
+`nginx/bdrpiami.conf`. Eyeball the file after running it (the two
+`server { }` blocks for `planbdrad.local` and `bdramassist.local` should
+be uncommented, nothing else). The Pi's own Claude can do step 7 + 9's
+edit instead — that file is its lane — leaving you only `sudo bash
+deploy.sh`. It's been told so in `FIX STUFF.md`.
+
+Once this is done: flip this file to `READY` with a note (or archive it),
+and BdRDev will switch the ecosystem "pending Pi deploy" tags to live.
+If any step errors, paste the error under here and flip to `READY`.
 
 ??? --------------- ???
