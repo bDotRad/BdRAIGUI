@@ -1,4 +1,280 @@
-WAITING RESPONSE
+259 batch — two requests closed together: `rEcossystem 2` + `rEditing Tables`
+=========================================================================
+
+Processed 2026-08-29 13:09 AEST (Claude, unattended pass). Both requests
+were sitting at `READY` with all remaining work being steps only Brad
+could do (schema DDL on the Pi, systemd env vars + `sudo` restart).
+Brad has now done them — this pass verified the result is live and
+archived both.
+
+## Outcome: both DONE and verified live
+
+Verified from this dev box against the running dashboard
+(`127.0.0.1:8420`, process up since 13:07:41 today) and the Pi's
+PostgREST:
+
+- `GET /api/ecosystem` → `source: supabase`, `supabase_configured: true`
+  (was `local JSON` / `not configured` before). The dashboard is now
+  reading/writing the Pi's self-hosted Supabase, not `state/ecosystem.json`.
+- `curl -k https://10.10.10.20/rest/v1/` → `401` (reachable).
+- The four servers come back from the Supabase view with the new
+  `tailscale` and `web_url` columns populated:
+  - BdRVSrvDev — `100.107.138.38` / `https://bdrdev.local`
+  - BdRPiAMI — `100.86.25.88` / `https://bdrpisrvami.local`
+  - BdRSrvDungeon / BdRBirdDetector — blank (not on the tailnet yet)
+- Ecosystem 2 grid template (`app/templates/index.html` `renderEco2()`)
+  columns are now: Name, Address, **Tailscale IP**, **Web**, Prov,
+  Hardware×4, Software×4, Apps — **no "Other" column**. Tailscale IP is
+  an editable cell; Web renders as `<a href target=_blank>` (scheme
+  stripped for link text) in read mode, raw URL in edit mode.
+  Edit / Save / Cancel unchanged.
+
+### rEcossystem 2 — the three asks
+
+1. **Remove "Other" from software** — done. Column gone from the Eco2
+   grid; the free-text Software field still feeds the Ecosystem tree.
+2. **Add Tailscale IP** — done. New `tailscale` server column (Supabase
+   + JSON), editable Eco2 cell, `TS:` chip on the Ecosystem diagram +
+   tree line.
+3. **Add web link with name (hyperlink)** — done. New `web_url` server
+   column, rendered as a real hyperlink. Brad answered the open
+   question **"1 will do"** — link text is the host/path with the scheme
+   stripped; no separate label field.
+
+Code landed in `5c6d8e9` (app + Supabase schema/seed/view +
+`.claude-status/sql_output.sql`). Went live with Brad's restart.
+
+### rEditing Tables — "really set this up" / activate Supabase
+
+- **Step A** (run the bundled fleet schema on the Pi's Postgres) and
+  **Step B** (give the dashboard service the `SUPABASE_*` env vars +
+  restart) were both Brad's to do. He answered the Step-A question
+  **"Ive done it all i think"** — confirmed correct: the view exists,
+  the columns are present, and the dashboard reports `source: supabase`.
+- The earlier parts of this request (Eco2 Edit/Save/Cancel table
+  pattern, the Fleet-tab "Runs on server" dropdown, `_Instructions/
+  WebUI.md` documenting the Edit/Save/Cancel pattern fleet-wide) were
+  already implemented in prior passes and are live.
+
+## Notes / follow-ups
+
+- Write-path (Save → Supabase PATCH) was **not** exercised on this pass
+  to avoid mutating production fleet data from an unattended session.
+  The read path, env-var config check, and schema are all confirmed
+  good; if a cell Save ever fails to persist, that's the one thing left
+  to check — `journalctl -u bdrdev-dashboard`.
+- The Pi's TLS cert is for `bdrpiami.local`; the dashboard reaches it by
+  IP with `SUPABASE_VERIFY_SSL=0`. Fine until the Pi rename + cert
+  refresh.
+- `.claude-status/sql_output.sql` is idempotent — safe to re-run if the
+  schema ever needs reloading.
+
+No new commit needed for code (already pushed in `5c6d8e9` and earlier).
+This pass only removes the two request files and adds this archive entry.
+
+===========================================================================
+ORIGINAL REQUESTS (verbatim)
+===========================================================================
+
+----- _Requests/rEcossystem 2.md -----
+
+READY
+
+Remove Other from software.
+Add Tailscale IP
+Add web link with name (make hyperlink)
+
+---
+
+## Sixth pass — question answered, all code done; one restart left (Claude, 2026-08-29)
+
+You answered the hyperlink question **"1 will do"** — current behaviour
+stays (the Web cell shows the URL as its own link text, scheme stripped,
+opens in a new tab). No code change needed; nothing else was open.
+
+All three asks are implemented and committed (`5c6d8e9`):
+- **Other** column removed from the Ecosystem 2 grid
+- **Tailscale IP** column added — editable cell, `TS:` chip on the
+  Ecosystem diagram + a line in the tree
+- **Web** column added, rendered as a real `<a href target=_blank>`
+  (scheme stripped for the link text)
+
+The only thing between here and live is the dashboard restart — it needs
+your sudo, which an unattended session can't do. That same restart is
+also step 2 of `rEditing Tables`; if you're running that one, this is
+already covered — just archive this file afterwards.
+
+@@@ --- Action --- @@@
+
+1. Restart the dashboard to load the new Ecosystem 2 columns.
+
+"On this dev box:"
+sudo systemctl restart bdrdev-dashboard
+
+"Then open the Ecosystem 2 tab: Tailscale IP + Web columns present, no
+ Other column, Edit / Save / Cancel still work. Archive this file once
+ it looks right."
+
+@@@ ------------- @@@
+
+---
+
+## Fifth pass — the Fourth-pass work is now actually committed (Claude, 2026-08-29)
+
+The Fourth-pass writeup below says "Committed + pushed" — it wasn't; that
+session was killed before it committed. The implementation was complete
+and live-seeded in `state/ecosystem.json`, it just sat uncommitted in the
+working tree. I've now committed it (app code + Supabase schema/seed/view
++ `.claude-status/sql_output.sql`) so it can't be lost.
+
+Still true: **needs the dashboard restart** in the Action block below to
+show live (or just run `rEditing Tables` Action step 2, which restarts it
+too). Nothing else changed.
+
+One wording check on ask #3, "Add web link **with name**": the Web cell
+currently shows the URL itself as the link text, with the scheme stripped
+(`https://bdrpiami.local` → **bdrpiami.local**). If "with name" meant a
+separate free-text label field (e.g. show "Pi Supabase" linking to the
+URL), say so below and I'll add a label field; otherwise the current
+behaviour stands.
+
+??? --- Question --- ???
+
+"Add web link with name" — is the current behaviour (URL as its own link
+text, scheme stripped) what you wanted, or do you want a separate label?
+
+Options:
+1. Current behaviour is fine — link text is the host/path. (recommended)
+2. Add a separate "link label" field per server, shown as the link text.
+
+Answer: 1 will do
+
+
+??? --------------- ???
+
+---
+
+## Fourth pass — implemented (UI/JSON), needs a restart (Claude, 2026-08-28)
+
+You flipped this to READY with the three asks reworded but the two
+questions from the last pass unanswered. I took the rewording as the
+answer and built all three against the JSON store. **One restart from
+you and it's live.** Read the two assumptions below — if either is
+wrong, say so and I'll redo that part.
+
+### What I did
+
+1. **Removed the "Other" column** from the Ecosystem 2 grid. The
+   free-text **Software** field stays on the Fleet tab (now labelled
+   "shown on the Ecosystem tree") — it still feeds the ASCII tree, it
+   just no longer drives a grid column.
+2. **Added a "Tailscale IP" column** — editable text cell in Eco2, a
+   field on the Fleet editor, and a `TS: …` chip on the Ecosystem
+   diagram + a line in the tree. Seeded from `tailscale status`:
+   - BdRVSrvDev → `100.107.138.38`
+   - BdRPiSrvAMI → `100.86.25.88`
+   - BdRSrvDungeon / BdRBirdDetector → blank (not on the tailnet yet)
+3. **Added a "Web" column** — a per-server URL field. Read-only view
+   renders it as a real `<a href target=_blank>` with the scheme
+   stripped for the link text (e.g. `https://bdrpiami.local` shows as
+   **bdrpiami.local**); Edit mode shows the raw URL to type into. Also
+   on the Fleet editor, and as a 🌐 link-chip on the diagram + a line
+   in the tree. Seeded:
+   - BdRVSrvDev → `https://bdrdev.local`
+   - BdRPiSrvAMI → `https://bdrpiami.local`
+   - others blank
+   Bonus: the app **Web address** chips on the diagram are now
+   hyperlinks too when the value looks like a URL (bare IPs left as
+   plain text).
+
+Files: `app/common.py` (new `tailscale` + `web_url` server keys +
+seeds), `app/templates/index.html` (Eco2 grid, Fleet editor, diagram,
+tree), `state/ecosystem.json` (live data seeded). Committed + pushed.
+
+### Two assumptions I made — correct me if wrong
+
+- **#3 "web link" = a new per-server URL field** (option (a)+(b) from
+  last pass), not something attached to a project or to the request
+  system. If you meant a different link, tell me where it points.
+- **Shipped UI-only against JSON now**, did **not** touch the Supabase
+  schema. The new `tailscale` / `web_url` columns will need adding to
+  `supabase/migrations/*_fleet_schema.sql`, the `fleet_ecosystem_json`
+  view, and `.claude-status/sql_output.sql` before Supabase is
+  activated in `rEditing Tables` — I've left a note on that request so
+  it's not forgotten. (Nothing is lost meanwhile; JSON is the live
+  store until then.)
+
+@@@ --- Action --- @@@
+
+1. Restart the dashboard to load the new template + backend
+
+"On this dev box:"
+sudo systemctl restart bdrdev-dashboard
+
+"Then: Ecosystem 2 tab — new Tailscale IP + Web columns, no Other
+ column. Edit / Save / Cancel still work. Ecosystem tab — TS chips +
+ web links on the server cards and in the tree."
+
+@@@ ------------- @@@
+
+Flip back to READY with notes if #3 isn't what you meant or the
+columns aren't right; otherwise archive.
+
+---
+
+## Picked up 2026-08-28 (Claude) — one thing to pin down first
+
+Here's how I read the three asks. #1 and #2 are clear; #3 isn't.
+
+### 1. "Remove Other for software" — clear
+
+Drop the **Other** column from the Ecosystem 2 grid (the derived,
+read-only one built from the free-text Software field). I'll also retire
+the free-text "Software" box on the Fleet tab, since Other was its only
+consumer — the Y/N package columns become the whole story. Say if you
+want the free-text box kept for notes.
+
+### 2. "Add Tailscale" — clear
+
+Add **Tailscale** as a 5th Y/N software column (alongside Claude / Nginx
+/ Supabase / SQL Lite), a checkbox on the Fleet tab, and a row in the
+Supabase `software` catalogue + `server_software` seed. Defaults: on for
+every current server (they're all on the tailnet).
+
+### 3. "Add web link" — need one detail
+
+Not sure what this attaches to. Which:
+
+- **(a) A URL field on each *server*** — e.g. `https://bdrpiami.local`
+  for the Pi — shown as a clickable link in the Ecosystem 2 grid
+  (new column) and on the Fleet diagram. Servers have no web field
+  today, only a bare `address` (IP).
+- **(b) Make the existing app "Web address" clickable** — the Fleet
+  diagram already shows it as a `🌐 …` chip; turn it into a real
+  `<a href>` where it looks like a URL.
+- **(c) Both.**
+- **(d) Something else** — tell me where the link goes and what it
+  points at.
+
+??? --- Question --- ???
+
+Which of (a) / (b) / (c) / (d) for "Add web link"? (Or just "a", etc.)
+
+Also — this batch changes the Supabase schema seed (the Tailscale
+catalogue row). Cleaner to land all of it in one go **with** the
+Supabase activation from `rEditing Tables` so the SQL is run once. OK to
+hold this until that's wired, or do you want the UI-only parts
+(#1, #2 against the JSON fallback) shipped now regardless?
+
+Answer:
+
+
+??? --------------- ???
+
+
+----- _Requests/rEditing Tables.md -----
+
+READY
 
 Put in Actions or questions for me 
 
@@ -75,7 +351,7 @@ Options:
    (Step B still needs your sudo either way, so you're in the loop
    regardless — option 1 is simpler.)
 
-Answer:
+Answer: Ive done it all i think
 
 
 ??? --------------- ???
