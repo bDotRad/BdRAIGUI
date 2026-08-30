@@ -12,49 +12,28 @@ Both questions answered (2026-08-29): **delete the old Ecosystem tab**,
 
 @@@ --- Action (Brad) --- @@@
 
-**Blocking step: reconnect the dashboard to Supabase before the app-code
-work.** Brad chose (2026-08-30) to land this against the DB, not the JSON
-fallback. Findings from the Independent session:
+**Blocking step: stand up Supabase ON BdRVSrvDev and point the dashboard
+at it, before the app-code work.** Brad's decision (2026-08-30): the dev
+box becomes the ecosystem master — its own local Supabase, not the Pi's.
+The Pi keeps only the deployed-app schemas.
 
-- The Pi's self-hosted Supabase **already has the full fleet schema**
-  (`servers`, `projects`, `apps`, `project_agents`, `fleet_meta`,
-  `software`, `server_software`, view `fleet_ecosystem_json`).
-- Its `fleet_ecosystem_json` output is **byte-identical** to
-  `state/ecosystem.json` right now — reconnecting will not change what the
-  dashboard shows.
-- `https://10.10.10.20/rest/v1/` is reachable from this box (LAN + tailnet
-  both 401 = up), and `/home/bdr/fleetCA.crt` verifies the Pi cert.
-  `bdrpiami.local` / `bdrpisrvami.local` do **not** resolve from here, so
-  the URL must be the IP.
-- `systemd/bdrdev-dashboard.service` is already updated in the repo:
-  `SUPABASE_URL=https://10.10.10.20`, `SUPABASE_CA_BUNDLE=/home/bdr/fleetCA.crt`,
-  and `EnvironmentFile=-/home/bdr/projects/BdRDev/state/fleet_db.env` for
-  the secret. `state/fleet_db.env` exists with a placeholder.
+All non-sudo prep is done (Independent session):
+`~/projects/BdRVSrvDev/supabase-docker/` cloned + version-matched to the
+Pi + loopback-bound + all secrets generated (`.env` + `SECRETS.md`);
+`systemd/bdrdev-dashboard.service` now points at `http://127.0.0.1:8000`;
+`state/fleet_db.env` holds the local service-role key.
 
-Steps:
+**Run the "Brad's sequence" block in
+`~/projects/BdRVSrvDev/BdRVSrvDev-ADD-SUPABASE.md`** (steps 1–6: apt
+prereqs → rootless docker → `docker compose up` → load
+`.claude-status/sql_output.sql` → install the service unit + restart →
+re-POST today's ecosystem to seed the local tables). Then verify
+`curl localhost:8420/api/ecosystem | grep source` says `"supabase"` and a
+cell edit on the Ecosystem 2 tab round-trips.
 
-1. Put the service-role JWT in the env file:
-   ```
-   ssh BdRPiSrvAMI 'grep ^SERVICE_ROLE_KEY ~/projects/supabase/docker/.env'
-   # edit /home/bdr/projects/BdRDev/state/fleet_db.env, replace the
-   # placeholder:  SUPABASE_SERVICE_KEY=<that JWT>
-   ```
-2. Install the unit + restart:
-   ```
-   sudo cp /home/bdr/projects/BdRDev/systemd/bdrdev-dashboard.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl restart bdrdev-dashboard
-   ```
-3. Verify:
-   ```
-   curl -s localhost:8420/api/ecosystem | grep -o '"source":[^,]*'   # want "supabase"
-   ```
-   Also open the dashboard, edit one cell on Ecosystem 2, Save, confirm
-   the status line says `source: supabase` and the value survives reload.
-
-Then reply here and the Independent session runs Part A of
-`supabase/DRAFT_fold_apps_into_projects.sql` and does the app-code +
-Part B + Part C.
+Then reply here and the Independent session does the app-code +
+`supabase/DRAFT_fold_apps_into_projects.sql` Parts A/B/C against the
+**local** DB, and the tab consolidation below.
 
 @@@ --------------- @@@
 

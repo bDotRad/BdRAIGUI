@@ -8,16 +8,16 @@ User=bdr
 WorkingDirectory=/home/bdr/projects/BdRDev/app
 Environment=PROJECTS_DIR=/home/bdr/projects
 Environment=STATE_DIR=/home/bdr/projects/BdRDev/state
-# Fleet/ecosystem data source: self-hosted Supabase on BdRPiSrvAMI (the Pi).
-# Reached by LAN IP -- the pi's mDNS name changed to bdrpisrvami.local in the
-# 2026-08-29 rename and doesn't resolve from this box; 10.10.10.20 is in the
-# cert SAN. /home/bdr/fleetCA.crt is the "BdR Fleet Local CA" that signed it.
+# Fleet/ecosystem data source: this box's OWN self-hosted Supabase
+# (BdRVSrvDev is the ecosystem master -- see BdRVSrvDev/BdRVSrvDev-ADD-SUPABASE.md).
+# The api gateway listens plain-HTTP on 127.0.0.1:8000 (nginx terminates
+# TLS for external callers), so no cert/verify settings are needed here.
 # Unset SUPABASE_URL / SERVICE_KEY = the dashboard just uses
 # state/ecosystem.json. See app/fleet_db.py.
-Environment=SUPABASE_URL=https://10.10.10.20
-Environment=SUPABASE_CA_BUNDLE=/home/bdr/fleetCA.crt
+Environment=SUPABASE_URL=http://127.0.0.1:8000
 # The service-role JWT is the one secret here -- kept out of git in this
 # (gitignored) file rather than inline. `-` = start anyway if it's absent.
+# Populate it from BdRVSrvDev/SECRETS.md: SUPABASE_SERVICE_KEY=<SERVICE_ROLE_KEY>
 EnvironmentFile=-/home/bdr/projects/BdRDev/state/fleet_db.env
 ExecStart=/home/bdr/projects/BdRDev/venv/bin/python3 /home/bdr/projects/BdRDev/app/dashboard.py
 Restart=on-failure
