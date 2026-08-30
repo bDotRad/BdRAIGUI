@@ -3,11 +3,15 @@
 
 Usage:
     record_deploy.py <app-name> <repo-path>
+    record_deploy.py --range <A>..<B> <app-name> <repo-path>
     record_deploy.py --backfill <app-name> <repo-path> [N]
 
-Called two ways:
+Called three ways:
   * from each app repo's .git/hooks/post-merge  -> records the new HEAD
     after a `git pull`, with recorded_at = now (a real deploy).
+  * with --range ORIG_HEAD..HEAD (also from post-merge) -> records EVERY
+    commit a fast-forward pull brought in, all stamped with this one pull
+    time, so a K-commit pull shows K real rows not one.
   * with --backfill (from install.sh)           -> seeds the last N
     commits so history is not empty on day one (backfilled = 1,
     recorded_at = commit date).
@@ -41,13 +45,15 @@ def _clean_body(body: str) -> str:
     return "\n".join(kept).strip()
 
 
-def _log(repo: str, count: int) -> list[dict]:
+def _log(repo: str, count: int, rev_range: str = "") -> list[dict]:
     fmt = SEP.join(["%h", "%s", "%b", "%aI"])
-    out = subprocess.run(
-        ["git", "-C", repo, "log", f"-n{count}",
-         "--abbrev-commit", "--abbrev=7", f"--pretty=format:{fmt}%x1f"],
-        capture_output=True, text=True, timeout=15,
-    )
+    args = ["git", "-C", repo, "log", "--abbrev-commit", "--abbrev=7",
+            f"--pretty=format:{fmt}%x1f"]
+    if rev_range:
+        args.append(rev_range)          # e.g. ORIG_HEAD..HEAD -- every commit a pull brought
+    else:
+        args.append(f"-n{count}")
+    out = subprocess.run(args, capture_output=True, text=True, timeout=15)
     if out.returncode != 0:
         sys.stderr.write(out.stderr)
         return []
@@ -67,9 +73,13 @@ def _log(repo: str, count: int) -> list[dict]:
 
 def main(argv: list[str]) -> int:
     backfill = False
+    rev_range = ""
     if argv and argv[0] == "--backfill":
         backfill = True
         argv = argv[1:]
+    elif argv and argv[0] == "--range" and len(argv) >= 2:
+        rev_range = argv[1]
+        argv = argv[2:]
 
     if len(argv) < 2:
         sys.stderr.write(__doc__)
@@ -82,7 +92,10 @@ def main(argv: list[str]) -> int:
         sys.stderr.write(f"record_deploy: {repo} is not a git repo\n")
         return 1
 
-    commits = _log(repo, count)
+    commits = _log(repo, count, rev_range)
+    # a range that resolves to nothing (e.g. a no-op pull) -> fall back to HEAD
+    if not commits and rev_range:
+        commits = _log(repo, 1)
     if not commits:
         sys.stderr.write("record_deploy: no commits found\n")
         return 1

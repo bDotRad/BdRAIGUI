@@ -56,7 +56,7 @@ PROJECTS_DIR = os.path.join(HOME, "projects")
 # deployed here as ~/projects/update.sh). Reused rather than
 # reimplemented so the two paths never diverge.
 UPDATE_SCRIPT = os.path.join(PROJECTS_DIR, "update.sh")
-CHECK_INTERVAL_S = 300      # background "is GitHub ahead?" poll
+CHECK_INTERVAL_S = 900      # background "is GitHub ahead?" poll (~15 min)
 UPDATE_TIMEOUT_S = 1200     # hard cap on one git pull + npm build
 
 
@@ -492,6 +492,27 @@ def app_check_view(name: str) -> dict:
 # apps
 # --------------------------------------------------------------------------
 
+def _built_info(path: str) -> dict:
+    """What SHA the served bundle was actually built from.
+
+    Each app's vite.config writes app/dist/build-info.json at build time
+    ({sha, version, built_at}). Without this srvhome only knows the git
+    HEAD, not what nginx is serving -- which is how a 3-commit-old bundle
+    went unnoticed for 8h on 2026-08-30.
+    """
+    for rel in ("app/dist/build-info.json", "dist/build-info.json"):
+        fp = os.path.join(path, rel)
+        try:
+            with open(fp) as fh:
+                d = json.load(fh)
+            return {"built_sha": str(d.get("sha", ""))[:7],
+                    "built_version": d.get("version", ""),
+                    "built_at": d.get("built_at", "")}
+        except (OSError, ValueError):
+            continue
+    return {"built_sha": "", "built_version": "", "built_at": ""}
+
+
 def app_state(app: dict, history_limit: int) -> dict:
     path = os.path.expanduser(app["path"])
     name = app["name"]
@@ -501,6 +522,7 @@ def app_state(app: dict, history_limit: int) -> dict:
     head_subject = _git(path, "log", "-1", "--format=%s") if present else ""
     branch = _git(path, "rev-parse", "--abbrev-ref", "HEAD") if present else ""
     has_commits = bool(head_sha)
+    built = _built_info(path)
 
     con = connect(DB_PATH)
     try:
@@ -524,6 +546,12 @@ def app_state(app: dict, history_limit: int) -> dict:
         "deployed_at": (latest or {}).get("recorded_at", ""),
         "running": None,   # live status still deferred
         "history": rows,
+        # built_sha != head_sha  =>  nginx is serving a stale bundle
+        "rebuild_needed": bool(
+            built["built_sha"] and head_sha
+            and built["built_sha"] != head_sha
+        ),
+        **built,
         **app_check_view(name),
     }
 
@@ -926,6 +954,10 @@ def status_badge(app: dict) -> tuple[str, str, str]:
         return "is-unknown", "", "not checked yet"
     if behind > 0:
         return "is-unknown", "behind", f"{behind} behind — update available"
+    if app.get("rebuild_needed"):
+        return "is-unknown", "behind", (
+            f"serving {app.get('built_sha') or '?'} — rebuild needed"
+        )
     return "is-running", "ok", "up to date"
 
 
@@ -980,8 +1012,13 @@ def render_apps(apps: list[dict]) -> str:
         out.append("<div class=row>")
         out.append(f"<span class='badge {bcls}' data-role=status>{html.escape(btext)}</span>")
         if app["has_commits"]:
-            out.append(f"<span>version <span class='sha live' data-role=sha>"
-                       f"{html.escape(app['deployed_sha'] or '?')}</span></span>")
+            out.append(f"<span>HEAD <span class='sha live' data-role=sha>"
+                       f"{html.escape(app['head_sha'] or '?')}</span></span>")
+            built = app.get("built_sha")
+            if built:
+                cls = "sha" if app.get("rebuild_needed") else "sha live"
+                out.append(f"<span>· built <span class='{cls}' data-role=builtsha>"
+                           f"{html.escape(built)}</span></span>")
             if app["branch"]:
                 out.append(f"<span class=muted>branch {html.escape(app['branch'])}</span>")
         if app["url"]:
@@ -991,11 +1028,12 @@ def render_apps(apps: list[dict]) -> str:
         out.append("</div>")
 
         if app["has_commits"]:
+            show_update = behind > 0 or app.get("rebuild_needed")
+            update_label = f"Update ({behind})" if behind > 0 else "Rebuild"
             out.append("<div class=acts>")
             out.append("<button data-act=check>Check</button>")
             out.append(f"<button data-act=update class=primary "
-                       f"{'' if behind > 0 else 'hidden'}>"
-                       f"Update{f' ({behind})' if behind > 0 else ''}</button>")
+                       f"{'' if show_update else 'hidden'}>{update_label}</button>")
             out.append(f"<span class=checked data-role=checked>checked "
                        f"{html.escape(_rel_age(app.get('last_checked', '')))}</span>")
             out.append("</div>")
@@ -1035,6 +1073,7 @@ APPS_SCRIPT = r"""
     if(app.check_error) return ['','check failed'];
     if(app.behind===null||app.behind===undefined) return ['','not checked yet'];
     if(app.behind>0) return ['behind', app.behind+' behind — update available'];
+    if(app.rebuild_needed) return ['behind','serving '+(app.built_sha||'?')+' — rebuild needed'];
     return ['ok','up to date'];
   }
   function apply(state){
@@ -1044,13 +1083,18 @@ APPS_SCRIPT = r"""
       var b=badge(app), st=tile.querySelector('[data-role=status]');
       if(st){ st.className='badge '+b[0]; st.textContent=b[1]; }
       var sha=tile.querySelector('[data-role=sha]');
-      if(sha && app.deployed_sha) sha.textContent=app.deployed_sha;
+      if(sha && app.head_sha) sha.textContent=app.head_sha;
+      var bs=tile.querySelector('[data-role=builtsha]');
+      if(bs && app.built_sha){ bs.textContent=app.built_sha;
+        bs.className = app.rebuild_needed ? 'sha' : 'sha live'; }
       var ck=tile.querySelector('[data-role=checked]');
       if(ck) ck.textContent='checked '+rel(app.last_checked);
       var upd=tile.querySelector('[data-act=update]');
       if(upd && !upd.dataset.busy){
-        if(app.behind>0){ upd.hidden=false; upd.textContent='Update ('+app.behind+')'; }
-        else { upd.hidden=true; }
+        if(app.behind>0 || app.rebuild_needed){
+          upd.hidden=false;
+          upd.textContent = app.behind>0 ? 'Update ('+app.behind+')' : 'Rebuild';
+        } else { upd.hidden=true; }
       }
     });
   }

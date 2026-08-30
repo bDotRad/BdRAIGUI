@@ -16,6 +16,14 @@ REPO_PATH="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$APP_NAME" ] || exit 0
 [ -f "$SRVHOME_DIR/record_deploy.py" ] || exit 0
 
-python3 "$SRVHOME_DIR/record_deploy.py" "$APP_NAME" "$REPO_PATH" \
+# ORIG_HEAD is where HEAD was before this pull's fast-forward, so
+# ORIG_HEAD..HEAD is every commit the pull brought in. record_deploy
+# falls back to just HEAD if that range is empty or unset.
+RANGE=""
+if git rev-parse --verify -q ORIG_HEAD >/dev/null; then
+  RANGE="--range ORIG_HEAD..HEAD"
+fi
+
+python3 "$SRVHOME_DIR/record_deploy.py" $RANGE "$APP_NAME" "$REPO_PATH" \
   >>"$SRVHOME_DIR/hook.log" 2>&1 || true
 exit 0
