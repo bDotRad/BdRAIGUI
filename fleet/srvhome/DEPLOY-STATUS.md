@@ -1,6 +1,32 @@
-# srvhome on BdRPiSrvAMI — deploy status (updated 2026-08-28 pm)
+# srvhome on BdRPiSrvAMI — deploy status (updated 2026-08-30)
 
 Built for request `rEach server running apps`. First target: the Pi.
+
+## Version check + one-click update (request `rSrvhome version check + update`) — DONE / deployed 2026-08-30
+
+- `srvhome.py`, `record_deploy.py`, `store.py`, `hooks/post-merge` and
+  `~/projects/update.sh` on the Pi are byte-identical to canonical
+  (`BdRDev/fleet/srvhome/`) as of commit `6f3e041`. The stale
+  `srvhome/hooks/post-merge` template on the Pi was re-synced 2026-08-30
+  (it lagged the `--range ORIG_HEAD..HEAD` change; the *installed* hooks
+  in PlanBdRad / BdRAMAssist `.git/hooks/` were already current).
+- Verified live on `127.0.0.1:8610`: background checker running
+  (15-min loop, `last_checked` fresh), both apps report `behind: 0`,
+  `built_sha == head_sha`, `rebuild_needed: false`; history table
+  renders `committed | pulled | commit` with `committed_at` populated.
+- **`POST /api/check`** (per tile + "check all"), **`POST /api/update`**
+  (shells `~/projects/update.sh <app>` under a per-app lock, output
+  captured to a `<details>`), tiles poll `/api/state` every 15 s.
+
+### Open — needs Brad (nginx)
+
+`https://<pi>/status/` is **401 again** (localhost, `bdrpiami`, all
+paths) — the `/status/` route in the Pi's nginx site config has
+regressed since it was verified working 2026-08-28, so requests fall
+through to Supabase auth. srvhome itself is healthy on `:8610`; only the
+web route is broken. Re-add / restore the `nginx-snippet.conf` block in
+the `listen 443` server block and `sudo nginx -s reload`. Can't be
+diagnosed from the dev box (no sudo, can't read `/etc/nginx/`).
 
 ## Done
 

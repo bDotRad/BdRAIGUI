@@ -38,6 +38,32 @@ history table isn't empty on day one (those rows are tagged
 The page itself reads `git` live for the current HEAD and reads
 `srvhome.db` for history — no daemon-side polling.
 
+## Version checking & one-click update
+
+A background thread runs `git fetch` for every app every ~15 min
+(`CHECK_INTERVAL_S`) and holds `{behind, remote_sha, last_checked,
+error}` in memory (in-memory by design — a restart just re-checks within
+seconds). Each tile shows a status pill: "up to date" / "N behind —
+update available" / "serving `<sha>` — rebuild needed" / "updating…" /
+"last update failed".
+
+- **Check** (per tile, plus "check all now" in the section header) →
+  `POST /api/check {app?}` forces a fetch now.
+- **Update / Rebuild** (only when behind or a stale `dist/`) →
+  `POST /api/update {app}` takes a per-app lock and shells out to
+  `~/projects/update.sh <app>` — the existing pull + apply-new-migrations
+  + rebuild script, reused not reimplemented. Combined output is captured
+  and shown in a `<details>` on the tile.
+- `rebuild_needed` compares `git HEAD` to `app/dist/build-info.json`'s
+  `sha` (each app's `vite.config.ts` writes that at build time), so a
+  stale bundle after a no-op pull is visible.
+- Tiles poll `/api/state` every 15 s so the checker and a running update
+  both surface without a manual reload.
+
+History rows carry `committed_at` (the commit's own author/committer
+date) alongside the pull time; the table renders `committed | pulled |
+commit`.
+
 ## Files
 
 | file | what |
