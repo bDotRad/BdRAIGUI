@@ -41,10 +41,18 @@ Notes:
 - Don't auto-save on blur and don't save per-cell — one explicit `Save`.
 - The same three words — **Edit / Save / Cancel** — everywhere. Not
   "Edit cells" / "Save changes" / "Revert".
+- The `Edit` button goes **top-right of the table**, on the same row as
+  the table's heading.
+- **Multiple grids on one page that save together** share a single edit
+  session: one `Edit` (on the first grid) puts every grid into edit mode
+  at once, `Save` / `Cancel` are mirrored on each grid's header while
+  editing, and one `Save` persists all grids in a single request.
 
-Reference implementation: the **Ecosystem 2** grid in the BdRDev
-dashboard (`app/templates/index.html`, `eco2EnterEdit` /
-`eco2CancelEdit` / `saveEco2`, `eco2RenderActions`).
+Reference implementation: the **Ecosystem** tab in the BdRDev dashboard
+(`app/templates/index.html`, `ecoEnterEdit` / `ecoCancelEdit` /
+`ecoSave` / `ecoRenderActions`) — two grids (Servers, Projects), one
+shared edit session, persisted to Supabase via `POST /api/ecosystem`
+with a `state/ecosystem.json` fallback.
 
 ## Baseline look & feel
 

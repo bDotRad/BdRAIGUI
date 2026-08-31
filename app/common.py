@@ -135,16 +135,17 @@ def save_theme(overrides):
 
 # ---- Ecosystem / fleet data ------------------------------------------------
 #
-# The Ecosystem tab (fleet diagram + servers->projects tree) used to be
-# hand-written HTML in index.html, so every "the AMI box is now a Pi" style
-# change meant editing the template and restarting. It's now a single JSON
-# file here that the read-only Ecosystem tab renders from and the Fleet tab
-# edits with dropdown/text fields. Dashboard-only -- the scheduler never
-# reads it.
+# The Ecosystem tab used to be hand-written HTML in index.html, so every
+# "the AMI box is now a Pi" style change meant editing the template and
+# restarting. It's now data: read from self-hosted Supabase when configured
+# (app/fleet_db.py), cached to / fallen back on state/ecosystem.json. The
+# single Ecosystem tab renders two editable grids from it -- Servers and
+# Projects (a project carries its own deployment: runs_on / web_url /
+# database / status, plus a dev-agent role matrix). Dashboard-only -- the
+# scheduler never reads it.
 #
-# DEFAULT_ECOSYSTEM is the seed written on first use (it reproduces what the
-# template showed as of 2026-08-28); after that the file is the source of
-# truth and this is just the fallback shape.
+# DEFAULT_ECOSYSTEM is the seed written on first use; after that the DB (or
+# the JSON file) is the source of truth and this is just the fallback shape.
 
 ECOSYSTEM_FILE = STATE_DIR / "ecosystem.json"
 
@@ -169,7 +170,23 @@ ECOSYSTEM_FIELD_OPTIONS = {
         "Postgres",
         "Firebase",
     ],
+    # Project grid: deployment database + lifecycle status.
+    "database": ["none", "SQLite", "Supabase"],
+    "status": ["planned", "building", "deployed", "live"],
 }
+
+# Project dev-agent role matrix (Ecosystem "Projects" grid). Key -> column
+# header. Mirrors public.roles in the fleet schema.
+PROJECT_ROLES = [
+    ("pm", "PM"),
+    ("web", "Web"),
+    ("db", "DB"),
+    ("elec_ctrl", "Elec Ctrl"),
+    ("elec_lvhv", "Elec LV-HV"),
+    ("doco", "Doco"),
+]
+_ROLE_KEYS = {k for k, _ in PROJECT_ROLES}
+_PROJECT_STATUSES = ("planned", "building", "deployed", "live")
 
 DEFAULT_ECOSYSTEM = {
     "servers": [
@@ -216,30 +233,28 @@ DEFAULT_ECOSYSTEM = {
     ],
     "projects": [
         {"name": "BdRDev", "exists": True,
-         "agents": ["Project Manager", "Web Dev Expert", "Supabase SQL Expert", "Doc Updater"]},
+         "roles": ["pm", "web", "db", "doco"],
+         "runs_on": "BdRVSrvDev", "web_url": "http://192.168.100.10:8420",
+         "database": "none", "status": "deployed"},
         {"name": "BdRAMAssist", "exists": True,
-         "agents": ["Project Manager", "Web Dev Expert", "Supabase SQL Expert", "Doc Updater"]},
+         "roles": ["pm", "web", "db", "doco"],
+         "runs_on": "BdRPiSrvAMI", "web_url": "https://bdramassist.local",
+         "database": "shares:PlanBdRad", "status": "building"},
         {"name": "PlanBdRad", "exists": True,
-         "agents": ["Project Manager", "web-developer", "sql-developer"]},
-        {"name": "BdRIS", "exists": False, "agents": []},
+         "roles": ["pm", "web", "db"],
+         "runs_on": "BdRPiSrvAMI", "web_url": "https://planbdrad.local",
+         "database": "Supabase", "status": "building"},
+        {"name": "BdRIS", "exists": False,
+         "roles": [],
+         "runs_on": "", "web_url": "", "database": "none", "status": "planned"},
         {"name": "BdRBirdDetector", "exists": True,
-         "agents": ["Project Manager", "Web Dev Expert", "sql-expert", "esp32-nodes", "docs-logs"]},
+         "roles": ["pm", "web", "db", "elec_ctrl", "doco"],
+         "runs_on": "BdRBirdDetector", "web_url": "",
+         "database": "SQLite", "status": "deployed"},
         {"name": "BdRDungeon", "exists": True,
-         "agents": ["Project Manager", "Web Dev Expert", "Supabase SQL Expert", "ESP32 Expert", "Doc Updater"]},
-    ],
-    "apps": [
-        {"name": "BdRDev dashboard + scheduler", "server": "BdRVSrvDev", "tag": "",
-         "web_address": "http://192.168.100.10:8420", "db": "none (JSON state files)", "planned": False},
-        {"name": "PlanBdRad", "server": "BdRPiSrvAMI", "tag": "pending Pi deploy (docs done 2026-08-29)",
-         "web_address": "https://planbdrad.local", "db": "Supabase (Postgres) — schema not applied to Pi yet", "planned": False},
-        {"name": "BdRAMAssist", "server": "BdRPiSrvAMI", "tag": "pending Pi deploy (docs done 2026-08-29)",
-         "web_address": "https://bdramassist.local", "db": "Supabase staging schema (shares PlanBdRad's) — not applied yet", "planned": False},
-        {"name": "BdRIS", "server": "BdRPiSrvAMI", "tag": "project doesn't exist yet",
-         "web_address": "", "db": "", "planned": True},
-        {"name": "BdRDungeon", "server": "BdRSrvDungeon", "tag": "",
-         "web_address": "not deployed yet", "db": "Supabase (planned)", "planned": False},
-        {"name": "BdRBirdDetector", "server": "BdRBirdDetector", "tag": "edge/gui.py — Streamlit",
-         "web_address": "local network only, no fixed URL", "db": "none yet — cloud DB planned", "planned": False},
+         "roles": ["pm", "web", "db", "elec_ctrl", "doco"],
+         "runs_on": "BdRSrvDungeon", "web_url": "",
+         "database": "Supabase", "status": "planned"},
     ],
     "notes": (
         "Not yet real, per current state: BdRSrvDungeon isn't provisioned yet. "
@@ -315,43 +330,68 @@ def _normalize_ecosystem(data):
             "dev_host": bool(s.get("dev_host", False)),
         })
 
+    # Transitional read support: before the fold-apps-into-projects view swap
+    # (supabase/DRAFT_fold_apps_into_projects.sql Part B) the payload still
+    # carries a top-level `apps` list and no deployment fields on projects.
+    # Index each app by the project it belongs to so those projects still
+    # render their deployment column until the view is swapped.
+    legacy_apps = {}
+    for a in data.get("apps") or []:
+        if isinstance(a, dict) and _eco_str(a.get("name")):
+            legacy_apps[_eco_str(a.get("name"))] = a
+
+    def _legacy_app_for(name):
+        if name in legacy_apps:
+            return legacy_apps[name]
+        for app_name, app in legacy_apps.items():
+            if app_name.startswith(name + " "):
+                return app
+        return None
+
     projects = []
     for p in data.get("projects") or []:
         if not isinstance(p, dict):
             continue
-        agents = p.get("agents")
-        if not isinstance(agents, list):
-            agents = []
-        projects.append({
-            "name": _eco_str(p.get("name")),
-            "exists": bool(p.get("exists", True)),
-            "agents": [a for a in (_eco_str(x) for x in agents) if a],
-        })
+        name = _eco_str(p.get("name"))
 
-    apps = []
-    for a in data.get("apps") or []:
-        if not isinstance(a, dict):
-            continue
-        apps.append({
-            "name": _eco_str(a.get("name")),
-            "server": _eco_str(a.get("server")),
-            "tag": _eco_str(a.get("tag")),
-            "web_address": _eco_str(a.get("web_address")),
-            "db": _eco_str(a.get("db")),
-            "planned": bool(a.get("planned", False)),
+        roles = p.get("roles")
+        roles = [r for r in (_eco_str(x) for x in roles) if r in _ROLE_KEYS] \
+            if isinstance(roles, list) else []
+
+        runs_on = _eco_str(p.get("runs_on"))
+        web_url = _eco_str(p.get("web_url"))
+        database = _eco_str(p.get("database"))
+        status = _eco_str(p.get("status"))
+        if not any(k in p for k in ("runs_on", "web_url", "database", "status")):
+            app = _legacy_app_for(name)
+            if app:
+                runs_on = _eco_str(app.get("server"))
+                web_url = _eco_str(app.get("web_address"))
+                database = _eco_str(app.get("db"))
+                status = "planned" if app.get("planned") else "deployed"
+        if status not in _PROJECT_STATUSES:
+            status = "planned"
+
+        projects.append({
+            "name": name,
+            "exists": bool(p.get("exists", True)),
+            "roles": list(dict.fromkeys(roles)),
+            "runs_on": runs_on,
+            "web_url": web_url,
+            "database": database,
+            "status": status,
         })
 
     return {
         "servers": servers,
         "projects": projects,
-        "apps": apps,
         "notes": data.get("notes") if isinstance(data.get("notes"), str) else "",
     }
 
 
 def load_ecosystem():
     """Current fleet data. Seeds the file from DEFAULT_ECOSYSTEM on first use
-    so there's always something concrete to edit on the Fleet tab."""
+    so there's always something concrete to edit on the Ecosystem tab."""
     if ECOSYSTEM_FILE.exists():
         try:
             return _normalize_ecosystem(json.loads(ECOSYSTEM_FILE.read_text()))

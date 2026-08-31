@@ -27,8 +27,15 @@ Read path:
 
 Write path (push_ecosystem): upsert the base tables with the service key --
   servers, server_software (the 4 tracked package links per server),
-  projects, project_agents, apps, fleet_meta -- and delete rows that are
-  no longer in the payload. On success state/ecosystem.json is updated too.
+  projects (incl. the folded-in deployment columns runs_on_server_id /
+  web_url / database / status), project_roles (the dev-agent role matrix),
+  fleet_meta -- and delete rows that are no longer in the payload. On
+  success state/ecosystem.json is updated too.
+
+  Requires the schema from supabase/DRAFT_fold_apps_into_projects.sql
+  Parts A + B (the projects deployment columns, the roles / project_roles
+  tables, and the new fleet_ecosystem_json view). Part C then drops the
+  now-unused apps / project_agents tables.
 
 Everything here is defensive: not configured, or any HTTP/parse error,
 means fetch_ecosystem() returns None and push_ecosystem() returns False so
@@ -188,7 +195,6 @@ def push_ecosystem(eco):
 def _write_all(data):
     servers = data["servers"]
     projects = data["projects"]
-    apps = data["apps"]
 
     # -- software catalogue: ensure the 4 tracked names exist, collect ids
     existing = _rest("GET", "software", params={"select": "id,name"}) or []
@@ -251,11 +257,22 @@ def _write_all(data):
             _rest("POST", "server_software", json_body=links,
                   prefer="resolution=merge-duplicates")
 
-    # -- projects (+ agents)
-    proj_rows = [
-        {"name": p["name"], "exists_flag": p["exists"], "sort_order": i + 1}
-        for i, p in enumerate(projects)
-    ]
+    # -- roles catalogue: role key -> id (seeded by the migration; we only read)
+    role_rows = _rest("GET", "roles", params={"select": "id,name"}) or []
+    role_id = {r["name"]: r["id"] for r in role_rows}
+
+    # -- projects (+ folded-in deployment columns)
+    proj_rows = []
+    for i, p in enumerate(projects):
+        proj_rows.append({
+            "name": p["name"],
+            "exists_flag": p["exists"],
+            "runs_on_server_id": srv_id.get(p.get("runs_on") or ""),
+            "web_url": p.get("web_url", ""),
+            "database": p.get("database", ""),
+            "status": p.get("status") or "planned",
+            "sort_order": i + 1,
+        })
     saved_projects = []
     if proj_rows:
         saved_projects = _rest(
@@ -267,40 +284,20 @@ def _write_all(data):
     proj_id = {r["name"]: r["id"] for r in saved_projects}
     _delete_missing("projects", "name", [p["name"] for p in projects if p["name"]])
 
+    # -- project_roles: replace every link per project from the payload's roles[]
     for p in projects:
         pid = proj_id.get(p["name"])
         if pid is None:
             continue
-        _rest("DELETE", "project_agents", params={"project_id": f"eq.{pid}"})
-        seen = set()
-        agent_rows = []
-        for a in p["agents"]:
-            if a in seen:
-                continue
-            seen.add(a)
-            agent_rows.append(
-                {"project_id": pid, "agent_name": a, "sort_order": len(agent_rows) + 1}
-            )
-        if agent_rows:
-            _rest("POST", "project_agents", json_body=agent_rows,
+        _rest("DELETE", "project_roles", params={"project_id": f"eq.{pid}"})
+        links = [
+            {"project_id": pid, "role_id": role_id[r]}
+            for r in dict.fromkeys(p.get("roles") or [])
+            if r in role_id
+        ]
+        if links:
+            _rest("POST", "project_roles", json_body=links,
                   prefer="resolution=merge-duplicates")
-
-    # -- apps (server_id left null; the view resolves display name from server_name)
-    app_rows = [{
-        "name": a["name"],
-        "server_name": a["server"],
-        "tag": a["tag"],
-        "web_address": a["web_address"],
-        "db": a["db"],
-        "planned": a["planned"],
-        "sort_order": i + 1,
-    } for i, a in enumerate(apps)]
-    if app_rows:
-        _rest("POST", "apps",
-              params={"on_conflict": "name"},
-              json_body=app_rows,
-              prefer="resolution=merge-duplicates")
-    _delete_missing("apps", "name", [a["name"] for a in apps if a["name"]])
 
     # -- fleet_meta (single row, id forced to 1)
     _rest("POST", "fleet_meta",

@@ -212,35 +212,26 @@
     animation: flash-waiting 1.1s ease-in-out infinite;
   }
 
-  #ecosystem-panel, #ecosystem2-panel {
+  #ecosystem-panel {
     background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
     padding: 18px 20px; max-width: none;
   }
-  .ecosystem-row {
-    display: flex; gap: 24px; flex-wrap: wrap; margin-top: 24px;
+  #eco-source { margin-bottom: 6px; }
+  .eco-grid-head { display: flex; justify-content: space-between; align-items: center; }
+  .eco-grid-head h2 { margin: 0; font-size: 15px; }
+  .eco-actions { display: flex; gap: 10px; align-items: center; }
+  #eco-status { font-size: 13px; color: var(--text-dim); }
+  #eco-status.ok { color: var(--processing); }
+  #eco-status.error { color: #f87171; }
+  #eco-status.dirty { color: var(--waiting); }
+  #eco-edit-hint { font-size: 12px; color: var(--text-dim); margin-top: 12px; }
+  .eco-rm {
+    background: transparent; border: 1px solid var(--card-border); color: #f87171;
+    border-radius: 5px; padding: 1px 7px; font-size: 12px; cursor: pointer;
   }
-  .ecosystem-row .ecosystem-block {
-    flex: 1 1 380px; min-width: 320px; margin-top: 0;
-  }
-  .device-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
-  .device-table th {
-    text-align: left; color: var(--text-dim); font-weight: 600; font-size: 11px;
-    text-transform: uppercase; letter-spacing: 0.03em; padding: 6px 10px 6px 0;
-    border-bottom: 1px solid var(--card-border);
-  }
-  .device-table td {
-    padding: 8px 10px 8px 0; border-bottom: 1px solid var(--card-border); vertical-align: top;
-  }
-  .device-table tr:last-child td { border-bottom: none; }
-  .device-table code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
-    background: #0b0d11; border: 1px solid var(--card-border); border-radius: 4px; padding: 1px 5px;
-  }
-  .folder-tree {
-    margin: 12px 0 0; background: #0b0d11; color: var(--text);
-    border: 1px solid var(--card-border); border-radius: 6px; padding: 12px 14px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px; line-height: 1.5; overflow-x: auto;
+  .eco-sel {
+    background: var(--card); color: var(--text); border: 1px solid var(--card-border);
+    border-radius: 5px; padding: 4px 6px; font-size: 12px; font-family: inherit;
   }
 
   .eco2-scroll { overflow-x: auto; margin-top: 14px; }
@@ -266,8 +257,6 @@
   }
   .eco2-table a { color: var(--accent); text-decoration: none; }
   .eco2-table a:hover { text-decoration: underline; }
-  .eco-chip-address a { color: inherit; text-decoration: none; }
-  .eco-chip-address a:hover { text-decoration: underline; }
   .eco2-table td.eco2-edit { cursor: text; }
   .eco2-table td.eco2-edit:hover { background: rgba(255,255,255,0.04); }
   .eco2-table td.eco2-edit:focus {
@@ -275,79 +264,6 @@
     background: rgba(255,255,255,0.06); white-space: normal; min-width: 90px;
   }
   .eco2-table td.eco2-yn.eco2-edit { cursor: pointer; }
-  .eco2-table td.eco2-ro { color: var(--text-dim); }
-  #eco2-edit-hint { font-size: 12px; color: var(--text-dim); margin-top: 12px; }
-  #eco2-actions { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
-  #eco2-status { font-size: 13px; color: var(--text-dim); }
-  #eco2-status.ok { color: var(--processing); }
-  #eco2-status.error { color: #f87171; }
-  #eco2-status.dirty { color: var(--waiting); }
-
-  .eco-diagram { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; }
-  .eco-server-card {
-    flex: 1 1 300px; min-width: 270px; background: #0b0d11;
-    border: 1px solid var(--card-border); border-radius: 8px; padding: 14px 16px;
-  }
-  .eco-server-card.eco-server-planned { border-style: dashed; opacity: 0.85; }
-  .eco-server-name { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
-  .eco-tag { font-weight: 400; font-size: 11px; color: var(--text-dim); margin-left: 6px; }
-  .eco-tag-planned { color: var(--waiting); }
-  .eco-specs-pill {
-    display: inline-block; font-size: 12px; color: var(--text-dim); background: var(--card);
-    border: 1px solid var(--card-border); border-radius: 12px; padding: 3px 10px; margin-bottom: 4px;
-  }
-  .eco-section-label {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-dim);
-    margin: 10px 0 6px; border-top: 1px solid var(--card-border); padding-top: 8px;
-  }
-  .eco-projects, .eco-apps { display: flex; flex-direction: column; gap: 8px; }
-  .eco-project-card, .eco-app-card { border-left: 2px solid var(--accent); padding: 4px 0 4px 10px; }
-  .eco-project-name, .eco-app-name { font-size: 13px; font-weight: 600; }
-  .eco-agents, .eco-meta-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-  .eco-chip {
-    font-size: 11px; background: var(--card); border: 1px solid var(--card-border);
-    border-radius: 10px; padding: 2px 8px; color: var(--text-dim);
-  }
-  .eco-chip-address { color: var(--accent); }
-  .eco-app-name .eco-tag-planned, .eco-project-name .eco-tag-planned { color: var(--waiting); }
-
-  /* Fleet editor */
-  #fleet-panel { max-width: none; }
-  #fleet-panel h2 { font-size: 15px; margin-bottom: 10px; }
-  .fleet-row {
-    border: 1px solid var(--card-border); border-radius: 8px; padding: 12px 14px;
-    margin-bottom: 10px; background: #0b0d11;
-  }
-  .fleet-row-fields { display: flex; flex-wrap: wrap; gap: 10px 14px; }
-  .fleet-field { display: flex; flex-direction: column; gap: 3px; }
-  .fleet-field.wide { flex: 1 1 100%; }
-  .fleet-field.grow { flex: 1 1 240px; }
-  .fleet-field label {
-    font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-dim);
-  }
-  .fleet-field input[type="text"], .fleet-field textarea, .fleet-field select {
-    background: var(--card); color: var(--text); border: 1px solid var(--card-border);
-    border-radius: 5px; padding: 6px 8px; font-size: 13px; font-family: inherit; min-width: 140px;
-  }
-  .fleet-field.grow input[type="text"] { min-width: 0; width: 100%; }
-  .fleet-field textarea { min-height: 60px; resize: vertical; width: 100%; }
-  .fleet-check { flex-direction: row; align-items: center; gap: 6px; }
-  .fleet-check label { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--text); }
-  .fleet-row-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .fleet-row-head .fleet-row-title { font-weight: 600; font-size: 13px; }
-  .fleet-remove {
-    background: transparent; border: 1px solid var(--card-border); color: #f87171;
-    border-radius: 5px; padding: 3px 9px; font-size: 12px; cursor: pointer;
-  }
-  .fleet-notes {
-    width: 100%; min-height: 130px; background: #0b0d11; color: var(--text);
-    border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;
-    font-family: inherit; font-size: 13px; resize: vertical;
-  }
-  #fleet-actions { display: flex; gap: 10px; align-items: center; margin-top: 18px; }
-  #fleet-status { font-size: 13px; color: var(--text-dim); }
-  #fleet-status.ok { color: var(--processing); }
-  #fleet-status.error { color: #f87171; }
 
   /* Workspace tab -- sidebar of projects + full-width per-project pane */
   #workspace-layout {
@@ -762,8 +678,6 @@
     <button class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">Activity Log</button>
     <button class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Admin</button>
     <button class="tab-btn" id="tab-btn-ecosystem" onclick="switchTab('ecosystem')">Ecosystem</button>
-    <button class="tab-btn" id="tab-btn-ecosystem2" onclick="switchTab('ecosystem2')">Ecosystem 2</button>
-    <button class="tab-btn" id="tab-btn-fleet" onclick="switchTab('fleet')">Fleet</button>
     <button class="tab-btn" id="tab-btn-independent" onclick="openConsole(INDEPENDENT_SESSION)">CLAUDE</button>
     <a class="help-link" href="/help">Help</a>
     <a class="help-link help-link-extra" href="/help-simple">Help for Retards</a>
@@ -914,112 +828,37 @@
 
   <div id="tab-panel-ecosystem" class="tab-panel">
     <div id="ecosystem-panel">
-      <h2 style="margin-top:0;">Fleet diagram</h2>
-      <div class="sql-meta">
-        Graphical view of each server → what runs on it, with DB and web
-        address per app where known. Editable on the <b>Fleet</b> tab —
-        dashed cards are servers not marked provisioned yet.
-      </div>
-      <div class="eco-diagram" id="eco-diagram-live"></div>
+      <div class="sql-meta" id="eco-source"></div>
 
-      <div class="ecosystem-row">
-        <div class="ecosystem-block">
-          <h2>Servers → software / projects</h2>
-          <div class="sql-meta">Generated from the <b>Fleet</b>-tab data. Not all provisioned yet — see note below.</div>
-          <pre class="folder-tree" id="eco-tree-live"></pre>
-          <div class="sql-meta" style="margin-top:10px;" id="eco-notes-live"></div>
-        </div>
-
-        <div class="ecosystem-block">
-          <h2>Generic project folder structure</h2>
-          <div class="sql-meta">The standard shape every project under <code>~/projects/</code> should have. See <code>_Instructions/ProjectSetup.md</code> for the full convention ("Setup Project" as a trigger phrase).</div>
-          <pre class="folder-tree">&lt;project&gt;/
-├── CLAUDE.md              # agent-facing: scheduler wake/kill, gotchas, conventions
-├── Description.md         # human-facing: short summary + Git repository section
-├── .claude/
-│   └── agents/
-│       └── &lt;slug&gt;/
-│           └── &lt;slug&gt;.md  # one subagent definition per folder
-└── References/
-    └── README.md          # site-specific docs Brad drops in by hand</pre>
+      <div class="eco-grid-head">
+        <h2>Servers</h2>
+        <div class="eco-actions">
+          <button class="btn" type="button" data-eco="edit" onclick="ecoEnterEdit()">Edit</button>
+          <button class="btn" type="button" data-eco="save" onclick="ecoSave()" style="display:none;">Save</button>
+          <button class="btn secondary" type="button" data-eco="cancel" onclick="ecoCancelEdit()" style="display:none;">Cancel</button>
+          <span id="eco-status"></span>
         </div>
       </div>
-    </div>
-  </div>
+      <div class="eco2-scroll"><table class="eco2-table" id="eco-servers-table"></table></div>
+      <button class="btn secondary" type="button" data-eco="addrow" data-addrow="servers" onclick="ecoAddRow('servers')" style="display:none;margin-top:8px;">+ Server</button>
 
-  <div id="tab-panel-ecosystem2" class="tab-panel">
-    <div id="ecosystem2-panel">
-      <h2 style="margin-top:0;">Fleet — server grid</h2>
-      <div class="sql-meta">
-        One row per server, one Y/N column per package, so you can scan
-        down what runs where. Read-only until you hit <b>Edit</b>; then
-        edit cells in place and <b>Save</b> (or <b>Cancel</b>). Saved to
-        Supabase when reachable, otherwise to
-        <code>state/ecosystem.json</code>. The fuller form is on the
-        <b>Fleet</b> tab. (This is "Ecosystem 2" — a spreadsheet-style
-        alternative to the diagram on the <b>Ecosystem</b> tab, kept side
-        by side for now.)
+      <div class="eco-grid-head" style="margin-top:30px;">
+        <h2>Projects</h2>
+        <div class="eco-actions">
+          <button class="btn" type="button" data-eco="edit" onclick="ecoEnterEdit()" style="display:none;">Edit</button>
+          <button class="btn" type="button" data-eco="save" onclick="ecoSave()" style="display:none;">Save</button>
+          <button class="btn secondary" type="button" data-eco="cancel" onclick="ecoCancelEdit()" style="display:none;">Cancel</button>
+        </div>
       </div>
-      <div class="sql-meta" id="eco2-source" style="margin-top:6px;"></div>
-      <div class="eco2-scroll">
-        <table class="eco2-table" id="eco2-table"></table>
-      </div>
-      <div id="eco2-edit-hint" style="display:none;">
-        Click any cell to edit it; click a Y/N cell to toggle. Type a URL
-        in the <b>Web</b> cell (e.g. <code>https://bdrpiami.local</code>) —
-        it renders as a link when you save. The <b>Apps</b> column is
-        derived (from the App rows on the <b>Fleet</b> tab) and isn't
-        editable here. Renaming a server here won't move its apps across —
-        do that on the Fleet tab.
-        <a href="#" onclick="switchTab('fleet');return false;">Manage which apps run on each server →</a>
-      </div>
-      <div id="eco2-actions">
-        <button class="btn" type="button" id="eco2-edit-btn" onclick="eco2EnterEdit()">Edit</button>
-        <button class="btn" type="button" id="eco2-save-btn" onclick="saveEco2()" style="display:none;">Save</button>
-        <button class="btn secondary" type="button" id="eco2-cancel-btn" onclick="eco2CancelEdit()" style="display:none;">Cancel</button>
-        <span id="eco2-status"></span>
-      </div>
-      <div class="sql-meta" style="margin-top:10px;" id="eco2-notes"></div>
-    </div>
-  </div>
+      <div class="eco2-scroll"><table class="eco2-table" id="eco-projects-table"></table></div>
+      <button class="btn secondary" type="button" data-eco="addrow" data-addrow="projects" onclick="ecoAddRow('projects')" style="display:none;margin-top:8px;">+ Project</button>
 
-  <div id="tab-panel-fleet" class="tab-panel">
-    <div id="fleet-panel" class="admin-panel-box">
-      <div class="sql-meta" style="margin-bottom:14px;">
-        The fleet data behind the <b>Ecosystem</b> tab — servers, the apps
-        running on each, projects and their agents. Edit below and Save; the
-        Ecosystem diagram and tree re-render from this. Stored in
+      <div id="eco-edit-hint" style="display:none;">
+        Click a text cell to edit it; click a Y/N cell to toggle. Runs on /
+        Database / Status are dropdowns while editing; type a URL in a Web
+        cell. Saved to Supabase when reachable, otherwise to
         <code>state/ecosystem.json</code>.
       </div>
-      <div class="sql-meta" id="fleet-source" style="margin-bottom:14px;"></div>
-
-      <h2 style="margin-top:0;">Servers</h2>
-      <div id="fleet-servers"></div>
-      <button class="btn secondary" type="button" onclick="fleetAdd('servers')">+ Server</button>
-
-      <h2 style="margin-top:26px;">Apps</h2>
-      <div id="fleet-apps"></div>
-      <button class="btn secondary" type="button" onclick="fleetAdd('apps')">+ App</button>
-
-      <h2 style="margin-top:26px;">Projects</h2>
-      <div id="fleet-projects"></div>
-      <button class="btn secondary" type="button" onclick="fleetAdd('projects')">+ Project</button>
-
-      <h2 style="margin-top:26px;">Notes</h2>
-      <textarea id="fleet-notes" class="fleet-notes" placeholder="Free-text note shown under the tree on the Ecosystem tab."></textarea>
-
-      <div id="fleet-actions">
-        <button class="btn" type="button" onclick="saveEcosystem()">Save</button>
-        <button class="btn secondary" type="button" onclick="loadEcosystem()">Revert</button>
-        <span id="fleet-status"></span>
-      </div>
-
-      <datalist id="dl-host"></datalist>
-      <datalist id="dl-os"></datalist>
-      <datalist id="dl-ram"></datalist>
-      <datalist id="dl-disk"></datalist>
-      <datalist id="dl-software"></datalist>
-      <datalist id="dl-db"></datalist>
     </div>
   </div>
 
@@ -1164,7 +1003,7 @@ let ecoSource = null;
 let ecoConfigured = false;
 let ecoOptions = {};
 
-const TAB_NAMES = ['projects', 'processing', 'workspace', 'log', 'admin', 'ecosystem', 'ecosystem2', 'fleet'];
+const TAB_NAMES = ['projects', 'processing', 'workspace', 'log', 'admin', 'ecosystem'];
 
 let procPollTimer = null;
 
@@ -1175,8 +1014,7 @@ function switchTab(name) {
     document.getElementById('tab-btn-' + t).classList.toggle('active', name === t);
   }
   try { localStorage.setItem('bdrdev-tab', name); } catch (e) { /* ignore */ }
-  if ((name === 'ecosystem' || name === 'ecosystem2' || name === 'fleet') && ecoData === null) loadEcosystem();
-  if (name === 'ecosystem2' && ecoData) renderEco2();
+  if (name === 'ecosystem') { if (ecoData === null) loadEcosystem(); else renderEcoView(); }
   if (name === 'workspace') enterWorkspace();
   else stopWsConsolePoll();
   if (name === 'processing') {
@@ -2009,147 +1847,25 @@ function escAttr(str) {
   return escapeHtml(String(str == null ? '' : str)).replace(/"/g, '&quot;');
 }
 
-// ---- Ecosystem / Fleet ----------------------------------------------------
+// ---- Ecosystem tab ------------------------------------------------------
+// One tab, two grids (Servers, Projects). Both follow the table-edit
+// standard in _Instructions/WebUI.md: read-only until Edit, then edit
+// cells in place and Save / Cancel. The Edit button sits top-right of the
+// Servers grid; Save / Cancel are mirrored on both grid headers while
+// editing. Persists via POST /api/ecosystem -> Supabase when reachable,
+// otherwise state/ecosystem.json.
 
-function ecoSpecs(s) {
-  return [s.os, s.ram ? s.ram + ' RAM' : '', s.disk].filter(Boolean).join(' · ');
-}
+let ecoEditing = false;
 
-function buildDiagram(eco) {
-  return eco.servers.map(s => {
-    const planned = !s.provisioned;
-    const specs = ecoSpecs(s);
-    let html = `<div class="eco-server-card${planned ? ' eco-server-planned' : ''}">`;
-    html += `<div class="eco-server-name">${escapeHtml(s.name)}`;
-    if (s.tag) html += ` <span class="eco-tag${planned ? ' eco-tag-planned' : ''}">${escapeHtml(s.tag)}</span>`;
-    html += `</div>`;
-    if (specs) html += `<div class="eco-specs-pill">${escapeHtml(specs)}</div>`;
-    const sMeta = [];
-    if (s.tailscale) sMeta.push(`<span class="eco-chip">TS: ${escapeHtml(s.tailscale)}</span>`);
-    if (s.web_url) sMeta.push(`<span class="eco-chip eco-chip-address">🌐 ${webLinkHtml(s.web_url)}</span>`);
-    if (sMeta.length) html += `<div class="eco-meta-row">${sMeta.join('')}</div>`;
+// Project dev-agent role matrix -- key (public.roles.name) -> column header.
+// Mirrors PROJECT_ROLES in app/common.py.
+const ECO_ROLES = [
+  ['pm', 'PM'], ['web', 'Web'], ['db', 'DB'],
+  ['elec_ctrl', 'Elec Ctrl'], ['elec_lvhv', 'Elec LV-HV'], ['doco', 'Doco'],
+];
 
-    if (s.dev_host && eco.projects.length) {
-      html += `<div class="eco-section-label">Projects</div><div class="eco-projects">`;
-      html += eco.projects.map(p => {
-        let pc = `<div class="eco-project-card"><div class="eco-project-name">${escapeHtml(p.name)}`;
-        if (!p.exists) pc += ` <span class="eco-tag eco-tag-planned">doesn't exist yet</span>`;
-        pc += `</div>`;
-        if (p.agents.length) {
-          pc += `<div class="eco-agents">${p.agents.map(a => `<span class="eco-chip">${escapeHtml(a)}</span>`).join('')}</div>`;
-        }
-        return pc + `</div>`;
-      }).join('');
-      html += `</div>`;
-    }
-
-    const apps = eco.apps.filter(a => a.server === s.name);
-    if (apps.length) {
-      html += `<div class="eco-section-label">Apps</div><div class="eco-apps">`;
-      html += apps.map(a => {
-        let ac = `<div class="eco-app-card"><div class="eco-app-name">${escapeHtml(a.name)}`;
-        if (a.tag) ac += ` <span class="eco-tag${a.planned ? ' eco-tag-planned' : ''}">${escapeHtml(a.tag)}</span>`;
-        ac += `</div>`;
-        const chips = [];
-        if (a.web_address) {
-          const w = a.web_address.trim();
-          const linkish = /^https?:\/\//i.test(w) || /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}([\/:].*)?$/i.test(w);
-          const inner = linkish ? webLinkHtml(w) : escapeHtml(w);
-          chips.push(`<span class="eco-chip eco-chip-address">🌐 ${inner}</span>`);
-        }
-        if (a.db) chips.push(`<span class="eco-chip">DB: ${escapeHtml(a.db)}</span>`);
-        if (chips.length) ac += `<div class="eco-meta-row">${chips.join('')}</div>`;
-        return ac + `</div>`;
-      }).join('');
-      html += `</div>`;
-    }
-    return html + `</div>`;
-  }).join('');
-}
-
-function buildTree(eco) {
-  const out = [];
-  eco.servers.forEach((s, si) => {
-    if (si > 0) out.push('');
-    const paren = s.tag || s.address;
-    out.push(s.name + (paren ? '  (' + paren + ')' : ''));
-
-    const sections = [];
-    const specs = ecoSpecs(s);
-    if (specs) sections.push(['Specs:        ' + specs]);
-    if (s.tailscale) sections.push(['Tailscale:    ' + s.tailscale]);
-    if (s.web_url) sections.push(['Web:          ' + s.web_url]);
-    if (s.software) sections.push(['Software:     ' + s.software]);
-    const apps = eco.apps.filter(a => a.server === s.name);
-    if (apps.length) sections.push(['Applications: ' + apps.map(a => a.name).join(', ')]);
-    if (s.dev_host && eco.projects.length) {
-      const pl = ['Projects'];
-      eco.projects.forEach((p, pi) => {
-        const last = pi === eco.projects.length - 1;
-        pl.push((last ? '└── ' : '├── ') + p.name + (p.exists ? '' : "  (doesn't exist yet)"));
-        if (p.agents.length) pl.push((last ? '    ' : '│   ') + '└── Agents: ' + p.agents.join(', '));
-      });
-      sections.push(pl);
-    }
-    if (s.git) s.git.split('\n').forEach(g => sections.push([g]));
-
-    sections.forEach((sec, idx) => {
-      const lastSec = idx === sections.length - 1;
-      sec.forEach((line, li) => {
-        if (li === 0) out.push((lastSec ? '└── ' : '├── ') + line);
-        else out.push((lastSec ? '    ' : '│   ') + line);
-      });
-    });
-  });
-  return out.join('\n');
-}
-
-function renderEcoView() {
-  if (!ecoData) return;
-  const d = document.getElementById('eco-diagram-live');
-  if (d) d.innerHTML = buildDiagram(ecoData);
-  const t = document.getElementById('eco-tree-live');
-  if (t) t.textContent = buildTree(ecoData);
-  const n = document.getElementById('eco-notes-live');
-  if (n) {
-    if (ecoData.notes && ecoData.notes.trim()) {
-      n.innerHTML = `<b>Notes:</b> ${escapeHtml(ecoData.notes)}`;
-      n.style.display = '';
-    } else {
-      n.textContent = '';
-      n.style.display = 'none';
-    }
-  }
-  renderEco2();
-  renderEcoSource();
-}
-
-function renderEcoSource() {
-  const fallbackWhy = ecoConfigured
-    ? 'Supabase configured but unreachable — check the Pi'
-    : 'Supabase not configured on this box — see rEditing Tables';
-  const txt = ecoSource === 'supabase'
-    ? 'source: Supabase'
-    : (ecoSource ? `source: local JSON (${fallbackWhy})` : '');
-  ['eco2-source', 'fleet-source'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.textContent = txt; el.style.display = txt ? '' : 'none'; }
-  });
-}
-
-// Ecosystem 2 grid follows the fleet table-editing standard
-// (_Instructions/WebUI.md): read-only until Edit, then Save / Cancel.
-let eco2Editing = false;
-
-function eco2EditCell(i, field, value, extraClass) {
-  const editable = eco2Editing ? ' eco2-edit' : '';
-  const cls = (extraClass ? extraClass : '') + editable;
-  const ce = eco2Editing ? ' contenteditable="true"' : '';
-  return `<td class="${cls.trim()}"${ce} data-si="${i}" data-field="${field}">${escapeHtml(value || '')}</td>`;
-}
-
-// Render a URL as a real hyperlink (link text = host + path, scheme stripped).
-// Bare host like "bdrpiami.local" is assumed https. Non-URL / empty -> em dash.
+// Render a URL as a real hyperlink (link text = host + path, scheme
+// stripped). Bare host like "bdrpiami.local" is assumed https. Empty -> em dash.
 function webLinkHtml(url) {
   const u = (url || '').trim();
   if (!u) return '—';
@@ -2158,309 +1874,204 @@ function webLinkHtml(url) {
   return `<a href="${escAttr(href)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`;
 }
 
-// Web-link cell: raw URL text while editing (so eco2Sync picks it up via
-// data-field), a clickable link in read-only mode.
-function eco2WebCell(i, url) {
-  if (eco2Editing) {
-    return `<td class="eco2-mono eco2-edit" contenteditable="true" data-si="${i}" data-field="web_url">${escapeHtml(url || '')}</td>`;
+function renderEcoSource() {
+  const el = document.getElementById('eco-source');
+  if (!el) return;
+  const fallbackWhy = ecoConfigured
+    ? 'Supabase configured but unreachable'
+    : 'Supabase not configured on this box';
+  const txt = ecoSource === 'supabase'
+    ? 'source: Supabase'
+    : (ecoSource ? `source: local JSON (${fallbackWhy})` : '');
+  el.textContent = txt;
+  el.style.display = txt ? '' : 'none';
+}
+
+// -- cell builders (scope is "si" for a server row, "pi" for a project row) --
+
+function ecoTextCell(scope, i, field, value, extraClass) {
+  const cls = ((extraClass || '') + (ecoEditing ? ' eco2-edit' : '')).trim();
+  const ce = ecoEditing ? ' contenteditable="true"' : '';
+  return `<td class="${cls}"${ce} data-${scope}="${i}" data-field="${field}">${escapeHtml(value || '')}</td>`;
+}
+
+// Raw URL text while editing (so ecoSyncTable picks it up), clickable link otherwise.
+function ecoWebCell(scope, i, url) {
+  if (ecoEditing) {
+    return `<td class="eco2-mono eco2-edit" contenteditable="true" data-${scope}="${i}" data-field="web_url">${escapeHtml(url || '')}</td>`;
   }
   return `<td class="eco2-mono">${webLinkHtml(url)}</td>`;
 }
 
-function eco2YnCell(i, field, v) {
-  const editable = eco2Editing ? ' eco2-edit' : '';
-  const click = eco2Editing ? ' onclick="eco2ToggleYn(this)"' : '';
-  return `<td class="eco2-yn${editable} ${v ? 'eco2-y' : 'eco2-n'}" data-si="${i}" data-field="${field}" data-yn="1"${click}>${v ? 'Y' : 'N'}</td>`;
+function ecoYnCell(scope, i, field, on) {
+  const editable = ecoEditing ? ' eco2-edit' : '';
+  const click = ecoEditing ? ' onclick="ecoToggleYn(this)"' : '';
+  return `<td class="eco2-yn${editable} ${on ? 'eco2-y' : 'eco2-n'}" data-${scope}="${i}" data-field="${field}" data-yn="1"${click}>${on ? 'Y' : 'N'}</td>`;
 }
 
-function eco2ToggleYn(td) {
-  if (!eco2Editing) return;
+function ecoSelectCell(scope, i, field, value, options) {
+  if (!ecoEditing) return `<td>${escapeHtml(value || '—')}</td>`;
+  const cur = value || '';
+  const choices = options.slice();
+  if (cur && !choices.includes(cur)) choices.unshift(cur);  // keep a legacy value
+  const opts = ['<option value=""></option>'].concat(
+    choices.map(v => `<option value="${escAttr(v)}"${v === cur ? ' selected' : ''}>${escapeHtml(v)}</option>`)
+  ).join('');
+  return `<td><select class="eco-sel" data-${scope}="${i}" data-field="${field}" onchange="ecoDirty()">${opts}</select></td>`;
+}
+
+function ecoToggleYn(td) {
+  if (!ecoEditing) return;
   const on = !td.classList.contains('eco2-y');
   td.classList.toggle('eco2-y', on);
   td.classList.toggle('eco2-n', !on);
   td.textContent = on ? 'Y' : 'N';
-  eco2Dirty();
+  ecoDirty();
 }
 
-function eco2Dirty() {
-  const st = document.getElementById('eco2-status');
+function ecoDirty() {
+  const st = document.getElementById('eco-status');
   if (st && !st.classList.contains('saving')) {
     st.className = 'dirty';
     st.textContent = 'Unsaved changes';
   }
 }
 
-function eco2RenderActions() {
-  const editBtn = document.getElementById('eco2-edit-btn');
-  const saveBtn = document.getElementById('eco2-save-btn');
-  const cancelBtn = document.getElementById('eco2-cancel-btn');
-  const hint = document.getElementById('eco2-edit-hint');
-  if (!editBtn) return;
-  editBtn.style.display = eco2Editing ? 'none' : '';
-  saveBtn.style.display = eco2Editing ? '' : 'none';
-  cancelBtn.style.display = eco2Editing ? '' : 'none';
-  if (hint) hint.style.display = eco2Editing ? '' : 'none';
+function ecoRenderActions() {
+  const editBtns = Array.from(document.querySelectorAll('#ecosystem-panel [data-eco="edit"]'));
+  editBtns.forEach((b, i) => { b.style.display = (!ecoEditing && i === 0) ? '' : 'none'; });
+  document.querySelectorAll('#ecosystem-panel [data-eco="save"], #ecosystem-panel [data-eco="cancel"]')
+    .forEach(b => { b.style.display = ecoEditing ? '' : 'none'; });
+  document.querySelectorAll('#ecosystem-panel [data-eco="addrow"]')
+    .forEach(b => { b.style.display = ecoEditing ? 'inline-block' : 'none'; });
+  const hint = document.getElementById('eco-edit-hint');
+  if (hint) hint.style.display = ecoEditing ? '' : 'none';
 }
 
-function eco2EnterEdit() {
-  eco2Editing = true;
-  renderEco2();
-}
-
-function eco2CancelEdit() {
-  eco2Editing = false;
-  const st = document.getElementById('eco2-status');
-  if (st) { st.className = ''; st.textContent = ''; }
-  renderEco2();   // re-renders from unchanged ecoData, discarding edits
-}
-
-function renderEco2() {
-  if (!ecoData) return;
-  const table = document.getElementById('eco2-table');
-  if (!table) return;
-  const head = `<thead>
-    <tr>
-      <th rowspan="2">Name</th>
-      <th rowspan="2">Address</th>
-      <th rowspan="2">Tailscale IP</th>
-      <th rowspan="2">Web</th>
-      <th rowspan="2">Prov</th>
-      <th class="eco2-group" colspan="4">Hardware</th>
-      <th class="eco2-group" colspan="4">Software</th>
-      <th rowspan="2">Apps</th>
-    </tr>
-    <tr>
-      <th>Host</th><th>RAM</th><th>Disk</th><th>OS</th>
-      <th>Claude</th><th>Nginx</th><th>Supabase</th><th>SQL Lite</th>
-    </tr>
-  </thead>`;
-  const rows = ecoData.servers.map((s, i) => {
-    const apps = ecoData.apps.filter(a => a.server === s.name).map(a => a.name).join(', ');
-    return `<tr class="${s.provisioned ? '' : 'eco2-unprov'}">
-      ${eco2EditCell(i, 'name', s.name, 'eco2-mono')}
-      ${eco2EditCell(i, 'address', s.address, 'eco2-mono')}
-      ${eco2EditCell(i, 'tailscale', s.tailscale, 'eco2-mono')}
-      ${eco2WebCell(i, s.web_url)}
-      ${eco2YnCell(i, 'provisioned', s.provisioned)}
-      ${eco2EditCell(i, 'host', s.host)}
-      ${eco2EditCell(i, 'ram', s.ram)}
-      ${eco2EditCell(i, 'disk', s.disk)}
-      ${eco2EditCell(i, 'os', s.os)}
-      ${eco2YnCell(i, 'claude', s.claude)}${eco2YnCell(i, 'nginx', s.nginx)}${eco2YnCell(i, 'supabase', s.supabase)}${eco2YnCell(i, 'sqlite', s.sqlite)}
-      <td class="eco2-ro">${escapeHtml(apps || '—')}</td>
-    </tr>`;
-  }).join('');
-  table.innerHTML = head + '<tbody>' + rows + '</tbody>';
-  table.oninput = (e) => { if (eco2Editing && e.target.classList.contains('eco2-edit')) eco2Dirty(); };
+function wireEcoTable(table) {
+  table.oninput = (e) => { if (ecoEditing && e.target.classList.contains('eco2-edit')) ecoDirty(); };
   table.onkeydown = (e) => {
     if (e.key === 'Enter' && e.target.classList.contains('eco2-edit') && e.target.isContentEditable) {
       e.preventDefault();
       e.target.blur();
     }
   };
-  eco2RenderActions();
-
-  const n = document.getElementById('eco2-notes');
-  if (n) {
-    if (ecoData.notes && ecoData.notes.trim()) {
-      n.innerHTML = `<b>Notes:</b> ${escapeHtml(ecoData.notes)}`;
-      n.style.display = '';
-    } else {
-      n.textContent = '';
-      n.style.display = 'none';
-    }
-  }
 }
 
-function setDatalist(id, opts) {
-  const el = document.getElementById(id);
-  if (el) el.innerHTML = (opts || []).map(o => `<option value="${escAttr(o)}"></option>`).join('');
+function renderEcoServers() {
+  const table = document.getElementById('eco-servers-table');
+  if (!table) return;
+  const head = `<thead><tr>
+      <th>Name</th><th>Address</th><th>Tailscale IP</th><th>Web</th><th>Prov</th>
+      <th>Host</th><th>OS</th><th>RAM</th><th>Disk</th>
+      <th>Claude</th><th>Nginx</th><th>Supabase</th><th>SQLite</th>
+      ${ecoEditing ? '<th></th>' : ''}
+    </tr></thead>`;
+  const rows = ecoData.servers.map((s, i) => `<tr class="${s.provisioned ? '' : 'eco2-unprov'}">
+      ${ecoTextCell('si', i, 'name', s.name, 'eco2-mono')}
+      ${ecoTextCell('si', i, 'address', s.address, 'eco2-mono')}
+      ${ecoTextCell('si', i, 'tailscale', s.tailscale, 'eco2-mono')}
+      ${ecoWebCell('si', i, s.web_url)}
+      ${ecoYnCell('si', i, 'provisioned', s.provisioned)}
+      ${ecoTextCell('si', i, 'host', s.host)}
+      ${ecoTextCell('si', i, 'os', s.os)}
+      ${ecoTextCell('si', i, 'ram', s.ram)}
+      ${ecoTextCell('si', i, 'disk', s.disk)}
+      ${ecoYnCell('si', i, 'claude', s.claude)}
+      ${ecoYnCell('si', i, 'nginx', s.nginx)}
+      ${ecoYnCell('si', i, 'supabase', s.supabase)}
+      ${ecoYnCell('si', i, 'sqlite', s.sqlite)}
+      ${ecoEditing ? `<td><button type="button" class="eco-rm" onclick="ecoRemoveRow('servers', ${i})">✕</button></td>` : ''}
+    </tr>`).join('');
+  table.innerHTML = head + '<tbody>' + rows + '</tbody>';
+  wireEcoTable(table);
 }
 
-function ensureServerDatalist() {
-  let el = document.getElementById('dl-servers');
-  if (!el) {
-    el = document.createElement('datalist');
-    el.id = 'dl-servers';
-    document.getElementById('fleet-panel').appendChild(el);
-  }
-  el.innerHTML = ecoData.servers.map(s => `<option value="${escAttr(s.name)}"></option>`).join('');
+function renderEcoProjects() {
+  const table = document.getElementById('eco-projects-table');
+  if (!table) return;
+  const serverNames = ecoData.servers.map(s => s.name).filter(Boolean);
+  const dbOptions = (ecoOptions.database || ['none', 'SQLite', 'Supabase']).concat(
+    ecoData.projects.map(p => p.name).filter(Boolean).map(n => `shares:${n}`)
+  );
+  const statusOptions = ecoOptions.status || ['planned', 'building', 'deployed', 'live'];
+  const head = `<thead><tr>
+      <th>Name</th>
+      ${ECO_ROLES.map(r => `<th>${r[1]}</th>`).join('')}
+      <th>Runs on</th><th>Web URL</th><th>Database</th><th>Status</th>
+      ${ecoEditing ? '<th></th>' : ''}
+    </tr></thead>`;
+  const rows = ecoData.projects.map((p, i) => {
+    const roles = p.roles || [];
+    return `<tr>
+      ${ecoTextCell('pi', i, 'name', p.name, 'eco2-mono')}
+      ${ECO_ROLES.map(r => ecoYnCell('pi', i, 'role:' + r[0], roles.indexOf(r[0]) !== -1)).join('')}
+      ${ecoSelectCell('pi', i, 'runs_on', p.runs_on, serverNames)}
+      ${ecoWebCell('pi', i, p.web_url)}
+      ${ecoSelectCell('pi', i, 'database', p.database, dbOptions)}
+      ${ecoSelectCell('pi', i, 'status', p.status, statusOptions)}
+      ${ecoEditing ? `<td><button type="button" class="eco-rm" onclick="ecoRemoveRow('projects', ${i})">✕</button></td>` : ''}
+    </tr>`;
+  }).join('');
+  table.innerHTML = head + '<tbody>' + rows + '</tbody>';
+  wireEcoTable(table);
 }
 
-function fleetInput(kind, idx, field, label, value, o) {
-  o = o || {};
-  const id = `f-${kind}-${idx}-${field}`;
-  if (o.check) {
-    return `<div class="fleet-field fleet-check"><input type="checkbox" id="${id}" data-field="${field}" ${value ? 'checked' : ''}><label for="${id}">${label}</label></div>`;
-  }
-  if (o.textarea) {
-    return `<div class="fleet-field wide"><label for="${id}">${label}</label><textarea id="${id}" data-field="${field}">${escapeHtml(value || '')}</textarea></div>`;
-  }
-  if (Array.isArray(o.select)) {
-    const cur = value || '';
-    const choices = o.select.slice();
-    if (cur && !choices.includes(cur)) choices.unshift(cur);  // keep a legacy free-text value
-    const opts = ['<option value=""></option>'].concat(
-      choices.map(v => `<option value="${escAttr(v)}"${v === cur ? ' selected' : ''}>${escapeHtml(v)}</option>`)
-    ).join('');
-    return `<div class="fleet-field${o.cls ? ' ' + o.cls : ''}"><label for="${id}">${label}</label><select id="${id}" data-field="${field}">${opts}</select></div>`;
-  }
-  const cls = o.cls ? ' ' + o.cls : '';
-  const list = o.list ? ` list="${o.list}"` : '';
-  return `<div class="fleet-field${cls}"><label for="${id}">${label}</label><input type="text" id="${id}" data-field="${field}" value="${escAttr(value || '')}"${list}></div>`;
-}
-
-function fleetRowShell(kind, idx, title, fields) {
-  return `<div class="fleet-row" data-kind="${kind}" data-idx="${idx}">
-    <div class="fleet-row-head"><span class="fleet-row-title">${escapeHtml(title)}</span>
-      <button type="button" class="fleet-remove" onclick="fleetRemove('${kind}', ${idx})">Remove</button></div>
-    <div class="fleet-row-fields">${fields}</div>
-  </div>`;
-}
-
-function renderFleetEditor() {
+function renderEcoView() {
   if (!ecoData) return;
-  setDatalist('dl-host', ecoOptions.host);
-  setDatalist('dl-os', ecoOptions.os);
-  setDatalist('dl-ram', ecoOptions.ram);
-  setDatalist('dl-disk', ecoOptions.disk);
-  setDatalist('dl-software', ecoOptions.software);
-  setDatalist('dl-db', ecoOptions.db);
-  ensureServerDatalist();
-
-  document.getElementById('fleet-servers').innerHTML = ecoData.servers.map((s, i) => fleetRowShell(
-    'servers', i, s.name || `Server ${i + 1}`,
-    fleetInput('servers', i, 'name', 'Name', s.name) +
-    fleetInput('servers', i, 'tag', 'Tag / label', s.tag, {cls: 'grow'}) +
-    fleetInput('servers', i, 'address', 'Address', s.address) +
-    fleetInput('servers', i, 'tailscale', 'Tailscale IP', s.tailscale) +
-    fleetInput('servers', i, 'web_url', 'Web URL (rendered as a link)', s.web_url, {cls: 'grow'}) +
-    fleetInput('servers', i, 'host', 'Host', s.host, {list: 'dl-host'}) +
-    fleetInput('servers', i, 'os', 'OS', s.os, {list: 'dl-os'}) +
-    fleetInput('servers', i, 'ram', 'RAM', s.ram, {list: 'dl-ram'}) +
-    fleetInput('servers', i, 'disk', 'Disk', s.disk, {list: 'dl-disk'}) +
-    fleetInput('servers', i, 'software', 'Software (free text — shown on the Ecosystem tree)', s.software, {list: 'dl-software', cls: 'grow'}) +
-    fleetInput('servers', i, 'claude', 'Claude', s.claude, {check: true}) +
-    fleetInput('servers', i, 'nginx', 'Nginx', s.nginx, {check: true}) +
-    fleetInput('servers', i, 'supabase', 'Supabase', s.supabase, {check: true}) +
-    fleetInput('servers', i, 'sqlite', 'SQL Lite', s.sqlite, {check: true}) +
-    fleetInput('servers', i, 'git', 'Git / deploy notes', s.git, {textarea: true}) +
-    fleetInput('servers', i, 'provisioned', 'Provisioned', s.provisioned, {check: true}) +
-    fleetInput('servers', i, 'dev_host', 'Dev host (shows Projects list)', s.dev_host, {check: true})
-  )).join('');
-
-  document.getElementById('fleet-apps').innerHTML = ecoData.apps.map((a, i) => fleetRowShell(
-    'apps', i, a.name || `App ${i + 1}`,
-    fleetInput('apps', i, 'name', 'Name', a.name, {cls: 'grow'}) +
-    fleetInput('apps', i, 'server', 'Runs on server', a.server, {select: ecoData.servers.map(s => s.name).filter(Boolean)}) +
-    fleetInput('apps', i, 'tag', 'Tag / label', a.tag, {cls: 'grow'}) +
-    fleetInput('apps', i, 'web_address', 'Web address', a.web_address, {cls: 'grow'}) +
-    fleetInput('apps', i, 'db', 'DB', a.db, {list: 'dl-db', cls: 'grow'}) +
-    fleetInput('apps', i, 'planned', 'Planned / not real yet', a.planned, {check: true})
-  )).join('');
-
-  document.getElementById('fleet-projects').innerHTML = ecoData.projects.map((p, i) => fleetRowShell(
-    'projects', i, p.name || `Project ${i + 1}`,
-    fleetInput('projects', i, 'name', 'Name', p.name) +
-    fleetInput('projects', i, 'exists', 'Exists', p.exists, {check: true}) +
-    fleetInput('projects', i, 'agents', 'Agents (comma-separated)', p.agents.join(', '), {cls: 'grow'})
-  )).join('');
-
-  document.getElementById('fleet-notes').value = ecoData.notes || '';
+  renderEcoSource();
+  renderEcoServers();
+  renderEcoProjects();
+  ecoRenderActions();
 }
 
-function fleetSync() {
+function ecoEnterEdit() {
+  ecoEditing = true;
+  renderEcoView();
+}
+
+function ecoCancelEdit() {
+  ecoEditing = false;
+  const st = document.getElementById('eco-status');
+  if (st) { st.className = ''; st.textContent = ''; }
+  renderEcoView();   // re-render from unchanged ecoData, discarding edits
+}
+
+// Pull every edited cell in one table back into ecoData.
+function ecoSyncTable(table) {
   if (!ecoData) return;
-  document.querySelectorAll('#fleet-panel .fleet-row').forEach(row => {
-    const kind = row.dataset.kind;
-    const idx = +row.dataset.idx;
-    const obj = ecoData[kind] && ecoData[kind][idx];
+  table.querySelectorAll('[data-si], [data-pi]').forEach(cell => {
+    const isServer = cell.hasAttribute('data-si');
+    const idx = Number(isServer ? cell.dataset.si : cell.dataset.pi);
+    const obj = isServer ? ecoData.servers[idx] : ecoData.projects[idx];
     if (!obj) return;
-    row.querySelectorAll('[data-field]').forEach(inp => {
-      const f = inp.dataset.field;
-      if (inp.type === 'checkbox') obj[f] = inp.checked;
-      else if (f === 'agents') obj[f] = inp.value.split(',').map(x => x.trim()).filter(Boolean);
-      else obj[f] = inp.value;
-    });
-  });
-  const notes = document.getElementById('fleet-notes');
-  if (notes) ecoData.notes = notes.value;
-}
-
-function fleetAdd(kind) {
-  fleetSync();
-  if (kind === 'servers') ecoData.servers.push({name: '', tag: '', address: '', tailscale: '', web_url: '', host: '', os: '', ram: '', disk: '', software: '', claude: false, nginx: false, supabase: false, sqlite: false, git: '', provisioned: true, dev_host: false});
-  else if (kind === 'apps') ecoData.apps.push({name: '', server: '', tag: '', web_address: '', db: '', planned: false});
-  else if (kind === 'projects') ecoData.projects.push({name: '', exists: true, agents: []});
-  renderFleetEditor();
-}
-
-function fleetRemove(kind, idx) {
-  fleetSync();
-  if (ecoData[kind]) ecoData[kind].splice(idx, 1);
-  renderFleetEditor();
-}
-
-async function loadEcosystem() {
-  try {
-    const res = await fetch('/api/ecosystem');
-    const data = await res.json();
-    ecoData = data.ecosystem;
-    ecoSource = data.source || null;
-    ecoConfigured = !!data.supabase_configured;
-    ecoOptions = data.options || {};
-    renderEcoView();
-    renderFleetEditor();
-    const st = document.getElementById('fleet-status');
-    if (st) { st.textContent = ''; st.className = ''; }
-  } catch (e) { /* ignore */ }
-}
-
-async function saveEcosystem() {
-  fleetSync();
-  const st = document.getElementById('fleet-status');
-  st.className = '';
-  st.textContent = 'Saving…';
-  try {
-    const res = await fetch('/api/ecosystem', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ecosystem: ecoData }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      ecoData = data.ecosystem;
-      ecoSource = data.source || ecoSource;
-      if ('supabase_configured' in data) ecoConfigured = !!data.supabase_configured;
-      renderEcoView();
-      renderFleetEditor();
-      st.className = 'ok';
-      st.textContent = 'Saved — Ecosystem tab updated';
-      setTimeout(() => { st.textContent = ''; st.className = ''; }, 2500);
-    } else {
-      st.className = 'error';
-      st.textContent = data.error || 'Save failed';
+    const field = cell.dataset.field;
+    if (cell.dataset.yn) {
+      const on = cell.classList.contains('eco2-y');
+      if (field.indexOf('role:') === 0) {
+        const key = field.slice(5);
+        obj.roles = obj.roles || [];
+        const has = obj.roles.indexOf(key) !== -1;
+        if (on && !has) obj.roles.push(key);
+        if (!on && has) obj.roles = obj.roles.filter(r => r !== key);
+      } else {
+        obj[field] = on;
+      }
+    } else if (cell.tagName === 'SELECT') {
+      obj[field] = cell.value;
+    } else if (cell.isContentEditable) {
+      obj[field] = cell.textContent.trim();
     }
-  } catch (e) {
-    st.className = 'error';
-    st.textContent = 'Save failed';
-  }
-}
-
-function eco2Sync() {
-  if (!ecoData) return;
-  document.querySelectorAll('#eco2-table td.eco2-edit').forEach(td => {
-    const s = ecoData.servers[+td.dataset.si];
-    if (!s) return;
-    const f = td.dataset.field;
-    if (td.dataset.yn) s[f] = td.classList.contains('eco2-y');
-    else s[f] = td.textContent.trim();
   });
 }
 
-async function saveEco2() {
-  eco2Sync();
-  const st = document.getElementById('eco2-status');
+function ecoSyncAll() {
+  document.querySelectorAll('#ecosystem-panel .eco2-table').forEach(ecoSyncTable);
+}
+
+async function ecoSave() {
+  ecoSyncAll();
+  const st = document.getElementById('eco-status');
   st.className = 'saving';
   st.textContent = 'Saving…';
   try {
@@ -2474,14 +2085,13 @@ async function saveEco2() {
       ecoData = data.ecosystem;
       ecoSource = data.source || ecoSource;
       if ('supabase_configured' in data) ecoConfigured = !!data.supabase_configured;
-      eco2Editing = false;
+      ecoEditing = false;
       renderEcoView();
-      renderFleetEditor();
       st.className = 'ok';
       st.textContent = data.source === 'supabase'
         ? 'Saved to Supabase'
         : (ecoConfigured
-            ? 'Saved to local JSON (Supabase configured but unreachable)'
+            ? 'Saved to local JSON (Supabase unreachable)'
             : 'Saved to local JSON (Supabase not configured on this box)');
       setTimeout(() => { st.textContent = ''; st.className = ''; }, 3000);
     } else {
@@ -2492,6 +2102,44 @@ async function saveEco2() {
     st.className = 'error';
     st.textContent = 'Save failed';
   }
+}
+
+function ecoAddRow(kind) {
+  ecoSyncAll();
+  if (kind === 'servers') {
+    ecoData.servers.push({
+      name: '', tag: '', address: '', tailscale: '', web_url: '', host: '', os: '',
+      ram: '', disk: '', software: '', claude: false, nginx: false, supabase: false,
+      sqlite: false, git: '', provisioned: true, dev_host: false,
+    });
+  } else {
+    ecoData.projects.push({
+      name: '', exists: true, roles: [], runs_on: '', web_url: '',
+      database: 'none', status: 'planned',
+    });
+  }
+  ecoDirty();
+  renderEcoView();
+}
+
+function ecoRemoveRow(kind, i) {
+  ecoSyncAll();
+  if (ecoData[kind]) ecoData[kind].splice(i, 1);
+  ecoDirty();
+  renderEcoView();
+}
+
+async function loadEcosystem() {
+  try {
+    const res = await fetch('/api/ecosystem');
+    const data = await res.json();
+    ecoData = data.ecosystem;
+    ecoSource = data.source || null;
+    ecoConfigured = !!data.supabase_configured;
+    ecoOptions = data.options || {};
+    ecoEditing = false;
+    renderEcoView();
+  } catch (e) { /* ignore */ }
 }
 
 // ---- Workspace tab ------------------------------------------------------
