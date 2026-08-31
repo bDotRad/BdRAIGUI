@@ -1,43 +1,162 @@
-NOT READY
+WAITING RESPONSE
 
-# Ecosystem page consolidation
+## Where this is up to (scheduled pass, 2026-08-31 ~16:30)
 
-**Claimed 2026-08-30 by the Independent Claude session — being
-implemented live with Brad. Do not process this from a scheduled pass.**
+You'd already carried this further than the file said. Current reality:
 
-Both questions answered (2026-08-29): **delete the old Ecosystem tab**,
-**drop the notes blob from the page** (stays in the DB).
+**Done:**
 
----
+- ✅ Local Supabase on BdRVSrvDev up (11 containers healthy), dashboard
+  reads from it — `curl localhost:8420/api/ecosystem` → `"source":"supabase"`.
+- ✅ **Migration Part A** (add columns + `roles` / `project_roles`
+  tables, migrate `apps` / `project_agents` across) — applied.
+- ✅ **Migration Part B** (swap `fleet_ecosystem_json` to the new shape)
+  — applied. The view now emits `projects[].runs_on / web_url / database
+  / status / roles`.
+- ✅ **Dashboard restarted** (live process started 2026-08-31 13:36) and
+  is serving the new template + reading the new view. Report query 1
+  ("agents mapped to no role") comes back **clean — 0 rows**.
+- ✅ **App code committed + pushed** (`148259d`): one Ecosystem tab, the
+  Servers + Projects grids, Edit button top-right, no notes blob on the
+  page. `apps` / `projects[].agents` gone from the write path;
+  `_Instructions/WebUI.md` reference impl refreshed.
+
+**Still needs you (2 things):**
+
+1. **Data cleanup + write-path check.** Report query 2 flags 5 projects
+   whose `database` / `web_url` are still the old free-text `apps`
+   values, and every project came across as `status = deployed`. The
+   cleanest fix also verifies the write path: open the **Ecosystem** tab
+   → **Edit** → fix the Projects grid → **Save** (status should read
+   "Saved to Supabase"), reload, confirm it stuck. Suggested values:
+
+   | Project | runs_on | Web URL | Database | Status |
+   |---|---|---|---|---|
+   | BdRDev | BdRVSrvDev | http://192.168.100.10:8420 | none | live |
+   | BdRAMAssist | BdRPiAMI | *(blank)* | shares:PlanBdRad | building |
+   | PlanBdRad | BdRPiAMI | https://planbdrad.local | Supabase | building |
+   | BdRIS | *(blank)* | *(blank)* | none | planned |
+   | BdRBirdDetector | BdRBirdDetector | *(blank)* | none | building |
+   | BdRDungeon | BdRSrvDungeon | *(blank)* | Supabase | planned |
+
+   (Server names in the DB are still `BdRPiAMI` / `BdRVSrvDev` etc. — the
+   `BdRPiSrvAMI` rename is display-only in this data and not part of this
+   request. Fix it in the Servers grid too if you want, or leave it.)
+
+   If you'd rather do it in SQL, the equivalent is in the Action block.
+
+2. **Part C** (drop `apps` / `project_agents`, add RLS + grants for
+   `roles` / `project_roles`, rebuild the view without the derived
+   `apps` key + `agents` line). Destructive — run only after step 1
+   confirms the new UI round-trips. Action block below.
+
+An unattended pass won't drop tables on the source-of-truth DB or run
+the write-path test in a browser, and the step-1 values are your call —
+hence WAITING RESPONSE. After you've done both, flip this to `READY`
+(with a note) and the next scheduled pass removes the transitional read
+shim from `app/common.py` and archives this.
+
+??? --- Question --- ???
+
+Anything in the "Brad's final spec" Projects grid you want changed now
+that it's built?
+
+Options:
+1. Ship it as spec'd — Name, 6 role Y/N cols, Runs on, Web URL,
+   Database, Status. The `exists` flag is still stored, just not shown.
+2. Bring the `exists` flag back as a visible Y/N column.
+3. Other change (write it in).
+
+Answer: proceeding on **1** (you flipped to READY without changing the
+spec; the "should be ecosystem 2 only" note matches it). Say so here and
+re-open if you want 2 or 3.
+
+??? --------------- ???
 
 @@@ --- Action (Brad) --- @@@
 
-**Blocking step: stand up Supabase ON BdRVSrvDev and point the dashboard
-at it, before the app-code work.** Brad's decision (2026-08-30): the dev
-box becomes the ecosystem master — its own local Supabase, not the Pi's.
-The Pi keeps only the deployed-app schemas.
+All on this dev box (BdRVSrvDev). `docker exec -i supabase-db psql -U
+postgres` is the SQL shell — no sudo for the DB parts.
 
-All non-sudo prep is done (Independent session):
-`~/projects/BdRVSrvDev/supabase-docker/` cloned + version-matched to the
-Pi + loopback-bound + all secrets generated (`.env` + `SECRETS.md`);
-`systemd/bdrdev-dashboard.service` now points at `http://127.0.0.1:8000`;
-`state/fleet_db.env` holds the local service-role key.
+1. (Optional — only if you skip the Ecosystem-tab Edit/Save in step 1
+   above and want to do the data cleanup in SQL instead.)
 
-**Run the "Brad's sequence" block in
-`~/projects/BdRVSrvDev/BdRVSrvDev-ADD-SUPABASE.md`** (steps 1–6: apt
-prereqs → rootless docker → `docker compose up` → load
-`.claude-status/sql_output.sql` → install the service unit + restart →
-re-POST today's ecosystem to seed the local tables). Then verify
-`curl localhost:8420/api/ecosystem | grep source` says `"supabase"` and a
-cell edit on the Ecosystem 2 tab round-trips.
+"Normalise the 5 flagged projects to the enum + real URLs"
+docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 <<'SQL'
+update public.projects set database='none',              status='live',     web_url='http://192.168.100.10:8420' where name='BdRDev';
+update public.projects set database='shares:PlanBdRad',  status='building', web_url=''                            where name='BdRAMAssist';
+update public.projects set database='Supabase',          status='building', web_url='https://planbdrad.local'     where name='PlanBdRad';
+update public.projects set database='none',              status='planned',  web_url=''                            where name='BdRIS';
+update public.projects set database='none',              status='building', web_url=''                            where name='BdRBirdDetector';
+update public.projects set database='Supabase',          status='planned',  web_url=''                            where name='BdRDungeon';
+SQL
 
-Then reply here and the Independent session does the app-code +
-`supabase/DRAFT_fold_apps_into_projects.sql` Parts A/B/C against the
-**local** DB, and the tab consolidation below.
+2. Verify the read path carries the cleaned fields.
+
+"Should show source: supabase and the normalised values"
+curl -s localhost:8420/api/ecosystem | python3 -m json.tool | grep -E 'source|runs_on|database|status'
+
+   Then in the browser: Ecosystem tab → Edit → toggle a role / change a
+   cell on each grid → Save ("Saved to Supabase") → reload, confirm it
+   stuck. Confirm there's no Ecosystem 2 / Fleet tab and no blurb
+   above/below either grid.
+
+3. Apply Part C (contract). Run only after step 2 is good.
+
+"Run Part C — rebuild the view without the derived apps key, drop the old tables, add RLS/grants"
+cd ~/projects/BdRDev
+# a) rebuild fleet_ecosystem_json: same as Part B but delete the whole
+#    'apps' jsonb object and the 'agents' line from the projects object,
+#    then run that create-or-replace.
+# b) then:
+docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 <<'SQL'
+drop table if exists public.apps;
+drop table if exists public.project_agents;
+alter table public.roles         enable row level security;
+alter table public.project_roles enable row level security;
+create policy roles_read_all         on public.roles         for select to anon, authenticated using (true);
+create policy roles_service_all      on public.roles         for all    to service_role using (true) with check (true);
+create policy project_roles_read_all on public.project_roles for select to anon, authenticated using (true);
+create policy project_roles_service_all on public.project_roles for all to service_role using (true) with check (true);
+grant select on public.roles, public.project_roles to anon, authenticated;
+grant select, insert, update, delete on public.roles, public.project_roles to service_role;
+grant usage, select on all sequences in schema public to service_role;
+SQL
+
+   (`supabase/DRAFT_fold_apps_into_projects.sql` Part C has the same
+   block, commented, plus the view-rebuild note.)
+
+4. Reload the Ecosystem tab once more — both grids should still load and
+   round-trip. Then set this file's first line to `READY` with a one-line
+   note on how it went.
 
 @@@ --------------- @@@
 
-## Brad's final spec (2026-08-30)
+---
+---
+
+## Earlier history (kept for the record)
+
+Both questions at the very bottom were answered 2026-08-29: **delete the
+old Ecosystem tab**, **drop the notes blob from the page** (stays in DB).
+
+### Note Brad left on the 2026-08-31 pass (verbatim)
+
+> docker exec -i supabase-db psql -U postgres -c "select name, status,
+> database, web_url from public.projects where database !~
+> '^(|none|SQLite|Supabase|shares:.*)\$' or web_url ilike '%not
+> deployed%' or web_url ilike '%no fixed url%' or web_url ilike '%local
+> network%';"
+>
+> [pasted terminal output — the psql call got mangled by a shell paste
+> (`~/projects/update.sh` spliced into the middle) and errored with
+> `schema "update" does not exist`. That's the shell, not the DB — the
+> query itself is report query 2 above and it ran fine on this pass.]
+>
+> Supabase is now setup. I dont know where the ecosystem thing is up to.
+> should be ecosystem 2 only but changed to ecosystem. all in supabase
+
+### Brad's final spec (2026-08-30)
 
 a. Remove the **Ecosystem** tab.
 b. Remove the **Fleet** tab.
@@ -60,128 +179,21 @@ f. Add a **Projects** table below the **Servers** table:
 | Database | `none` / `SQLite` / `Supabase` / `shares:<project>` |
 | Status | `planned` / `building` / `deployed` / `live` |
 
-Supersedes **`rFlet update`** and **`rUpdate Fleet - Add Project Table`**
-(both folded in verbatim at the bottom). Does **not** cover
-`rFix all of the web pages` — that's the Pi app-deployment work, a
-separate concern, left in place.
+Supersedes **`rFlet update`** and **`rUpdate Fleet - Add Project
+Table`** (folded in verbatim below). Does **not** cover `rFix all of the
+web pages` — separate concern, left in place.
 
 - Design + rationale: `supabase/DATA_MODEL.md`
 - Draft schema change: `supabase/DRAFT_fold_apps_into_projects.sql`
 
-Flip to `READY` once the two questions below are answered.
+### Original open questions (both answered)
 
----
+> The old **Ecosystem** tab is an ASCII tree + fleet diagram. Keep it
+> once the two grids exist?
+> Answer: 1 — delete it.
 
-## Goal
-
-**One `Ecosystem` tab. Delete the `Fleet` tab and the old `Ecosystem`
-(ASCII tree) tab.** The page holds two editable grids, both using the
-standard Edit / Save / Cancel pattern with the **Edit button at the top
-right**, and **no notes / blurb / explainer above them**.
-
-### Grid 1 — Servers
-
-Today's "Ecosystem 2" server grid, minus the derived **Apps** and
-**Other** columns.
-
-`Name` · `Address` · `Tailscale IP` · `Web` · `Prov` · `Host` · `OS` ·
-`RAM` · `Disk` · `Claude` · `Nginx` · `Supabase` · `SQLite`
-
-### Grid 2 — Projects (new)
-
-| Col | Type |
-|---|---|
-| Name | text |
-| PM | Y/N |
-| Web | Y/N |
-| DB | Y/N |
-| Elec Ctrl | Y/N |
-| Elec LV-HV | Y/N |
-| Doco | Y/N |
-| Runs on | dropdown of servers (blank = not deployed) |
-| Web URL | text, rendered as a link in read mode |
-| Database | `none` / `SQLite` / `Supabase` / `shares:<project>` |
-| Status | `planned` / `building` / `deployed` / `live` |
-
-PM…Doco are the dev-agent **role matrix** (Brad's spec in
-`rUpdate Fleet…` below). "Runs on / Web URL / Database / Status" are the
-old `apps` fields, now living on the project — see `DATA_MODEL.md` for
-why `apps` folds into `projects`.
-
-### Data source line
-
-Keep the existing `source: supabase | json-fallback` indicator.
-
----
-
-## Work
-
-1. **[Brad — remote DDL]** Run **Part A** of
-   `supabase/DRAFT_fold_apps_into_projects.sql` on the Pi (add columns +
-   role tables, migrate `apps`/`project_agents` data across). Then run
-   the two report queries at the bottom of that file and fix anything
-   they flag by hand (free-text `db` values, unmapped agent names).
-
-2. **`app/fleet_db.py`** — `_write_all` / `push_ecosystem`: write the new
-   `projects` columns (`runs_on_server_id`, `web_url`, `database`,
-   `status`) and the `project_roles` links; stop writing the `apps`
-   table.
-
-3. **`app/common.py`** — `_normalize_ecosystem` + `DEFAULT_ECOSYSTEM`:
-   new project shape (`runs_on`, `web_url`, `database`, `status`,
-   `roles[]`); drop the top-level `apps` list.
-
-4. **`app/templates/index.html`** — merge the three tabs into one
-   `Ecosystem` tab with the two grids above; delete `renderFleet()` and
-   the old ecosystem-tree renderer; Edit button top-right on both grids;
-   remove the notes blurb.
-
-5. **[Brad — DDL + app-code ready together]** Run **Part B** of the draft
-   (swap the `fleet_ecosystem_json` view), then restart the dashboard
-   (`sudo systemctl restart bdrdev-dashboard`). Verify both grids load,
-   edit round-trips, `source: supabase`.
-
-6. **`_Instructions/WebUI.md`** — if the two-grid page sets a precedent
-   worth documenting fleet-wide, add it.
-
-7. **[Brad — remote DDL, after verify]** Run **Part C** of the draft
-   (drop `apps`, `project_agents`, add RLS/grants for the new tables).
-
-Steps 1, 5, 7 are remote-DDL / sudo — an unattended session must write
-them into an `@@@ --- Action --- @@@` block here, not attempt them.
-
----
-
-## Open questions
-
-??? --- Question --- ???
-
-The old **Ecosystem** tab is an ASCII tree + fleet diagram of
-servers → projects. Once the two grids exist, keep it?
-
-Options:
-1. **Delete it** (recommended) — the grids carry the same information;
-   a rendered diagram can come back later as its own request if missed.
-2. Keep it as a **read-only** view rendered from the two grids (not
-   separately editable).
-
-Answer: 1 — delete it.
-
-??? --------------- ???
-
-??? --- Question --- ???
-
-The fleet **notes** blob (`fleet_meta.notes` — the long paragraph
-currently shown at the top of the Fleet / Ecosystem tabs).
-
-Options:
-1. **Drop it from the page** (recommended) — stays in the DB, just not
-   shown. `rFlet update` says "just the table".
-2. Keep it, **collapsed**, at the bottom of the Ecosystem page.
-
-Answer: 1 — drop it from the page.
-
-??? --------------- ???
+> The fleet **notes** blob (`fleet_meta.notes`). Keep it on the page?
+> Answer: 1 — drop it from the page (stays in the DB).
 
 ===========================================================================
 SUPERSEDED REQUESTS (verbatim)
