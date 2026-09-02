@@ -1,4 +1,73 @@
-WAITING RESPONSE
+> Archived 2026-09-03 08:15 AEST. Brad flipped the file to `READY` with the
+> single note "Archive this" — no report on whether step 1 (data cleanup)
+> or Part C (contract) were run. Checked the live system; they were not.
+> Archiving the app-side work (which is complete) and spinning the leftover
+> destructive DB cleanup out into its own request so it isn't lost.
+
+## What was asked
+
+Consolidate the fleet UI to a single **Ecosystem** tab (Servers grid +
+Projects grid), drop the old Ecosystem ASCII-tree tab and the Fleet tab,
+move the Edit button top-right, drop the notes/blurb from the page, and
+fold the old free-text `apps` / `project_agents` tables into `projects`
++ new `roles` / `project_roles` tables. Full spec and history in the
+verbatim request below.
+
+## State at archive time
+
+**Done (landed over commits `148259d` + `ff64217`, plus this pass):**
+
+- One **Ecosystem** tab — Servers grid + Projects grid, Edit top-right,
+  no notes blob on the page. Old Ecosystem/Fleet tabs gone.
+- Dashboard reads local Supabase on BdRVSrvDev
+  (`/api/ecosystem` → `"source":"supabase"`).
+- **Migration Part A** (new columns + `roles` / `project_roles` tables,
+  data migrated across from `apps` / `project_agents`) — applied.
+- **Migration Part B** (view `fleet_ecosystem_json` emits the new shape:
+  `projects[].runs_on / web_url / database / status / roles`) — applied.
+  Verified: the live payload carries those keys per project and no longer
+  has a top-level `apps` key.
+- Write path (`app/fleet_db.py`) no longer writes `apps` / `agents`.
+- **This pass:** removed the now-dead transitional read shim
+  (`legacy_apps` / `_legacy_app_for`) from `app/common.py`. It was only
+  needed while the view still emitted the old shape; Part B made it
+  unreachable (every project now carries the deployment keys directly).
+  Behaviourally inert — `_normalize_ecosystem` smoke-tested against the
+  live view payload, 6 projects normalise clean. Lands on the next
+  dashboard restart; the running process already serves the correct
+  shape, so no forced restart was done.
+
+**Not done — deferred to `rEcosystem fold-apps Part C.md` (NOT READY):**
+
+1. **Step 1 data cleanup.** Projects still hold the old free-text values
+   (`database` = "none (JSON state files)" etc., `web_url` = "not
+   deployed yet" / "10.10.10.20" / "local network only…", every
+   `status` = `deployed`). Brad's suggested normalised values are in the
+   spec; not applied because they were explicitly "your call" and an
+   unattended pass shouldn't write guessed values to the source-of-truth
+   DB.
+2. **Part C (contract).** `apps` and `project_agents` tables still exist
+   (unread, unwritten). `roles` / `project_roles` have grants but **RLS
+   is still off** (anon can write — minor, local-dev-only exposure).
+   View still builds the derived `apps` key + `agents` line
+   (harmless — `_normalize_ecosystem` drops them). Destructive; left for
+   Brad to run by hand. Exact SQL preserved in
+   `supabase/DRAFT_fold_apps_into_projects.sql` Part C and copied into
+   the follow-up request's Action block.
+
+## Files touched this pass
+
+- `app/common.py` — removed the transitional `apps` read shim.
+- `_Requests/_Archive/260903_0815_rEcosystemConsolidation.md` — this file.
+- `_Requests/rEcosystem fold-apps Part C.md` — new, NOT READY.
+
+===========================================================================
+ORIGINAL REQUEST (verbatim)
+===========================================================================
+
+READY
+
+Archive this
 
 ## Where this is up to (scheduled pass, 2026-08-31 ~16:30)
 
@@ -224,3 +293,11 @@ Software - Web is the Web Address or blank. DB = SQL Lite or Supabase
 (The file also carried a pasted console snapshot from 2026-08-29 15:35 —
 unrelated terminal output from the rFix-all-web-pages pass, not part of
 the ask; dropped here.)
+
+---
+
+Console snapshot when marked Not Ready (2026-09-03 07:05): [Claude Code
+OAuth sign-in prompt — unrelated terminal noise, dropped.]
+
+Console snapshot when marked Not Ready (2026-09-03 07:06): [same OAuth
+sign-in prompt again — dropped.]

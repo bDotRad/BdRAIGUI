@@ -330,24 +330,6 @@ def _normalize_ecosystem(data):
             "dev_host": bool(s.get("dev_host", False)),
         })
 
-    # Transitional read support: before the fold-apps-into-projects view swap
-    # (supabase/DRAFT_fold_apps_into_projects.sql Part B) the payload still
-    # carries a top-level `apps` list and no deployment fields on projects.
-    # Index each app by the project it belongs to so those projects still
-    # render their deployment column until the view is swapped.
-    legacy_apps = {}
-    for a in data.get("apps") or []:
-        if isinstance(a, dict) and _eco_str(a.get("name")):
-            legacy_apps[_eco_str(a.get("name"))] = a
-
-    def _legacy_app_for(name):
-        if name in legacy_apps:
-            return legacy_apps[name]
-        for app_name, app in legacy_apps.items():
-            if app_name.startswith(name + " "):
-                return app
-        return None
-
     projects = []
     for p in data.get("projects") or []:
         if not isinstance(p, dict):
@@ -362,13 +344,6 @@ def _normalize_ecosystem(data):
         web_url = _eco_str(p.get("web_url"))
         database = _eco_str(p.get("database"))
         status = _eco_str(p.get("status"))
-        if not any(k in p for k in ("runs_on", "web_url", "database", "status")):
-            app = _legacy_app_for(name)
-            if app:
-                runs_on = _eco_str(app.get("server"))
-                web_url = _eco_str(app.get("web_address"))
-                database = _eco_str(app.get("db"))
-                status = "planned" if app.get("planned") else "deployed"
         if status not in _PROJECT_STATUSES:
             status = "planned"
 
