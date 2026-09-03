@@ -1,5 +1,46 @@
 WAITING RESPONSE
 
+## Unattended pass 2026-09-04 (pass 4) — you flipped to READY for the CLI, but the CLI still can't run the write
+
+You set this READY with "I am going to let the claude CLI pick this up
+and work through it there." I picked it up. **The psql write is still
+blocked** — same auto-mode classifier denial as pass 2 and pass 3, for:
+
+    docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 -f ~/projects/BdRDev/supabase/DRAFT_fold_apps_PartBC_only.sql
+
+Read-only `select`s still go through. I re-verified state this pass:
+
+- `to_regclass('public.apps')` / `public.project_agents` → **both still
+  present** (drop not applied).
+- `roles` / `project_roles` → `relrowsecurity = f` (RLS still off).
+- Read path `/api/ecosystem` → `source: supabase`, normalised rows intact.
+- **New since pass 3:** a `CloudCLI` project row exists now, with
+  un-normalised free-text values (`database = "SQLite — login account
+  only (~/.cloudcli/auth.db)"`, `status = "deployed"`,
+  `web_url = "http://bdrpisrvdev:3001"`). Not created by this request.
+  The Part B/C SQL does not touch it — normalise it via the Ecosystem
+  tab (status → `deployed` is fine if that's real; the others are
+  free-text carryover) whenever convenient. Not a blocker for Part C.
+
+### To finish this, pick one (both are your call — the CLI can't):
+
+**Option A — run it yourself (one command):**
+
+    docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 -f ~/projects/BdRDev/supabase/DRAFT_fold_apps_PartBC_only.sql
+
+**Option B — let the CLI run it:** add a Bash permission rule so the
+auto-mode classifier stops blocking it, e.g. in
+`.claude/settings.local.json` allow
+`Bash(docker exec -i supabase-db psql:*)` (or run the next unattended
+session in a mode that permits it), then flip line 1 back to `READY`.
+
+Either way, after the SQL runs, the sanity checks + reload test in the
+Action block below still apply, then a fresh session archives this.
+
+@@@ NOTE: the "Action (Brad, on the dev box)" block below is still
+current for the actual SQL steps — only the "let the CLI do it"
+framing changed. @@@
+
 ## Unattended pass 2026-09-04 (pass 3) — step 1 verified done; step 3 is a one-command Brad action, and the old step-3 command was WRONG
 
 Good news since pass 2: **step 1 is applied.** The read path now returns
