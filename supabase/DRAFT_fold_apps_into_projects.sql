@@ -19,6 +19,13 @@
 --
 -- Target: Postgres 17, self-hosted Supabase on BdRPiSrvAMI.
 -- Safe to re-run (create ... if not exists / update ... where).
+--
+-- 2026-09-04: Step 1 of _Requests/rEcosystem-fold-apps-PartC (the projects-row
+-- normalisation to the status enum + real URLs) has ALREADY been applied by
+-- hand. Do NOT run this whole file again: Part A's data-migration block
+-- (apps -> projects) runs BEFORE the Part C drops and WILL overwrite those
+-- normalised values with the old apps free-text. Run
+-- supabase/DRAFT_fold_apps_PartBC_only.sql instead (Part B + Part C, extracted).
 -- ============================================================================
 
 

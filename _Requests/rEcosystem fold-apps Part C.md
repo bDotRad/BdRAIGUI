@@ -1,83 +1,77 @@
 WAITING RESPONSE
 
-## Unattended pass 2026-09-04 — blocked, needs Brad
+## Unattended pass 2026-09-04 (pass 3) — step 1 verified done; step 3 is a one-command Brad action, and the old step-3 command was WRONG
 
-I picked this up after the flip to READY. Two things stop an unattended
-session from finishing it:
+Good news since pass 2: **step 1 is applied.** The read path now returns
+`source: supabase` with the normalised rows (verified both via
+`curl localhost:8420/api/ecosystem` and a direct `select` on
+`public.projects`):
 
-1. **Step 1 was not applied.** The read path works (`source: supabase`),
-   but every project row still holds the old free-text values —
-   `status` is `deployed` across the board, `database` / `web_url` are
-   the long free-text strings. So the "flip to READY once step 1 is
-   done" precondition isn't actually met yet. Current live values from
-   `curl localhost:8420/api/ecosystem`:
+   | name            | database         | status   | web_url                      |
+   |-----------------|------------------|----------|------------------------------|
+   | BdRDev          | none             | live     | http://192.168.100.10:8420   |
+   | BdRAMAssist     | shares:PlanBdRad | building | (empty)                      |
+   | PlanBdRad       | Supabase         | building | https://planbdrad.local      |
+   | BdRIS           | none             | planned  | (empty)                      |
+   | BdRBirdDetector | none             | building | (empty)                      |
+   | BdRDungeon      | Supabase         | planned  | (empty)                      |
 
-   | name            | database                     | status   | web_url                        |
-   |-----------------|------------------------------|----------|--------------------------------|
-   | BdRDev          | none (JSON state files)      | deployed | https://bdrpisrvdev.local/     |
-   | BdRAMAssist     | none — feeds PlanBdRad's DB   | deployed | https://bdramassist.local/     |
-   | PlanBdRad       | Supabase (Postgres)          | deployed | https://planbdrad.local/       |
-   | BdRIS           | (empty)                      | planned  | (empty)                        |
-   | BdRBirdDetector | none yet — cloud DB planned  | deployed | local network only, no fixed…  |
-   | BdRDungeon      | Supabase (planned)           | planned  | not deployed yet               |
+So steps 1 and 2 of the old Action block are **done**. Only step 3
+(rebuild view + drop tables + RLS/grants) is left.
 
-2. **`docker exec -i supabase-db psql` is blocked by the auto-mode
-   classifier** for this session, so I can't run step 1, the write-path
-   check, the view rebuild, or the drops from here. All of Part C is a
-   Brad action now, not just `drop table`.
+### Two blockers for finishing it unattended
 
-What I did do this pass (committed):
+1. **psql writes are still classifier-blocked.** Read-only `select`s go
+   through (that's how I verified the above), but any
+   `docker exec -i supabase-db psql ...` that runs DDL/DML — including
+   `-f <file>` and heredocs — is denied by the auto-mode classifier.
+   The `drop table` / `create or replace view` still needs Brad.
 
-- Edited `supabase/DRAFT_fold_apps_into_projects.sql` so the Part B
-  `create or replace view public.fleet_ecosystem_json` is already in its
-  post-C form — the derived top-level `apps` object and the
-  `projects[].agents` line are removed. Part C in that file is now
-  uncommented and runnable, with `drop policy if exists` guards added so
-  it's safe to re-run.
+2. **The old step-3 command in the pass-2 Action block was wrong — do
+   NOT run it.** It said to `psql -f DRAFT_fold_apps_into_projects.sql`
+   (the whole file), with a note claiming Part A's data-migration block
+   "no-ops because apps / project_agents are dropped earlier in the same
+   run." That's backwards: in that file Part A (the `apps -> projects`
+   UPDATE at lines ~81–104) runs **before** the Part C drops, so
+   re-running the whole file would overwrite the step-1 normalised
+   values with the old `apps` free-text (`database='none (JSON state
+   files)'`, `status='deployed'`, etc.). `public.apps` still holds those
+   old strings — confirmed this pass.
 
-So the whole job is now: run the Action block below, top to bottom, on
-the dev box. Step 3a is just "run the file I already edited".
+### What I did this pass (committed)
 
-@@@ --- Action --- @@@
+- Added **`supabase/DRAFT_fold_apps_PartBC_only.sql`** — Part B (the
+  view rebuild, already in post-C form) + Part C (drops + RLS + grants),
+  wrapped in a single `begin/commit`, with `drop policy if exists`
+  guards. This is the *safe* subset to run — it does not touch the
+  normalised rows.
+- Added a warning header to `DRAFT_fold_apps_into_projects.sql` saying
+  not to run the whole file again, pointing at the PartBC-only file.
+- Backed up `apps` + `project_agents` data to the session scratchpad
+  (`apps_project_agents_backup_20260904.sql`) — not committed; the
+  agent data is already fully migrated into `project_roles` (all 5
+  projects mapped, 0 unmapped agents, verified this pass).
 
-1. Normalise the project rows to the status enum + real URLs.
-   `# on the dev box`
+@@@ --- Action (Brad, on the dev box) --- @@@
 
-"Normalise the project rows"
-docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 <<'SQL'
-update public.projects set database='none',             status='live',     web_url='http://192.168.100.10:8420' where name='BdRDev';
-update public.projects set database='shares:PlanBdRad', status='building', web_url=''                            where name='BdRAMAssist';
-update public.projects set database='Supabase',         status='building', web_url='https://planbdrad.local'     where name='PlanBdRad';
-update public.projects set database='none',             status='planned',  web_url=''                            where name='BdRIS';
-update public.projects set database='none',             status='building', web_url=''                            where name='BdRBirdDetector';
-update public.projects set database='Supabase',         status='planned',  web_url=''                            where name='BdRDungeon';
-SQL
+1. Run the safe Part B + Part C subset:
 
-2. Confirm the read path carries the cleaned values (should show
-   `source: supabase` and the normalised rows). `# on the dev box`
+docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 -f ~/projects/BdRDev/supabase/DRAFT_fold_apps_PartBC_only.sql
 
-"Check the read path"
-curl -s localhost:8420/api/ecosystem | python3 -m json.tool | grep -E 'source|runs_on|database|status'
+2. Sanity-check:
 
-3. Apply Part C — rebuild the view, then drop the old tables and add
-   RLS/grants. Run only after step 2 looks right. `# on the dev box`
+docker exec -i supabase-db psql -U postgres -c "select to_regclass('public.apps'), to_regclass('public.project_agents');"
+docker exec -i supabase-db psql -U postgres -c "select relname, relrowsecurity from pg_class where relname in ('roles','project_roles');"
+curl -s localhost:8420/api/ecosystem | python3 -m json.tool | grep -E 'source|\"status\"|\"database\"'
 
-"Rebuild the view (Part B block, already edited to its post-C form) then run the Part C drops/RLS/grants"
-docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 -f ~/projects/BdRDev/supabase/DRAFT_fold_apps_into_projects.sql
+   Expect: both `to_regclass` NULL, both tables `relrowsecurity = t`,
+   read path still `source: supabase` with the normalised rows.
 
-   Note: that file also re-runs Part A (all `... if not exists` /
-   `update ... where` / `on conflict` — safe) and the data-migration
-   block, which now no-ops because `public.apps` / `public.project_agents`
-   are dropped earlier in the same run. If you'd rather run just Part B
-   + Part C, copy those two sections out and psql them directly.
+3. Reload the Ecosystem tab — Servers + Projects grids should still load
+   and round-trip Edit → Save ("Saved to Supabase") → reload.
 
-4. Reload the Ecosystem tab in the browser — both the Servers and
-   Projects grids should still load and round-trip through Edit → Save
-   ("Saved to Supabase") → reload.
-
-5. Flip this file back to READY (a fresh unattended session can then
-   re-verify the read path and archive it), or archive it yourself with
-   a one-line note on how it went.
+4. Flip this file's first line back to `READY` — a fresh unattended
+   session will re-verify and archive it.
 
 @@@ ------------- @@@
 
