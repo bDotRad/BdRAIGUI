@@ -1,4 +1,33 @@
-WAITING RESPONSE
+# Chat web GUI
+
+**Asked:** Brad wants an easier way to chat with Claude than this terminal
+window — "set up chat web gui to make it easier." Split out of
+`rEcosystem fold-apps Part C.md` into its own request on 2026-09-04.
+
+**What an unattended pass found (2026-09-04):** A working chat web GUI
+(`@cloudcli-ai/cloudcli` v1.37.2) is already installed and running on
+`bdrpisrvdev` — a bare `node` process (pid 3364070, up since Sep 3)
+listening on `http://100.116.147.74:3001` (Tailscale IP), returning
+HTTP 200 and reachable from the other tailnet devices. Gaps: no service
+manager (won't survive a reboot/crash), not tracked as a fleet project,
+no reverse proxy/TLS/friendly hostname. The pass wrote five questions
+(standardise on `cloudcli`? make it durable via `systemd --user` +
+linger, or a system unit? track it as `~/projects/CloudCLI`? is login
+working? nginx in front?) and set the file to `WAITING RESPONSE`.
+
+**Outcome:** Brad answered `READY` with "Just archive this. ill work
+through this elsewhere." No action taken on BdRDev. The cloudcli server
+and its questions are being handled outside this request queue. Nothing
+changed in this repo beyond archiving.
+
+---
+
+## Original request (verbatim)
+
+```
+READY
+
+Just archive this. ill work through this elsewhere
 
 ## Original ask (Brad, 2026-09-04, moved here from `rEcosystem fold-apps Part C.md`)
 
@@ -69,3 +98,4 @@ up on 2026-09-03 and it just isn't wired to survive a reboot.
 
 Flip line 1 to `READY` once you've answered enough of the above for a
 pass to act.
+```
