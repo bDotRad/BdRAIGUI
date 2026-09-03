@@ -1,5 +1,22 @@
 WAITING RESPONSE
 
+## Unattended pass 2026-09-04 (pass 5) — still fully blocked, and now stricter
+
+You flipped line 1 to `READY` and added a note about wanting a chat web
+GUI. That chat-GUI ask is a **separate request** — I moved it to its own
+file, `rChat web GUI.md` (findings + questions there). It's unrelated to
+this DB tidy-up.
+
+On Part C itself: **nothing advanced this pass, and it got tighter.**
+Last passes, read-only `select`s via `docker exec -i supabase-db psql`
+still went through (that's how state was re-verified). This pass the
+auto-mode classifier blocked *even a read-only* `select to_regclass(...)`.
+So there is now zero psql access from an unattended session — reads
+included.
+
+This request cannot move without one of the two options below. Both are
+still Brad-only; the CLI has now been tried four times and cannot do it.
+
 ## Unattended pass 2026-09-04 (pass 4) — you flipped to READY for the CLI, but the CLI still can't run the write
 
 You set this READY with "I am going to let the claude CLI pick this up
