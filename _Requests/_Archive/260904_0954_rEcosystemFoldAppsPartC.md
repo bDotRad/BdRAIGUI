@@ -1,62 +1,83 @@
-WAITING RESPONSE
+# 260904_0954 — rEcosystem fold-apps Part C (destructive DB tidy-up)
 
-## Unattended pass 2026-09-04 (pass 5) — still fully blocked, and now stricter
+Final leftover from `rEcosystemConsolidation`
+(archived 2026-09-03 as `260903_0815_rEcosystemConsolidation.md`) and its
+pass-2 / pass-3 follow-ups. The app side was already fully done; only the
+destructive Supabase tidy-up remained, and it needed a hand-run `psql`
+because the auto-mode classifier blocks DDL/DML from an unattended pass.
 
-You flipped line 1 to `READY` and added a note about wanting a chat web
-GUI. That chat-GUI ask is a **separate request** — I moved it to its own
-file, `rChat web GUI.md` (findings + questions there). It's unrelated to
-this DB tidy-up.
+## What was done (2026-09-04, ~09:54 AEST)
 
-On Part C itself: **nothing advanced this pass, and it got tighter.**
-Last passes, read-only `select`s via `docker exec -i supabase-db psql`
-still went through (that's how state was re-verified). This pass the
-auto-mode classifier blocked *even a read-only* `select to_regclass(...)`.
-So there is now zero psql access from an unattended session — reads
-included.
+Brad ran the SQL by hand from the Claude Code terminal (`!` bash mode) on
+the dev box; Claude did the pre-checks, staged the command, and verified
+the result.
 
-This request cannot move without one of the two options below. Both are
-still Brad-only; the CLI has now been tried four times and cannot do it.
+**Pre-checks (Claude):**
+- Confirmed live state matched the request: `public.apps` (6 rows),
+  `public.project_agents` (21 rows) still present; RLS **off** on
+  `public.roles` / `public.project_roles`.
+- Verified the agent→role migration was complete: all 21 `project_agents`
+  rows map cleanly onto the 21 `project_roles` (per-project counts match
+  4/4, 4/4, 3/3, 5/5, 5/5; name mapping e.g. `Supabase SQL Expert`→`db`,
+  `ESP32 Expert`→`elec_ctrl`, `Doc Updater`→`doco`).
+- Backed up both tables (`pg_dump --table=public.apps
+  --table=public.project_agents`) to the session scratchpad —
+  `apps_project_agents_backup_20260904.sql`, not committed.
+- Confirmed the dashboard writes to Supabase with the **service-role**
+  key (`app/fleet_db.py:_service_key()`), so enabling RLS does not break
+  the Edit→Save path (service_role bypasses RLS, and an explicit
+  `*_service_all` policy is created too).
 
-## Unattended pass 2026-09-04 (pass 4) — you flipped to READY for the CLI, but the CLI still can't run the write
+**Applied** — `supabase/DRAFT_fold_apps_PartBC_only.sql`, one
+`begin/commit`, via `docker cp` + `docker exec supabase-db psql -U
+postgres -v ON_ERROR_STOP=1 -f /tmp/pbc.sql`:
+- `create or replace view public.fleet_ecosystem_json` in post-C shape
+  (no more derived `apps` key, no `projects[].agents` line).
+- `drop table public.apps`, `drop table public.project_agents`.
+- `alter table ... enable row level security` on `public.roles` and
+  `public.project_roles`; recreated `*_read_all` (SELECT → anon,
+  authenticated) and `*_service_all` (ALL → service_role) policies with
+  `drop policy if exists` guards; re-granted select to anon/authenticated
+  and full DML + sequence usage to service_role.
 
-You set this READY with "I am going to let the claude CLI pick this up
-and work through it there." I picked it up. **The psql write is still
-blocked** — same auto-mode classifier denial as pass 2 and pass 3, for:
+**Verified after:**
+- `to_regclass('public.apps')` and `('public.project_agents')` → NULL.
+- `relrowsecurity = t` for both `roles` and `project_roles`; 4 policies
+  present as expected.
+- `curl localhost:8420/api/ecosystem` → `"source": "supabase"` with the
+  normalised project rows intact (BdRDev `none`/`live`, PlanBdRad
+  `Supabase`/`building`, BdRDungeon `Supabase`/`planned`, etc.).
 
-    docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 -f ~/projects/BdRDev/supabase/DRAFT_fold_apps_PartBC_only.sql
+**Not re-verified in this pass:** the browser round-trip (reload the
+Ecosystem tab, Edit → Save → "Saved to Supabase" → reload). Read path and
+write-auth model both check out, so this is expected to be fine.
 
-Read-only `select`s still go through. I re-verified state this pass:
+## Files
 
-- `to_regclass('public.apps')` / `public.project_agents` → **both still
-  present** (drop not applied).
-- `roles` / `project_roles` → `relrowsecurity = f` (RLS still off).
-- Read path `/api/ecosystem` → `source: supabase`, normalised rows intact.
-- **New since pass 3:** a `CloudCLI` project row exists now, with
-  un-normalised free-text values (`database = "SQLite — login account
-  only (~/.cloudcli/auth.db)"`, `status = "deployed"`,
-  `web_url = "http://bdrpisrvdev:3001"`). Not created by this request.
-  The Part B/C SQL does not touch it — normalise it via the Ecosystem
-  tab (status → `deployed` is fine if that's real; the others are
-  free-text carryover) whenever convenient. Not a blocker for Part C.
+- `supabase/DRAFT_fold_apps_PartBC_only.sql` — marked APPLIED, kept for
+  the record.
+- `supabase/DRAFT_fold_apps_into_projects.sql` — header updated: the
+  whole file is now fully historical, do not run any of it.
+- No app-code change (the `app/common.py` read shim for the old `apps`
+  shape was already removed on the 2026-09-03 pass).
 
-### To finish this, pick one (both are your call — the CLI can't):
+## Outcome
 
-**Option A — run it yourself (one command):**
+Done and pushed. The `apps` / `project_agents` tables are gone, RLS
+posture on the role tables is correct, and the `fleet_ecosystem_json`
+view no longer carries the dead keys. `projects` is the single source of
+truth for the deployment facet.
 
-    docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 -f ~/projects/BdRDev/supabase/DRAFT_fold_apps_PartBC_only.sql
+---
 
-**Option B — let the CLI run it:** add a Bash permission rule so the
-auto-mode classifier stops blocking it, e.g. in
-`.claude/settings.local.json` allow
-`Bash(docker exec -i supabase-db psql:*)` (or run the next unattended
-session in a mode that permits it), then flip line 1 back to `READY`.
+## Original request (verbatim)
 
-Either way, after the SQL runs, the sanity checks + reload test in the
-Action block below still apply, then a fresh session archives this.
+```
+READY
 
-@@@ NOTE: the "Action (Brad, on the dev box)" block below is still
-current for the actual SQL steps — only the "let the CLI do it"
-framing changed. @@@
+I am going to let the claude CLI pick ths ip and work through it there.
+
+
 
 ## Unattended pass 2026-09-04 (pass 3) — step 1 verified done; step 3 is a one-command Brad action, and the old step-3 command was WRONG
 
@@ -164,3 +185,4 @@ Notes:
 - The `app/common.py` read shim for the old `apps` shape was already
   removed on the 2026-09-03 pass, so nothing app-side depends on the old
   tables or view keys.
+```

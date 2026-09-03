@@ -26,6 +26,10 @@
 -- (apps -> projects) runs BEFORE the Part C drops and WILL overwrite those
 -- normalised values with the old apps free-text. Run
 -- supabase/DRAFT_fold_apps_PartBC_only.sql instead (Part B + Part C, extracted).
+--
+-- 2026-09-04 (later): Part B + Part C are now APPLIED (via the PartBC-only file).
+-- `apps` and `project_agents` are dropped; RLS is on for roles/project_roles.
+-- This whole file is fully historical now - do NOT run any of it.
 -- ============================================================================
 
 

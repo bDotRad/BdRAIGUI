@@ -1,3 +1,7 @@
+-- APPLIED 2026-09-04 against the live Supabase (supabase-db) by Brad via the
+-- Claude Code terminal. Archived as _Requests/_Archive/260904_0954_rEcosystemFoldAppsPartC.md.
+-- Kept for the record; do not re-run (the drops are already done).
+--
 -- Part B + Part C only, extracted from supabase/DRAFT_fold_apps_into_projects.sql
 -- (running the full file would re-run Part A's data migration and clobber the
 --  already-applied step-1 row normalisation.)
