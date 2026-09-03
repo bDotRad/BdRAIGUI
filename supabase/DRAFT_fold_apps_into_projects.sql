@@ -124,8 +124,10 @@ on conflict do nothing;
 -- PART B  -  SWAP THE VIEW   (run with the app-code change + restart)
 -- ===========================================================================
 -- New `projects` shape: adds runs_on / web_url / database / status / roles.
--- `apps` key kept for now, DERIVED from projects, so an un-updated dashboard
--- still renders. Part C removes it.
+--
+-- 2026-09-04: this create-or-replace has been updated to its Part C form -
+-- the transitional top-level `apps` key and `projects[].agents` line are
+-- gone. Re-run this block as part of Part C, then run the drops/RLS below.
 
 create or replace view public.fleet_ecosystem_json
 with (security_invoker = true) as
@@ -163,29 +165,10 @@ select jsonb_build_object(
             select jsonb_agg(r.name order by r.sort_order)
             from public.project_roles prr join public.roles r on r.id = prr.role_id
             where prr.project_id = pr.id
-          ), '[]'::jsonb),
-          -- transitional: keep the old free-text agent list too
-          'agents',   coalesce((
-            select jsonb_agg(pa.agent_name order by pa.sort_order, pa.id)
-            from public.project_agents pa where pa.project_id = pr.id
           ), '[]'::jsonb)
         ) as obj
       from public.projects pr
     ) t
-  ),
-  'apps', (
-    -- DERIVED from projects that have a deployment. Remove in Part C.
-    select coalesce(jsonb_agg(
-      jsonb_build_object(
-        'name', pr.name,
-        'server', coalesce((select s.name from public.servers s where s.id = pr.runs_on_server_id), ''),
-        'tag', '',
-        'web_address', pr.web_url,
-        'db', pr.database,
-        'planned', pr.status = 'planned'
-      ) order by pr.sort_order, pr.name), '[]'::jsonb)
-    from public.projects pr
-    where pr.runs_on_server_id is not null or pr.web_url <> '' or pr.database <> ''
   ),
   'notes', coalesce((select notes from public.fleet_meta where id = 1), '')
 ) as ecosystem;
@@ -196,26 +179,28 @@ grant select on public.fleet_ecosystem_json to anon, authenticated, service_role
 -- ===========================================================================
 -- PART C  -  CONTRACT   (only after the new UI is verified working)
 -- ===========================================================================
--- Uncomment and run once app/fleet_db.py no longer writes `apps` and the
--- dashboard no longer reads the top-level `apps` key or `projects[].agents`.
---
--- -- rebuild the view without the derived `apps` key and without `agents`
--- --   (edit the create-or-replace above: delete the 'apps' object and the
--- --    'agents' line from the projects object, then run it)
---
--- drop table if exists public.apps;
--- drop table if exists public.project_agents;
---
--- -- RLS + grants for the new tables (mirror the base schema's do-block)
--- alter table public.roles         enable row level security;
--- alter table public.project_roles enable row level security;
--- create policy roles_read_all         on public.roles         for select to anon, authenticated using (true);
--- create policy roles_service_all      on public.roles         for all    to service_role using (true) with check (true);
--- create policy project_roles_read_all on public.project_roles for select to anon, authenticated using (true);
--- create policy project_roles_service_all on public.project_roles for all to service_role using (true) with check (true);
--- grant select on public.roles, public.project_roles to anon, authenticated;
--- grant select, insert, update, delete on public.roles, public.project_roles to service_role;
--- grant usage, select on all sequences in schema public to service_role;
+-- Run once app/fleet_db.py no longer writes `apps` and the dashboard no
+-- longer reads the top-level `apps` key or `projects[].agents` (both true
+-- as of the 2026-09-03 app pass). Re-run the Part B create-or-replace above
+-- FIRST (it is now in its post-C form), then run this block.
+
+drop table if exists public.apps;
+drop table if exists public.project_agents;
+
+-- RLS + grants for the new tables (mirror the base schema's do-block)
+alter table public.roles         enable row level security;
+alter table public.project_roles enable row level security;
+drop policy if exists roles_read_all            on public.roles;
+drop policy if exists roles_service_all         on public.roles;
+drop policy if exists project_roles_read_all    on public.project_roles;
+drop policy if exists project_roles_service_all on public.project_roles;
+create policy roles_read_all         on public.roles         for select to anon, authenticated using (true);
+create policy roles_service_all      on public.roles         for all    to service_role using (true) with check (true);
+create policy project_roles_read_all on public.project_roles for select to anon, authenticated using (true);
+create policy project_roles_service_all on public.project_roles for all to service_role using (true) with check (true);
+grant select on public.roles, public.project_roles to anon, authenticated;
+grant select, insert, update, delete on public.roles, public.project_roles to service_role;
+grant usage, select on all sequences in schema public to service_role;
 
 
 -- ===========================================================================

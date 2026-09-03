@@ -1,4 +1,87 @@
-NOT READY
+WAITING RESPONSE
+
+## Unattended pass 2026-09-04 — blocked, needs Brad
+
+I picked this up after the flip to READY. Two things stop an unattended
+session from finishing it:
+
+1. **Step 1 was not applied.** The read path works (`source: supabase`),
+   but every project row still holds the old free-text values —
+   `status` is `deployed` across the board, `database` / `web_url` are
+   the long free-text strings. So the "flip to READY once step 1 is
+   done" precondition isn't actually met yet. Current live values from
+   `curl localhost:8420/api/ecosystem`:
+
+   | name            | database                     | status   | web_url                        |
+   |-----------------|------------------------------|----------|--------------------------------|
+   | BdRDev          | none (JSON state files)      | deployed | https://bdrpisrvdev.local/     |
+   | BdRAMAssist     | none — feeds PlanBdRad's DB   | deployed | https://bdramassist.local/     |
+   | PlanBdRad       | Supabase (Postgres)          | deployed | https://planbdrad.local/       |
+   | BdRIS           | (empty)                      | planned  | (empty)                        |
+   | BdRBirdDetector | none yet — cloud DB planned  | deployed | local network only, no fixed…  |
+   | BdRDungeon      | Supabase (planned)           | planned  | not deployed yet               |
+
+2. **`docker exec -i supabase-db psql` is blocked by the auto-mode
+   classifier** for this session, so I can't run step 1, the write-path
+   check, the view rebuild, or the drops from here. All of Part C is a
+   Brad action now, not just `drop table`.
+
+What I did do this pass (committed):
+
+- Edited `supabase/DRAFT_fold_apps_into_projects.sql` so the Part B
+  `create or replace view public.fleet_ecosystem_json` is already in its
+  post-C form — the derived top-level `apps` object and the
+  `projects[].agents` line are removed. Part C in that file is now
+  uncommented and runnable, with `drop policy if exists` guards added so
+  it's safe to re-run.
+
+So the whole job is now: run the Action block below, top to bottom, on
+the dev box. Step 3a is just "run the file I already edited".
+
+@@@ --- Action --- @@@
+
+1. Normalise the project rows to the status enum + real URLs.
+   `# on the dev box`
+
+"Normalise the project rows"
+docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 <<'SQL'
+update public.projects set database='none',             status='live',     web_url='http://192.168.100.10:8420' where name='BdRDev';
+update public.projects set database='shares:PlanBdRad', status='building', web_url=''                            where name='BdRAMAssist';
+update public.projects set database='Supabase',         status='building', web_url='https://planbdrad.local'     where name='PlanBdRad';
+update public.projects set database='none',             status='planned',  web_url=''                            where name='BdRIS';
+update public.projects set database='none',             status='building', web_url=''                            where name='BdRBirdDetector';
+update public.projects set database='Supabase',         status='planned',  web_url=''                            where name='BdRDungeon';
+SQL
+
+2. Confirm the read path carries the cleaned values (should show
+   `source: supabase` and the normalised rows). `# on the dev box`
+
+"Check the read path"
+curl -s localhost:8420/api/ecosystem | python3 -m json.tool | grep -E 'source|runs_on|database|status'
+
+3. Apply Part C — rebuild the view, then drop the old tables and add
+   RLS/grants. Run only after step 2 looks right. `# on the dev box`
+
+"Rebuild the view (Part B block, already edited to its post-C form) then run the Part C drops/RLS/grants"
+docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 -f ~/projects/BdRDev/supabase/DRAFT_fold_apps_into_projects.sql
+
+   Note: that file also re-runs Part A (all `... if not exists` /
+   `update ... where` / `on conflict` — safe) and the data-migration
+   block, which now no-ops because `public.apps` / `public.project_agents`
+   are dropped earlier in the same run. If you'd rather run just Part B
+   + Part C, copy those two sections out and psql them directly.
+
+4. Reload the Ecosystem tab in the browser — both the Servers and
+   Projects grids should still load and round-trip through Edit → Save
+   ("Saved to Supabase") → reload.
+
+5. Flip this file back to READY (a fresh unattended session can then
+   re-verify the read path and archive it), or archive it yourself with
+   a one-line note on how it went.
+
+@@@ ------------- @@@
+
+--- original request below ---
 
 Leftover from `rEcosystemConsolidation` (archived 2026-09-03 as
 `260903_0815_rEcosystemConsolidation.md` — see there for full context).
@@ -23,63 +106,9 @@ stays a Brad action.
   "10.10.10.20" / "local network only, no fixed URL", every `status` =
   `deployed`.
 
-@@@ --- Action (Brad) --- @@@
-
-All on the dev box (BdRVSrvDev). `docker exec -i supabase-db psql -U
-postgres` is the SQL shell — no sudo needed for the DB parts.
-
-1. Normalise the project rows. Either do it in the browser — Ecosystem
-   tab → Edit → fix the Projects grid → Save (status should read "Saved
-   to Supabase"), reload, confirm it stuck (this also exercises the
-   write path) — or run the equivalent SQL:
-
-"Normalise the project rows to the status enum + real URLs"
-docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 <<'SQL'
-update public.projects set database='none',             status='live',     web_url='http://192.168.100.10:8420' where name='BdRDev';
-update public.projects set database='shares:PlanBdRad', status='building', web_url=''                            where name='BdRAMAssist';
-update public.projects set database='Supabase',         status='building', web_url='https://planbdrad.local'     where name='PlanBdRad';
-update public.projects set database='none',             status='planned',  web_url=''                            where name='BdRIS';
-update public.projects set database='none',             status='building', web_url=''                            where name='BdRBirdDetector';
-update public.projects set database='Supabase',         status='planned',  web_url=''                            where name='BdRDungeon';
-SQL
-
-2. Check the read path carries the cleaned values.
-
-"Should show source: supabase and the normalised values"
-curl -s localhost:8420/api/ecosystem | python3 -m json.tool | grep -E 'source|runs_on|database|status'
-
-3. Apply Part C — rebuild the view, drop the old tables, add RLS/grants.
-   Run only after step 2 looks right.
-
-"Rebuild fleet_ecosystem_json without the derived apps key / agents line, then drop + lock down"
-cd ~/projects/BdRDev
-# a) edit the create-or-replace for public.fleet_ecosystem_json (it's the
-#    Part B block in supabase/DRAFT_fold_apps_into_projects.sql): delete
-#    the whole 'apps' jsonb object and the 'agents' line from the
-#    projects object, then run that create-or-replace against supabase-db.
-# b) then:
-docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 <<'SQL'
-drop table if exists public.apps;
-drop table if exists public.project_agents;
-alter table public.roles         enable row level security;
-alter table public.project_roles enable row level security;
-create policy roles_read_all         on public.roles         for select to anon, authenticated using (true);
-create policy roles_service_all      on public.roles         for all    to service_role using (true) with check (true);
-create policy project_roles_read_all on public.project_roles for select to anon, authenticated using (true);
-create policy project_roles_service_all on public.project_roles for all to service_role using (true) with check (true);
-grant select on public.roles, public.project_roles to anon, authenticated;
-grant select, insert, update, delete on public.roles, public.project_roles to service_role;
-grant usage, select on all sequences in schema public to service_role;
-SQL
-
-4. Reload the Ecosystem tab — both grids should still load and
-   round-trip. Then archive this file with a one-line note on how it went.
-
-@@@ --------------- @@@
-
 Notes:
 - `supabase/DRAFT_fold_apps_into_projects.sql` Part C holds the same
-  block (commented) plus the view-rebuild note.
+  block (now uncommented + runnable) plus the view-rebuild edit.
 - The `app/common.py` read shim for the old `apps` shape was already
   removed on the 2026-09-03 pass, so nothing app-side depends on the old
   tables or view keys.
