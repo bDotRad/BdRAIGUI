@@ -18,7 +18,7 @@ BdRPiAMI** (the Pi, Postgres 17).
 
 | Table | Purpose |
 |-------|---------|
-| `servers` | One row per fleet machine (name, address, host type, OS/RAM/disk, git notes, `provisioned`, `dev_host`, `sort_order`). `software_freetext` keeps the diagram wording / "Other" column. |
+| `servers` | One row per fleet machine (name, address, `tailscale_ip`, `local_url` LAN/mDNS address, `ts_url` Tailscale front-door URL, host type, OS/RAM/disk, git notes, `provisioned`, `dev_host`, `sort_order`). `software_freetext` and the old single `web_url` were dropped 2026-09-04 (`DRAFT_ecosystem_web_columns.sql`). |
 | `software` | Canonical software/service catalogue. "SQL Lite" from the old JSON is normalised to `SQLite`. |
 | `server_software` | M:N link (`server_id`, `software_id`, PK both). Source of the `claude` / `nginx` / `supabase` / `sqlite` booleans in the view. |
 | `projects` | One row per Claude Code project. `exists_flag` is exposed as JSON key `exists`. |
@@ -50,21 +50,21 @@ one row, one `jsonb` column `ecosystem`**, shaped identically to
 ```jsonc
 {
   "servers": [
-    { "name": "", "tag": "", "address": "", "host": "", "os": "", "ram": "",
-      "disk": "", "software": "",           // = servers.software_freetext
+    { "name": "", "tag": "", "address": "", "tailscale": "",
+      "local_url": "", "ts_url": "",         // LAN/mDNS + Tailscale URLs
+      "host": "", "os": "", "ram": "", "disk": "",
       "claude": false, "nginx": false,       // EXISTS in server_software
       "supabase": false, "sqlite": false,    //   joined to software.name
       "git": "", "provisioned": true, "dev_host": false }
   ],
-  "projects": [ { "name": "", "exists": true, "agents": [] } ],
-  "apps": [ { "name": "", "server": "", "tag": "", "web_address": "",
-              "db": "", "planned": false } ],
+  "projects": [ { "name": "", "exists": true, "runs_on": "", "web_url": "",
+                  "database": "", "status": "planned", "roles": [] } ],
   "notes": ""
 }
 ```
 
-Ordering of each array follows `sort_order` then `name`. `apps[].server`
-is `server_name` if set, else the joined `servers.name`, else `""`.
+Ordering of each array follows `sort_order` then `name`. `projects[].runs_on`
+is the joined `servers.name` for `runs_on_server_id`, else `""`.
 
 The dashboard reads this view (server-side, with the service key).
 `state/ecosystem.json` stays in place as a fallback cache for when the Pi

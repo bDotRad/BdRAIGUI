@@ -60,13 +60,14 @@ what counts as "pending".
   `_Requests/rN/` containing `request.md` plus the files. Numbering
   auto-increments per project. Meant as the first step toward dropping
   requests in remotely (e.g. over Tailscale) without opening a terminal.
-- **Ecosystem / fleet data**: the Ecosystem tab (fleet diagram + the
-  servers→projects tree) is rendered from the fleet data, not
-  hand-written HTML. The **Fleet** tab edits it with dropdown/text
-  fields — servers (OS, RAM, disk, software, git notes), the apps
-  running on each (web address, DB, planned flag), projects and their
-  agents, plus a free-text notes block. Dashboard-only — the scheduler
-  never reads it.
+- **Ecosystem / fleet data**: the Ecosystem tab renders from the fleet
+  data, not hand-written HTML, with two editable (Edit / Save / Cancel)
+  grids — **Servers** (address, Tailscale IP, `local_url` LAN/mDNS
+  address, `ts_url` Tailscale front-door URL, host/OS/RAM/disk, the
+  Claude/Nginx/Supabase/SQLite Y/N flags, git notes) and **Projects**
+  (dev-agent role matrix, runs-on server, web URL, database, status) —
+  plus a free-text notes block. Each grid also has CSV export / import.
+  Dashboard-only — the scheduler never reads it.
   - **Source of truth**: a self-hosted Supabase (Postgres) on BdRPiAMI —
     schema in `supabase/migrations/`, read back through the
     `public.fleet_ecosystem_json` view, written via PostgREST with the

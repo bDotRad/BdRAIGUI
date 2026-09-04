@@ -65,21 +65,28 @@ table anyone edits.
 
 ### server
 
-Largely unchanged from today's `servers`. Drop only the redundant
-free-text software string (`software_freetext`).
+Largely unchanged from today's `servers`. The redundant free-text
+software string (`software_freetext`) is dropped; web access is two
+fields, not one.
 
 | Field | Type | Note |
 |---|---|---|
-| `name` | text, unique | identity — `BdRSrvDev`, `BdRPiSrvAMI`, … |
+| `name` | text, unique | identity — `BdRPiSrvDev`, `BdRPiSrvAMI`, … |
 | `tag` | text | short parenthetical shown by the name |
 | `address` | text | primary LAN IP / hostname |
 | `tailscale_ip` | text | tailnet IP, blank if not on the tailnet |
-| `web_url` | text | primary web UI, rendered as a link |
+| `local_url` | text | LAN / mDNS `*.local` address, rendered as a link. Was `web_url`. |
+| `ts_url` | text | Tailscale front-door URL (`https://<node>.tail0ed3f6.ts.net[:port]`), blank where the box isn't on the tailnet or `tailscale serve` isn't set up. Per-app tailnet ports aren't modelled. |
 | `host` / `os` / `ram` / `disk` | text | hardware, dropdown-assisted |
 | `software[ ]` | M:N catalogue | Claude Code / Nginx / Supabase / SQLite — Y/N, keep as-is |
 | `provisioned` | bool | machine actually exists and is set up |
 | `is_dev_host` | bool | at most one true — the source-of-truth box |
 | `git_notes` | text | push/pull notes |
+
+`software_freetext` removed 2026-09-04 (`supabase/DRAFT_ecosystem_web_columns.sql`):
+the four `software[ ]` booleans already cover "what runs here" and the
+free-text column had drifted. `web_url` → `local_url` + new `ts_url` in
+the same migration.
 
 ### project
 

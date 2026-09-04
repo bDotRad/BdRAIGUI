@@ -1,0 +1,12 @@
+name,tag,address,tailscale,Local_url,TS_Url,host,os,ram,disk,claude,nginx,supabase,sqlite,git,provisioned,dev_host
+BdRPiSrvDev,"this host, local",10.10.8.11,100.116.147.74,https://bdrpisrvdev.local,https://bdrpisrvdev.tail0ed3f6.ts.net,Raspberry Pi,Ubuntu Server,8GB,512GB SSD,Y,Y,Y,N,"GitHub
+Push to bDotRad/: BdRDev, BdRAMAssist, PlanBdRad, BdRIS, BdRBirdDetector, BdRDungeon
+Pull from bDotRad/: BdRDev",Y,Y
+BdRPiSrvAMI,"Raspberry Pi 8GB",10.10.10.20,100.86.25.88,https://bdrpiami.local,,Raspberry Pi,Raspberry Pi,8GB,,Y,Y,Y,N,"GitHub
+Pull from bDotRad/: BdRAMAssist, PlanBdRad, BdRIS",Y,N
+BdRSrvDungeon,not provisioned yet,,,,,VM,Ubuntu Server,4GB,256GB SSD,Y,Y,Y,N,"GitHub
+Pull from bDotRad/: BdRDungeon",N,N
+BdRBirdDetector,"physical Pi, 192.168.1.187",192.168.1.187,,http://bdrbirddetector.local,,Raspberry Pi,RPI OS Lite,4GB,64GB SD Card,N,Y,N,Y,"GitHub
+Pull from bDotRad/: BdRBirdDetector
+Firebase
+Push",Y,N

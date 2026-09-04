@@ -157,11 +157,6 @@ ECOSYSTEM_FIELD_OPTIONS = {
     "os": ["Ubuntu Server", "Raspberry Pi OS", "Raspberry Pi", "RPI OS Lite"],
     "ram": ["2GB", "4GB", "8GB", "16GB"],
     "disk": ["64GB SD Card", "128GB SD Card", "256GB SSD", "512GB SSD", "1TB SSD"],
-    "software": [
-        "Claude Code · Nginx · Scheduler",
-        "Claude Code · Nginx · Supabase",
-        "Nginx · SQL Lite",
-    ],
     "db": [
         "none",
         "SQLite",
@@ -191,11 +186,12 @@ _PROJECT_STATUSES = ("planned", "building", "deployed", "live")
 DEFAULT_ECOSYSTEM = {
     "servers": [
         {
-            "name": "BdRVSrvDev", "tag": "this host, local", "address": "192.168.100.10",
-            "tailscale": "100.107.138.38", "web_url": "https://bdrdev.local",
-            "host": "VM", "os": "Ubuntu Server", "ram": "8GB", "disk": "512GB SSD",
-            "software": "Claude Code · Nginx · Scheduler",
-            "claude": True, "nginx": True, "supabase": False, "sqlite": False,
+            "name": "BdRPiSrvDev", "tag": "this host, local", "address": "10.10.8.11",
+            "tailscale": "100.116.147.74",
+            "local_url": "https://bdrpisrvdev.local",
+            "ts_url": "https://bdrpisrvdev.tail0ed3f6.ts.net",
+            "host": "Raspberry Pi", "os": "Ubuntu Server", "ram": "8GB", "disk": "512GB SSD",
+            "claude": True, "nginx": True, "supabase": True, "sqlite": False,
             "provisioned": True, "dev_host": True,
             "git": (
                 "GitHub\n"
@@ -204,28 +200,26 @@ DEFAULT_ECOSYSTEM = {
             ),
         },
         {
-            "name": "BdRPiSrvAMI", "tag": "Raspberry Pi 8GB, 10.10.10.20 (on-box hostname still BdRPiAMI)", "address": "10.10.10.20",
-            "tailscale": "100.86.25.88", "web_url": "https://bdrpisrvami.local",
-            "host": "Raspberry Pi", "os": "Ubuntu Server", "ram": "8GB", "disk": "512GB SSD",
-            "software": "Claude Code · Nginx · Supabase",
+            "name": "BdRPiSrvAMI", "tag": "Raspberry Pi 8GB", "address": "10.10.10.20",
+            "tailscale": "100.86.25.88",
+            "local_url": "https://bdrpiami.local", "ts_url": "",
+            "host": "Raspberry Pi", "os": "Raspberry Pi", "ram": "8GB", "disk": "",
             "claude": True, "nginx": True, "supabase": True, "sqlite": False,
             "provisioned": True, "dev_host": False,
             "git": "GitHub\nPull from bDotRad/: BdRAMAssist, PlanBdRad, BdRIS",
         },
         {
             "name": "BdRSrvDungeon", "tag": "not provisioned yet", "address": "",
-            "tailscale": "", "web_url": "",
+            "tailscale": "", "local_url": "", "ts_url": "",
             "host": "VM", "os": "Ubuntu Server", "ram": "4GB", "disk": "256GB SSD",
-            "software": "Claude Code · Nginx · Supabase",
             "claude": True, "nginx": True, "supabase": True, "sqlite": False,
             "provisioned": False, "dev_host": False,
             "git": "GitHub\nPull from bDotRad/: BdRDungeon",
         },
         {
             "name": "BdRBirdDetector", "tag": "physical Pi, 192.168.1.187", "address": "192.168.1.187",
-            "tailscale": "", "web_url": "",
+            "tailscale": "", "local_url": "http://bdrbirddetector.local", "ts_url": "",
             "host": "Raspberry Pi", "os": "RPI OS Lite", "ram": "4GB", "disk": "64GB SD Card",
-            "software": "Nginx · SQL Lite",
             "claude": False, "nginx": True, "supabase": False, "sqlite": True,
             "provisioned": True, "dev_host": False,
             "git": "GitHub\nPull from bDotRad/: BdRBirdDetector\nFirebase\nPush",
@@ -301,26 +295,27 @@ def _normalize_ecosystem(data):
     for s in data.get("servers") or []:
         if not isinstance(s, dict):
             continue
-        software = _eco_str(s.get("software"))
         # The Ecosystem-2 table shows one Y/N column per package. When a server
-        # predates those keys, infer the flag from the free-text software string
-        # so old ecosystem.json files upgrade cleanly on first load.
+        # predates those keys, infer the flag from the (now-removed) free-text
+        # software string so old ecosystem.json caches upgrade cleanly on first
+        # load. The string itself is no longer stored or rendered.
         def _flag(key, *needles):
             if key in s:
                 return bool(s.get(key))
-            low = software.lower()
+            low = _eco_str(s.get("software")).lower()
             return any(n in low for n in needles)
         servers.append({
             "name": _eco_str(s.get("name")),
             "tag": _eco_str(s.get("tag")),
             "address": _eco_str(s.get("address")),
             "tailscale": _eco_str(s.get("tailscale")),
-            "web_url": _eco_str(s.get("web_url")),
+            # local_url was web_url pre-2026-09; fall back so old caches migrate.
+            "local_url": _eco_str(s.get("local_url") or s.get("web_url")),
+            "ts_url": _eco_str(s.get("ts_url")),
             "host": _eco_str(s.get("host")),
             "os": _eco_str(s.get("os")),
             "ram": _eco_str(s.get("ram")),
             "disk": _eco_str(s.get("disk")),
-            "software": software,
             "claude": _flag("claude", "claude"),
             "nginx": _flag("nginx", "nginx"),
             "supabase": _flag("supabase", "supabase"),
