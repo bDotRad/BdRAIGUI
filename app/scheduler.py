@@ -55,14 +55,53 @@ IDLE_POOL_SLEEP = 5            # how long to sleep if no projects are selected (
 SESSION_COLS = 150
 SESSION_ROWS = 70
 
-SCAN_PROMPT = (
-    "Check the requests folder for new or updated files and process them now. "
+# The unattended-behaviour half of the wake prompt -- kept verbatim (cancel
+# interactive prompts, write questions into the request file, flip it to
+# WAITING RESPONSE, end turn). The head that precedes it varies: see
+# build_scan_prompt().
+SCAN_PROMPT_TAIL = (
     "This session runs unattended -- nobody is watching the terminal. If you "
     "hit a decision only Brad can make, or any interactive prompt (a permission "
     "dialog, the AskUserQuestion tool, etc.), do NOT wait on it: cancel it, "
     "write your questions into the request file, set that file's first line to "
     "WAITING RESPONSE, and end your turn. See _Instructions/BdRDev.md."
 )
+
+SCAN_PROMPT_GENERIC_HEAD = (
+    "Check the requests folder for new or updated files and process them now. "
+)
+
+
+def build_scan_prompt(project):
+    """Build the wake prompt, leading with the READY request title(s).
+
+    Session-naming surfaces (CloudCLI's sidebar, `claude --resume`) derive a
+    session's name from the first few words of its first user message. The
+    scheduler otherwise sends an identical string every wake, so every
+    unattended session reads as "Check the requests folder...". Leading with
+    the titles of whatever is pending at first prompt makes the name mean
+    something. A session handles whatever goes READY over its whole life, so
+    this only reflects the first prompt -- acceptable, still far better than
+    identical names.
+
+    Falls back to the generic wording if no titles resolve (race / edge
+    case) rather than sending an empty list.
+    """
+    try:
+        titles = [
+            item["title"]
+            for item in common.list_requests(project)
+            if item["status"] in ("Ready", "Processing")
+        ]
+    except Exception:
+        titles = []
+
+    if titles:
+        quoted = ", ".join(f'"{t}"' for t in titles)
+        head = f"Process these pending requests now: {quoted}. "
+    else:
+        head = SCAN_PROMPT_GENERIC_HEAD
+    return head + SCAN_PROMPT_TAIL
 
 
 def write_state(active, pool):
@@ -162,7 +201,7 @@ def send_prompt(project):
     # trailing Enter becomes a newline instead of submitting. Splitting them
     # into two calls with a brief pause replicates an actual keypress and
     # submits properly.
-    subprocess.run(["tmux", "send-keys", "-t", session, SCAN_PROMPT])
+    subprocess.run(["tmux", "send-keys", "-t", session, build_scan_prompt(project)])
     time.sleep(0.4)
     subprocess.run(["tmux", "send-keys", "-t", session, "Enter"])
 
